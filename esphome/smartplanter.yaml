@@ -27,7 +27,9 @@ substitutions:
   fw_version: "1.2.0"
 
   # --- MQTT broker ---------------------------------------------------------
-  mqtt_broker: "192.168.91.68"        # the demo Pi
+  # The node joins the Pi's own hotspot (SSID FloraHome, 10.42.0.0/24); the Pi
+  # is 10.42.0.1 there and owns the broker. Same L2 => OTA works.
+  mqtt_broker: "10.42.0.1"
 
   # --- Soil calibration (HW-390 capacitive) --------------------------------
   # moisture_pct = (dry_v - measured_v) / (dry_v - wet_v) * 100
