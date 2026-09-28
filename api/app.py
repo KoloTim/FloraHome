@@ -1382,15 +1382,22 @@ async def api_voice_ask(body: dict[str, Any], request: Request,
         "data given.\n\n" + _plant_context(node_name)
     )
     reply = await _ai_chat([{"role": "system", "content": system},
-                            {"role": "user", "content": question}], max_tokens=250)
+                            {"role": "user", "content": question}], max_tokens=600)
     played = False
+    speak_error = None
     if body.get("speak", True):
         wav = await _ai_tts(reply, "wav")
-        if wav:
-            played = (await _helper("POST", "/audio/play", {"data": base64.b64encode(wav).decode()},
-                                    timeout=60)).get("ok", False)
+        if not wav:
+            speak_error = "keine Sprachausgabe vom KI-Anbieter"
+        else:
+            res = await _helper("POST", "/audio/play",
+                                {"data": base64.b64encode(wav).decode()}, timeout=90)
+            played = bool(res.get("ok"))
+            if not played:
+                speak_error = res.get("error") or res.get("out") or "Wiedergabe fehlgeschlagen"
     audit("system", "voice_ask", f"{node_name}: {question[:60]}", client_ip(request))
-    return {"node": node_name, "question": question, "reply": reply, "played": played}
+    return {"node": node_name, "question": question, "reply": reply,
+            "played": played, "speak_error": speak_error}
 
 
 # ---- AI plant diary --------------------------------------------------------- #
@@ -1478,41 +1485,78 @@ AI_FALLBACKS = [m.strip() for m in env(
 ).split(",") if m.strip()]
 
 
+# Native Gemini endpoint (TTS/STT audio is not on the OpenAI-compat path).
+AI_NATIVE_BASE = env("AI_NATIVE_BASE", "https://generativelanguage.googleapis.com/v1beta")
+
+
 async def _ai_stt(audio_bytes: bytes) -> str:
-    """Speech-to-text: post the wav as base64 to the OpenAI-compatible
-    /audio/transcriptions endpoint (Gemini and others expose this)."""
+    """Speech-to-text via the native generateContent endpoint: send the wav as
+    inline data and ask for a transcript."""
     if not AI_API_KEY:
         raise HTTPException(status_code=503, detail="AI not configured")
+    payload = {
+        "contents": [{"parts": [
+            {"text": "Transkribiere die gesprochenen Worte. Antworte NUR mit dem Text."},
+            {"inlineData": {"mimeType": "audio/wav",
+                            "data": base64.b64encode(audio_bytes).decode()}},
+        ]}],
+    }
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
-            f"{AI_BASE_URL.rstrip('/')}/audio/transcriptions",
-            headers={"Authorization": f"Bearer {AI_API_KEY}"},
-            files={"file": ("speech.wav", audio_bytes, "audio/wav")},
-            data={"model": env("AI_STT_MODEL", "gemini-3.8-flash")},
+            f"{AI_NATIVE_BASE}/models/{env('AI_STT_MODEL', AI_MODEL)}:generateContent",
+            params={"key": AI_API_KEY}, json=payload,
         )
     if r.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"{r.status_code}: {r.text[:160]}")
-    return (r.json().get("text") or "").strip()
+        raise HTTPException(status_code=502, detail=f"STT {r.status_code}: {r.text[:160]}")
+    try:
+        parts = r.json()["candidates"][0]["content"]["parts"]
+        return "".join(p.get("text", "") for p in parts).strip()
+    except (KeyError, IndexError):
+        return ""
 
 
 async def _ai_tts(text: str, fmt: str = "wav") -> bytes:
-    """Text-to-speech: ask the provider for audio, fall back to local espeak."""
-    if AI_API_KEY:
-        for model in [env("AI_TTS_MODEL", "gemini-3.8-flash-tts"), "gemini-2.5-flash-preview-tts"]:
+    """Text-to-speech via the native generateContent endpoint (returns wav).
+    Falls back to the OpenAI-compat path for other providers."""
+    if not AI_API_KEY:
+        return b""
+    native_models = [env("AI_TTS_MODEL", "gemini-3.8-flash-tts"),
+                     "gemini-2.5-flash-preview-tts"]
+    voice = env("AI_TTS_VOICE", "Kore")
+    async with httpx.AsyncClient(timeout=60) as client:
+        for m in native_models:
             try:
-                async with httpx.AsyncClient(timeout=60) as client:
-                    r = await client.post(
-                        f"{AI_BASE_URL.rstrip('/')}/audio/speech",
-                        headers={"Authorization": f"Bearer {AI_API_KEY}",
-                                 "Content-Type": "application/json"},
-                        json={"model": model, "input": text, "voice": env("AI_TTS_VOICE", "Kore"),
-                              "response_format": fmt},
-                    )
+                r = await client.post(
+                    f"{AI_NATIVE_BASE}/models/{m}:generateContent",
+                    params={"key": AI_API_KEY},
+                    json={
+                        "contents": [{"parts": [{"text": text}]}],
+                        "generationConfig": {
+                            "responseModalities": ["AUDIO"],
+                            "speechConfig": {"voiceConfig": {
+                                "prebuiltVoiceConfig": {"voiceName": voice}}},
+                        },
+                    },
+                )
+                if r.status_code < 400:
+                    for p in r.json()["candidates"][0]["content"]["parts"]:
+                        inline = p.get("inlineData")
+                        if inline and inline.get("data"):
+                            return base64.b64decode(inline["data"])
+            except Exception:  # noqa: BLE001
+                continue
+        # OpenAI-compatible providers that do support /audio/speech
+        for m in native_models:
+            try:
+                r = await client.post(
+                    f"{AI_BASE_URL.rstrip('/')}/audio/speech",
+                    headers={"Authorization": f"Bearer {AI_API_KEY}"},
+                    json={"model": m, "input": text, "voice": voice, "response_format": fmt},
+                )
                 if r.status_code < 400 and r.content:
                     return r.content
             except Exception:  # noqa: BLE001
                 continue
-    # local fallback (if espeak-ng is installed on the host, the helper does it)
     return b""
 
 
@@ -1523,7 +1567,7 @@ async def _ai_chat(messages: list[dict[str, Any]], model: str | None = None,
     tried: list[str] = []
     candidates = [model or AI_MODEL] + [m for m in AI_FALLBACKS if m != (model or AI_MODEL)]
     last = ""
-    async with httpx.AsyncClient(timeout=45) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         for m in candidates:
             tried.append(m)
             payload = {"model": m, "messages": messages,
@@ -1539,7 +1583,13 @@ async def _ai_chat(messages: list[dict[str, Any]], model: str | None = None,
                 last = str(exc); continue
             if r.status_code < 400:
                 data = r.json()
-                return (data.get("choices", [{}])[0].get("message", {}) or {}).get("content", "").strip()
+                choice = (data.get("choices", [{}])[0] or {})
+                text = ((choice.get("message", {}) or {}).get("content") or "").strip()
+                # Some providers return reasoning-only or truncate. If the reply
+                # was cut off (finish_reason == length), retry once with more room.
+                if choice.get("finish_reason") == "length" and max_tokens < 1600:
+                    return await _ai_chat(messages, model=m, max_tokens=1600)
+                return text
             last = f"{r.status_code}: {r.text[:160]}"
             if r.status_code not in (429, 503, 404, 500):
                 break
@@ -1591,13 +1641,15 @@ async def api_ai_chat(body: dict[str, Any], request: Request,
     node_name = str(body.get("node") or _primary_name())
     question = str(body.get("message", ""))[:1000]
     system = (
-        "You are FloraHome's friendly plant companion. Answer in German, warmly and "
-        "concretely, based ONLY on the data provided. If the plant seems unwell, say "
-        "what the numbers suggest and what the human should do. Keep it to 2-4 sentences.\n\n"
+        "Du bist der freundliche Pflanzen-Begleiter von FloraHome und sprichst als die "
+        "Pflanze selbst (ich-Form). Antworte auf Deutsch, warm und konkret, NUR mit den "
+        "gegebenen Daten. Wenn es der Pflanze nicht gut geht, sag was die Werte bedeuten "
+        "und was der Mensch tun soll. Schreibe immer vollständige Sätze und beende den "
+        "letzten Satz. Antworte in 2-4 Sätzen.\n\n"
         + _plant_context(node_name)
     )
     reply = await _ai_chat([{"role": "system", "content": system},
-                            {"role": "user", "content": question}])
+                            {"role": "user", "content": question}], max_tokens=900)
     audit("system", "ai_chat", f"{node_name}: {question[:80]}", client_ip(request))
     return {"node": node_name, "reply": reply}
 

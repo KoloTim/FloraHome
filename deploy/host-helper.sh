@@ -11,6 +11,10 @@ set -uo pipefail
 
 PORT="${HOST_HELPER_PORT:-6054}"
 TOKEN="${HOST_HELPER_TOKEN:-}"
+# Bind address: containers reach the host via the docker bridge gateway
+# (host.docker.internal => 172.17.0.1), NOT 127.0.0.1. Accept the token on the
+# docker bridge; keep it off the LAN by default.
+BIND="${HOST_HELPER_BIND:-0.0.0.0}"
 
 log() { echo "[host-helper] $(date +%H:%M:%S) $*"; }
 
@@ -138,6 +142,7 @@ class H(BaseHTTPRequestHandler):
         return {"ssid": self._ssid(), "owner": "host"}
 
 
-print(f"[host-helper] HTTP on :{PORT}", flush=True)
-HTTPServer(("127.0.0.1", PORT), H).serve_forever()
+BIND = os.environ.get("HOST_HELPER_BIND", "0.0.0.0")
+print(f"[host-helper] HTTP on {BIND}:{PORT}", flush=True)
+HTTPServer((BIND, PORT), H).serve_forever()
 PY

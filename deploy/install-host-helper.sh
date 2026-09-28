@@ -24,7 +24,10 @@ After=network-online.target
 Type=simple
 Environment=HOST_HELPER_TOKEN=$TOKEN
 Environment=HOST_HELPER_PORT=6054
+Environment=HOST_HELPER_BIND=0.0.0.0
 Environment=ESP_HOME=$REPO/esphome
+# Allow the helper port only from the docker bridge, not the LAN.
+ExecStartPre=/bin/sh -c 'iptables -C INPUT -p tcp --dport 6054 -s 172.16.0.0/12 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 6054 -s 172.16.0.0/12 -j ACCEPT; iptables -C INPUT -p tcp --dport 6054 ! -s 172.16.0.0/12 -j DROP 2>/dev/null || iptables -I INPUT -p tcp --dport 6054 ! -s 172.16.0.0/12 -j DROP'
 ExecStart=/usr/local/bin/florahome-host-helper.sh
 Restart=always
 RestartSec=3

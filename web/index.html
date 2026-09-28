@@ -43,6 +43,14 @@
         padding:7px 13px;border-radius:999px;border:2px solid var(--line);color:var(--muted)}
   .pill.on{border-color:var(--ok);color:var(--ok)}
   .pill.off{border-color:var(--crit);color:var(--crit)}
+  nav#tabs{position:sticky;top:0;z-index:11;display:flex;gap:6px;padding:10px 12px;
+    background:rgba(13,20,17,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+    overflow-x:auto}
+  nav#tabs .tab{flex:none;border-color:var(--line);color:var(--muted);background:var(--card);
+    min-height:48px;padding:10px 16px;border-radius:12px;font-weight:700}
+  nav#tabs .tab.active{border-color:var(--accent);color:var(--accent);background:var(--card2)}
+  .page{display:none;gap:16px}
+  .page.active{display:grid;gap:16px}
   main{padding:16px;max-width:1200px;margin:0 auto;display:grid;gap:16px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
         padding:16px;box-shadow:var(--shadow)}
@@ -182,6 +190,13 @@
   <button id="authBtn" class="ghost" type="button">Anmelden</button>
 </header>
 
+<nav id="tabs">
+  <button class="tab active" data-page="overview">🌿 Übersicht</button>
+  <button class="tab" data-page="control">🎛️ Steuern</button>
+  <button class="tab" data-page="ai">💬 KI</button>
+  <button class="tab" data-page="backend">🔧 Backend</button>
+</nav>
+
 <main>
   <section id="estopBanner" class="card banner" hidden>
     <h2><span class="icon">🛑</span> NOT-AUS AKTIV</h2>
@@ -192,6 +207,8 @@
     </div>
   </section>
 
+  <!-- ========================= PAGE: ÜBERSICHT ========================= -->
+  <div class="page active" data-page="overview">
   <section class="card">
     <h2><span class="icon">🔔</span> Meldungen</h2>
     <div id="alerts" role="region" aria-live="polite"></div>
@@ -205,17 +222,10 @@
     </h2>
     <div id="plants" class="plants"></div>
   </section>
+  </div><!-- /overview -->
 
-  <section class="card">
-    <h2><span class="icon">💬</span> Mit den Pflanzen sprechen</h2>
-    <div id="chatlog" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:auto;margin-bottom:10px"></div>
-    <div class="row" style="display:flex;gap:8px">
-      <input id="chatInput" type="text" placeholder="Wie geht es Moni?" style="flex:1" disabled>
-      <button id="btnChat" class="primary" type="button" disabled>Senden</button>
-    </div>
-    <p class="note" id="aiNote"></p>
-  </section>
-
+  <!-- ========================== PAGE: STEUERN ========================== -->
+  <div class="page" data-page="control">
   <section class="card">
     <h2><span class="icon">🎛️</span> Steuerung
       <span class="muted" style="font-size:.85rem;margin-left:auto">Pflanze wählen:</span>
@@ -279,8 +289,41 @@
     <canvas id="chart" role="img" aria-label="Verlauf der Messwerte"></canvas>
     <p class="note" id="chartNote">Verlauf wird geladen…</p>
   </section>
+  </div><!-- /control -->
 
-  <details class="card">
+  <!-- ============================= PAGE: KI ============================= -->
+  <div class="page" data-page="ai">
+  <section class="card">
+    <h2><span class="icon">💬</span> Mit den Pflanzen sprechen
+      <span class="muted" style="font-size:.85rem;margin-left:auto">Pflanze wählen:</span>
+      <select id="nodeSelect2" style="font:inherit;padding:8px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select>
+    </h2>
+    <div id="chatlog" style="display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto;margin-bottom:10px"></div>
+    <div class="row" style="display:flex;gap:8px">
+      <input id="chatInput" type="text" placeholder="Wie geht es Moni?" style="flex:1" disabled>
+      <button id="btnMic" type="button" disabled title="Sprechen">🎤</button>
+      <button id="btnChat" class="primary" type="button" disabled>Senden</button>
+    </div>
+    <p class="note" id="aiNote"></p>
+  </section>
+
+  <section class="card">
+    <h2><span class="icon">📔</span> Pflanzentagebuch — <span id="diaryNode" class="muted"></span>
+      <button id="btnDiaryWrite" class="ghost" style="margin-left:auto" type="button" disabled>Eintrag jetzt schreiben</button>
+    </h2>
+    <div id="diary" class="diary"></div>
+  </section>
+  </div><!-- /ai -->
+
+  <!-- =========================== PAGE: BACKEND =========================== -->
+  <div class="page" data-page="backend">
+  <section class="card">
+    <h2><span class="icon">🖥️</span> Knoten &amp; Technik</h2>
+    <div id="backendNodes" class="plants"></div>
+    <p class="note">Detaillierte Werte, Firmware, Pins und Rohdaten. „Details" je Knoten öffnen.</p>
+  </section>
+
+  <details class="card" open>
     <summary><span class="icon">🔌</span> Geräte &amp; Flashen</summary>
     <div style="margin-top:12px">
       <div class="row" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
@@ -596,7 +639,8 @@ async function loadChart(){
   const f=$("chartField").value, hours=Number($("chartRange").value);
   const every = hours<=1?"10s":(hours<=6?"1m":"5m");
   try{
-    const nq = primaryNode() ? `&node=${encodeURIComponent(primaryNode())}` : "";
+    const sn = selectedNode() || primaryNode();
+    const nq = sn ? `&node=${encodeURIComponent(sn)}` : "";
     const r = await json(`/api/history?field=${f}&hours=${hours}&every=${every}${nq}`);
     chartData = r.points || [];
     $("chartNote").textContent = chartData.length
@@ -634,8 +678,8 @@ function setAuthed(v){
   const fb = $("btnFlash"); if(fb) fb.disabled = !v;
   const ep = $("btnEditPlant"); if(ep) ep.disabled = !v;
   const npl = $("btnNewPlant"); if(npl) npl.disabled = !v;
-  const ci = $("chatInput"), cb = $("btnChat");
-  if(ci) ci.disabled = !v; if(cb) cb.disabled = !v;
+  const ci = $("chatInput"), cb = $("btnChat"), mb = $("btnMic");
+  if(ci) ci.disabled = !v; if(cb) cb.disabled = !v; if(mb) mb.disabled = !v;
   loadTables();
 }
 async function checkMe(){ try{ setAuthed((await json("/api/me")).authenticated); }catch(e){ setAuthed(false); } }
@@ -651,7 +695,7 @@ $("authBtn").onclick = async () => {
 function primaryNode(){ return (lastPayload.primary && lastPayload.primary.node) || undefined; }
 async function send(body){
   const payload = { ...body };
-  const node = body.node || primaryNode();
+  const node = body.node || selectedNode() || primaryNode();
   if(node) payload.node = node;
   try{ await json("/api/command",{method:"POST",body:JSON.stringify(payload)}); loadTables(); refresh(); }
   catch(e){ alert("Befehl fehlgeschlagen: "+e.message); throw e; }
@@ -723,8 +767,8 @@ const PIN_MAP = {
   soil_adc: 34, soil_power: 25, dht: 27, ldr: 35,
   relay_pump: 26, relay_light: 13, buzzer: 14, button: 4, batt_adc: 32,
 };
-$("btnNodeSettings").onclick = async () => {
-  const n = selectedNode(); if(!n) return;
+$("btnNodeSettings").onclick = () => { const n = selectedNode(); if(n) openNodeDetails(n); };
+function openNodeDetails(n){
   const nv = lastPayload.nodes[n] || {};
   const m = nv.metrics || {};
   const p = nv.plant || {};
@@ -758,18 +802,30 @@ $("btnNodeSettings").onclick = async () => {
   $("nodeDlg").showModal();
 };
 
-/* Voice: talk to the plant on the Pi speaker + mic. */
-$("btnVoice").onclick = async () => {
-  const n = selectedNode(); if(!n) return;
+/* Voice: record on the Pi mic, transcribe, answer and speak it on the Pi.
+   Used by both the chat mic button and the "Sprich mit mir" control. */
+let voiceBusy = false;
+async function voiceTurn(button){
+  const n = selectedNode(); if(!n || voiceBusy) return;
+  voiceBusy = true; if(button) button.disabled = true;
   try{
-    toast("🎤 Ich höre zu…");
+    toast("🎤 Ich höre zu… (4s)");
     const rec = await json("/api/voice/record", {method:"POST", body: JSON.stringify({seconds:4, node:n})});
-    if(!rec.audio) throw new Error(rec.error || "keine Aufnahme");
+    if(!rec || !rec.audio){
+      throw new Error(rec && rec.helper === "unavailable"
+        ? "Host-Helfer nicht erreichbar"
+        : (rec && rec.error) || "keine Aufnahme – USB-Mikrofon angeschlossen?");
+    }
     toast("🧠 Denke nach…");
     const r = await json("/api/voice/ask", {method:"POST", body: JSON.stringify({node:n, audio:rec.audio, speak:true})});
-    chatLog("me", r.question); chatLog("plant", r.reply);
+    if(r.question) chatLog("me", "🎤 " + r.question);
+    chatLog("plant", r.reply || "(keine Antwort)");
+    if(r.speak_error) toast("Sprachausgabe: " + r.speak_error);
   }catch(e){ toast("Voice: " + e.message); }
-};
+  finally{ voiceBusy = false; if(button) button.disabled = !authed; }
+}
+$("btnVoice").onclick = () => voiceTurn($("btnVoice"));
+$("btnMic").onclick = () => voiceTurn($("btnMic"));
 $("chartField").onchange = loadChart;
 $("chartRange").onchange = loadChart;
 window.addEventListener("resize", drawChart);
@@ -791,7 +847,7 @@ function showCare(pid){
 $("pl-species").onchange = () => showCare($("pl-species").value);
 
 $("btnEditPlant").onclick = async () => {
-  const node = primaryNode(); if(!node) return;
+  const node = selectedNode(); if(!node) return;
   const cur = (lastPayload.nodes[node] && lastPayload.nodes[node].plant) || {};
   await loadSpecies();
   $("pl-node").value = node;
@@ -890,14 +946,43 @@ function nodeLabel(n){
   return (p.nickname || p.name ? `${p.nickname||p.name} (${n})` : n);
 }
 function renderNodeSelect(){
-  const sel = $("nodeSelect");
   const names = Object.keys(lastPayload.nodes || {});
-  if(!names.length){ sel.innerHTML = ""; return; }
   const want = selectedNode() || names[0];
-  sel.innerHTML = names.map(n => `<option value="${n}"${n===want?" selected":""}>${esc(nodeLabel(n))}</option>`).join("");
-  selNode = want;
+  const html = names.map(n => `<option value="${n}"${n===want?" selected":""}>${esc(nodeLabel(n))}</option>`).join("");
+  ["nodeSelect","nodeSelect2"].forEach(id => { const s = $(id); if(s) s.innerHTML = html; });
+  renderBackendNodes(names);
+  selNode = want || null;
 }
-$("nodeSelect").onchange = () => { selNode = $("nodeSelect").value; refreshCal(); refreshDiary(); };
+function bindNodeSelect(id){
+  const s = $(id); if(!s) return;
+  s.onchange = () => { selNode = s.value; renderNodeSelect(); refreshCal(); refreshDiary(); };
+}
+bindNodeSelect("nodeSelect"); bindNodeSelect("nodeSelect2");
+
+/* Backend page: one card per node with technical detail. */
+function renderBackendNodes(names){
+  const box = $("backendNodes"); if(!box) return;
+  const PIN_MAP = {soil_adc:34, soil_power:25, dht:27, ldr:35, relay_pump:26,
+                   relay_light:13, buzzer:14, button:4, batt_adc:32};
+  box.innerHTML = names.map(n => {
+    const nv = lastPayload.nodes[n] || {}; const m = nv.metrics || {};
+    return `<div class="plant">
+      <div class="top"><span class="dot ${nv.online?'on':''}"></span>
+        <span class="name">${esc(nodeLabel(n))}</span>
+        <button class="ghost" data-detail="${n}">Details</button></div>
+      <div class="row-metrics">
+        ${mini("soil_v","🧪", fmtNum(m.soil_v,3),"V")}
+        ${mini("ldr_v","☀️", fmtNum(m.ldr_v,3),"V")}
+        ${mini("RSSI","📶", fmtNum(m.rssi,0),"dBm")}
+        ${mini("uptime","⏱️", nv.on_s ?? "–","s")}
+        ${mini("restarts","♻️", nv.restarts ?? 0,"")}
+        ${mini("fault","🩺", esc(nv.fault || "ok"),"")}
+      </div>
+      <div class="note">Pins: soil=${PIN_MAP.soil_adc} · dht=${PIN_MAP.dht} · ldr=${PIN_MAP.ldr} · pump=${PIN_MAP.relay_pump} · light=${PIN_MAP.relay_light} · buzzer=${PIN_MAP.buzzer}</div>
+    </div>`;
+  }).join("") || '<p class="muted">Keine Knoten.</p>';
+  box.querySelectorAll("[data-detail]").forEach(b => b.onclick = () => openNodeDetails(b.dataset.detail));
+}
 
 function refreshCal(){
   const n = selectedNode(); if(!n || !lastPayload.nodes[n]) return;
@@ -954,7 +1039,7 @@ async function sendChat(){
   chatLog("plant", "…");
   const last = $("chatlog").lastChild;
   try{
-    const r = await json("/api/ai/chat", {method:"POST", body: JSON.stringify({message:q, node: primaryNode()})});
+    const r = await json("/api/ai/chat", {method:"POST", body: JSON.stringify({message:q, node: selectedNode() || primaryNode()})});
     last.textContent = r.reply || "(keine Antwort)";
   }catch(e){ last.textContent = "Fehler: " + e.message; }
 }
@@ -1040,6 +1125,18 @@ $("btnFlash").onclick = async () => {
 /* ------------------------------------------------------------------------- */
 $("btnManual").onclick = () => $("manualDlg").showModal();
 $("btnBuzz").addEventListener("click", () => toast("🔊 Buzzer-Test gesendet"), true);
+
+/* --------------------------------------------------------------------- tabs */
+function showPage(name){
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.dataset.page === name));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.page === name));
+  localStorage.setItem("fhPage", name);
+  if(name === "control"){ refreshCal(); loadChart(); }
+  if(name === "ai"){ refreshDiary(); }
+  if(name === "backend"){ loadDevices(); }
+}
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => showPage(t.dataset.page));
+showPage(localStorage.getItem("fhPage") || "overview");
 
 /* touch on empty space: no selection; help card first-run hint */
 if(!localStorage.getItem("fhHint")){
