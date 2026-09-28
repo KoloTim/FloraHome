@@ -823,7 +823,7 @@ async def api_command(
 ) -> dict[str, Any]:
     user = require_user(request, planter_session)
     action = str(body.get("action", ""))
-    if action not in ("pump", "light", "buzzer", "stop"):
+    if action not in ("pump", "light", "buzzer", "stop", "cal"):
         raise HTTPException(status_code=400, detail="unknown action")
     payload: dict[str, Any] = {"action": action, "reason": "manual", "by": user}
     if action == "pump":
@@ -833,11 +833,28 @@ async def api_command(
         STATE["pump"] = "watering"
         STATE["pump_count_today"] += 1
     if action == "light":
-        payload["state"] = "on" if str(body.get("state", "on")) == "on" else "off"
+        want = str(body.get("state", "on"))
+        if want == "toggle":
+            current = str((STATE.get("metrics") or {}).get("light") or "off")
+            want = "off" if current == "on" else "on"
+        payload["state"] = "on" if want == "on" else "off"
     if action == "buzzer" and not get_config().get("buzzer_enabled", True):
         raise HTTPException(status_code=409, detail="buzzer disabled in settings")
     if action == "buzzer":
         payload["seconds"] = int(max(1, min(float(body.get("seconds", 3)), 30)))
+    if action == "cal":
+        # runtime soil calibration, persisted on the node (no reflash)
+        try:
+            dry = float(body.get("soil_dry_v"))
+            wet = float(body.get("soil_wet_v"))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="soil_dry_v and soil_wet_v (volts) required")
+        if not (0.0 <= dry <= 3.6 and 0.0 <= wet <= 3.6):
+            raise HTTPException(status_code=400, detail="voltages must be between 0 and 3.6 V")
+        if dry <= wet:
+            raise HTTPException(status_code=400, detail="dry voltage must exceed wet voltage")
+        payload["soil_dry_v"] = round(dry, 3)
+        payload["soil_wet_v"] = round(wet, 3)
     if not publish(TOPIC_CMD, payload):
         raise HTTPException(status_code=503, detail="MQTT unavailable, command not sent")
     audit(user, f"manual_{action}", json.dumps(payload, ensure_ascii=False), client_ip(request))

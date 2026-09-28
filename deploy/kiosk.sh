@@ -28,6 +28,7 @@ BROWSER="$(command -v chromium || command -v chromium-browser || true)"
 
 exec "$BROWSER" \
   --kiosk \
+  --touch-events=enabled \
   --ozone-platform=wayland \
   --enable-features=UseOzonePlatform \
   --disable-features=Translate,TranslateUI,MediaRouter,OptimizationHints \

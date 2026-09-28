@@ -2,146 +2,163 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Smart Planter — Euregio Hackathon</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>FloraHome — Smart Planter</title>
 <style>
   :root{
-    --bg:#f7f8f4; --card:#fff; --ink:#14201a; --muted:#5b6b62;
-    --line:#d8ded6; --ok:#1f7a3f; --warn:#9a5b00; --crit:#a3161b; --accent:#1f6f4a;
-    --radius:14px; --shadow:0 1px 3px rgba(20,32,26,.10),0 6px 18px rgba(20,32,26,.06);
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --bg:#0f1512; --card:#161d19; --ink:#eef3ee; --muted:#a2b0a7;
-           --line:#2a352e; --ok:#79d69b; --warn:#f0b95a; --crit:#ff8a8f; --accent:#79d69b; }
+    /* dark, green, friendly */
+    --bg:#0d1411; --bg2:#0a100d; --card:#14201a; --card2:#18271f;
+    --ink:#eaf5ec; --muted:#9db3a5; --line:#26362c;
+    --ok:#5fd08a; --ok-dim:#2e6f4b; --warn:#f2b64c; --crit:#ff7d7d;
+    --accent:#5fd08a; --accent-ink:#06130c;
+    --radius:18px; --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px rgba(0,0,0,.35);
+    --tap:54px;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-       font:18px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;
-         padding:16px 20px;border-bottom:2px solid var(--line);background:var(--card)}
-  h1{font-size:1.5rem;margin:0;flex:1 1 auto}
-  .pill{display:inline-flex;align-items:center;gap:8px;font-weight:700;
-        padding:6px 14px;border-radius:999px;border:2px solid var(--line)}
+  html,body{height:100%}
+  body{margin:0;background:linear-gradient(180deg,var(--bg),var(--bg2) 60%);color:var(--ink);
+       font:17px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       -webkit-tap-highlight-color:transparent}
+  a,button,input,select,summary{touch-action:manipulation}
+  header{position:sticky;top:0;z-index:10;display:flex;gap:12px;align-items:center;
+         padding:12px 16px;background:rgba(13,20,17,.92);backdrop-filter:blur(8px);
+         border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0}
+  .brand .logo{font-size:1.6rem;line-height:1}
+  h1{font-size:1.35rem;margin:0;white-space:nowrap;letter-spacing:-.01em}
+  .pills{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:.9rem;
+        padding:7px 13px;border-radius:999px;border:2px solid var(--line);color:var(--muted)}
   .pill.on{border-color:var(--ok);color:var(--ok)}
   .pill.off{border-color:var(--crit);color:var(--crit)}
-  main{padding:20px;max-width:1180px;margin:0 auto;display:grid;gap:20px}
-  .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  main{padding:16px;max-width:1200px;margin:0 auto;display:grid;gap:16px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-        padding:18px;box-shadow:var(--shadow)}
-  .label{font-size:.95rem;color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:6px}
-  .value{font-size:2.6rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-  .unit{font-size:1.1rem;font-weight:600;color:var(--muted);margin-left:4px}
-  .icon{font-size:1.25rem}
-  .stale{opacity:.55}
-  .row{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
-  button{font:inherit;font-weight:700;padding:12px 20px;border-radius:10px;
-         border:2px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer}
-  button:hover{background:var(--accent);color:var(--bg)}
-  button.primary{background:var(--accent);color:var(--bg)}
-  button:disabled{opacity:.45;cursor:not-allowed}
-  button.danger{border-color:var(--crit);color:var(--crit)}
-  button.danger:hover{background:var(--crit);color:var(--bg)}
-  .alert{border-left:6px solid var(--warn);padding:12px 16px;border-radius:8px;
-         background:var(--card);margin-bottom:10px}
+        padding:16px;box-shadow:var(--shadow)}
+  h2{margin:0 0 12px;font-size:1.05rem;display:flex;align-items:center;gap:9px;color:var(--ink)}
+  h2 .icon{font-size:1.2rem}
+  .muted{color:var(--muted)}
+  .note{font-size:.9rem;color:var(--muted);margin:8px 0 0}
+
+  /* alerts + estop */
+  .banner{border:1px solid var(--crit);background:rgba(255,125,125,.08);
+          border-left:6px solid var(--crit)}
+  .alert{border-left:6px solid var(--warn);padding:10px 14px;border-radius:10px;
+         background:var(--card2);margin-bottom:8px}
   .alert.critical{border-left-color:var(--crit)}
-  .alert .head{font-weight:800;display:flex;gap:10px;align-items:center}
-  .alert .meta{font-size:.9rem;color:var(--muted)}
-  .badge{display:inline-block;font-size:.8rem;font-weight:800;text-transform:uppercase;
+  .alert .head{font-weight:800;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .alert .meta{font-size:.85rem;color:var(--muted)}
+  .badge{display:inline-block;font-size:.75rem;font-weight:800;text-transform:uppercase;
          padding:2px 8px;border-radius:6px;border:2px solid currentColor}
+
+  /* plants */
+  .plants{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .plant{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .plant .top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .plant .name{font-weight:800;font-size:1.1rem;flex:1 1 auto;min-width:0;
+               overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dot{width:11px;height:11px;border-radius:50%;background:var(--crit);flex:none;box-shadow:0 0 0 3px rgba(255,125,125,.15)}
+  .dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(95,208,138,.18)}
+  .big-metric{display:flex;align-items:baseline;gap:6px;margin:2px 0 10px}
+  .big-metric .num{font-size:3.2rem;font-weight:800;letter-spacing:-.03em;
+                   font-variant-numeric:tabular-nums;line-height:1}
+  .big-metric .unit{font-size:1.2rem;font-weight:700;color:var(--muted)}
+  .row-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .mini{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:9px 10px}
+  .mini .l{font-size:.78rem;color:var(--muted);display:flex;gap:6px;align-items:center}
+  .mini .v{font-size:1.25rem;font-weight:800;font-variant-numeric:tabular-nums}
+  .mini .v small{font-size:.75em;font-weight:600;color:var(--muted)}
+  .stale{opacity:.5}
+  .pump-state{margin-top:10px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .pump-state .tag{padding:4px 12px;border-radius:999px;border:2px solid var(--line);font-size:.85rem}
+  .pump-state.watering .tag{border-color:var(--accent);color:var(--accent)}
+  .pump-state.cooldown .tag{border-color:var(--warn);color:var(--warn)}
+
+  /* controls */
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  button{font:inherit;font-weight:800;min-height:var(--tap);padding:13px 18px;
+         border-radius:14px;border:2px solid var(--accent);background:transparent;
+         color:var(--accent);cursor:pointer;transition:transform .05s ease,background .15s}
+  button:active{transform:scale(.98)}
+  button.primary{background:var(--accent);color:var(--accent-ink)}
+  button.danger{border-color:var(--crit);color:var(--crit)}
+  button.danger.armed,button.danger:active{background:var(--crit);color:#1a0606}
+  button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  button.ghost{border-color:var(--line);color:var(--ink);min-height:auto;padding:9px 14px}
+
+  /* calibration */
+  .cal{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;margin-top:6px}
+  label.fld{display:flex;flex-direction:column;gap:6px;font-size:.9rem;color:var(--muted)}
+  input[type=number],input[type=text],input[type=password]{
+    font:inherit;padding:12px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--ink);width:100%}
+  .cal-readout{display:flex;gap:16px;flex-wrap:wrap;margin:4px 0 12px}
+  .cal-readout b{font-variant-numeric:tabular-nums}
+
+  /* chart + tables */
+  canvas{width:100%;height:200px;display:block}
+  select{font:inherit;padding:10px;border-radius:10px;background:var(--card2);
+         color:var(--ink);border:1px solid var(--line)}
   table{width:100%;border-collapse:collapse;font-size:.95rem}
   th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
-  th{color:var(--muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
-  canvas{width:100%;height:210px;display:block}
-  .muted{color:var(--muted)}
+  th{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+  details.card>summary{cursor:pointer;font-weight:800;font-size:1.05rem;list-style:none}
+  details.card>summary::-webkit-details-marker{display:none}
   .fault{color:var(--crit);font-weight:700}
   dialog{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);
-         color:var(--ink);max-width:560px;width:92%;padding:0}
-  dialog::backdrop{background:rgba(0,0,0,.5)}
-  .dlg-body{padding:20px;max-height:80vh;overflow:auto}
-  fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 14px;padding:12px}
+         color:var(--ink);max-width:620px;width:94%;padding:0}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  .dlg-body{padding:20px;max-height:82vh;overflow:auto}
+  fieldset{border:1px solid var(--line);border-radius:12px;margin:0 0 14px;padding:12px}
   legend{font-weight:800;padding:0 6px}
-  .field{display:grid;grid-template-columns:1fr 110px;gap:10px;align-items:center;margin-bottom:8px}
-  input[type=number],input[type=text],input[type=password]{
-    font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);
-    background:var(--bg);color:var(--ink);width:100%}
-  .sw{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
-  .note{font-size:.9rem;color:var(--muted)}
+  .field{display:grid;grid-template-columns:1fr 120px;gap:12px;align-items:center;margin-bottom:10px}
+  .sw{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
   :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  @media (max-width:560px){
+    body{font-size:16px}
+    h1{font-size:1.15rem}
+    .big-metric .num{font-size:2.6rem}
+    .row-metrics{grid-template-columns:repeat(2,1fr)}
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>🌱 Smart Planter</h1>
-  <span id="conn" class="pill off" role="status"><span aria-hidden="true">◌</span> <span id="connText">Verbinde…</span></span>
-  <span id="nodeState" class="pill off"><span aria-hidden="true">◌</span> <span id="nodeText">Knoten unbekannt</span></span>
-  <button id="authBtn" type="button">Anmelden</button>
+  <div class="brand"><span class="logo" aria-hidden="true">🌿</span><h1>FloraHome</h1></div>
+  <div class="pills">
+    <span id="conn" class="pill off" role="status">◌ <span id="connText">Verbinde…</span></span>
+    <span id="nodeState" class="pill off">◌ <span id="nodeText">Knoten unbekannt</span></span>
+  </div>
+  <button id="authBtn" class="ghost" type="button">Anmelden</button>
 </header>
 
 <main>
-  <!-- alerts first: the most important thing on the page -->
-  <section id="estopBanner" class="card" hidden style="border-left:6px solid var(--crit)">
-    <h2 class="label"><span class="icon" aria-hidden="true">🛑</span> NOT-AUS AKTIV</h2>
-    <div>Pumpe und Licht sind aus, die automatische Bewässerung ist gesperrt.
-      Die Anlage bleibt gesperrt, bis sie freigegeben wird – auch nach einem Neustart.</div>
-    <div class="row" style="margin-top:12px">
+  <section id="estopBanner" class="card banner" hidden>
+    <h2><span class="icon">🛑</span> NOT-AUS AKTIV</h2>
+    <div>Pumpe und Licht sind aus, die automatische Bewässerung ist gesperrt –
+      auch nach einem Neustart, bis freigegeben wird.</div>
+    <div class="controls" style="margin-top:12px">
       <button id="btnResume" class="primary" type="button" disabled>▶️ Freigeben</button>
     </div>
   </section>
 
-  <section aria-labelledby="alertH" class="card">
-    <h2 id="alertH" class="label"><span class="icon" aria-hidden="true">🔔</span> Meldungen</h2>
-    <div id="alerts" role="region" aria-live="polite"><p class="muted">Keine Meldungen. Alles im grünen Bereich.</p></div>
+  <section class="card">
+    <h2><span class="icon">🔔</span> Meldungen</h2>
+    <div id="alerts" role="region" aria-live="polite"></div>
   </section>
 
-  <section aria-labelledby="liveH">
-    <h2 id="liveH" class="label"><span class="icon" aria-hidden="true">📊</span> Aktuelle Werte</h2>
-    <div class="grid">
-      <div class="card"><div class="label"><span class="icon" aria-hidden="true">💧</span> Bodenfeuchte</div>
-        <div><span class="value" id="v-moisture_pct">–</span><span class="unit">%</span></div></div>
-      <div class="card"><div class="label"><span class="icon" aria-hidden="true">🌡️</span> Temperatur</div>
-        <div><span class="value" id="v-temp_c">–</span><span class="unit">°C</span></div></div>
-      <div class="card"><div class="label"><span class="icon" aria-hidden="true">☁️</span> Luftfeuchte</div>
-        <div><span class="value" id="v-humidity">–</span><span class="unit">%</span></div></div>
-      <div class="card"><div class="label"><span class="icon" aria-hidden="true">☀️</span> Licht</div>
-        <div><span class="value" id="v-lux">–</span><span class="unit">lx</span></div></div>
-      <div class="card"><div class="label"><span class="icon" aria-hidden="true">🛢️</span> Wassertank</div>
-        <div><span class="value" id="v-tank_pct">–</span><span class="unit">%</span></div></div>
-      <div class="card"><div class="label"><span class="icon" aria-hidden="true">🚰</span> Pumpe</div>
-        <div><span class="value" id="v-pump" style="font-size:1.9rem">–</span></div>
-        <div class="note" id="pumpCount"></div></div>
-    </div>
+  <section class="card">
+    <h2><span class="icon">🪴</span> Pflanzen</h2>
+    <div id="plants" class="plants"></div>
   </section>
 
-  <section aria-labelledby="chartH" class="card">
-    <div class="row" style="justify-content:space-between">
-      <h2 id="chartH" class="label"><span class="icon" aria-hidden="true">📈</span> Verlauf</h2>
-      <div class="row">
-        <label class="muted" for="chartField">Wert</label>
-        <select id="chartField" style="font:inherit;padding:8px;border-radius:8px;background:var(--bg);color:var(--ink);border:1px solid var(--line)">
-          <option value="moisture_pct">Bodenfeuchte</option>
-          <option value="temp_c">Temperatur</option>
-          <option value="humidity">Luftfeuchte</option>
-          <option value="lux">Licht</option>
-          <option value="tank_pct">Wassertank</option>
-        </select>
-        <select id="chartRange" style="font:inherit;padding:8px;border-radius:8px;background:var(--bg);color:var(--ink);border:1px solid var(--line)">
-          <option value="1">1 Stunde</option>
-          <option value="6" selected>6 Stunden</option>
-          <option value="24">24 Stunden</option>
-        </select>
-      </div>
-    </div>
-    <canvas id="chart" role="img" aria-label="Verlauf der Bodenfeuchte über die Zeit"></canvas>
-    <p class="note" id="chartNote">Verlauf wird geladen…</p>
-  </section>
-
-  <section aria-labelledby="manualH" class="card">
-    <h2 id="manualH" class="label"><span class="icon" aria-hidden="true">🎛️</span> Steuerung (Anmeldung nötig)</h2>
-    <div class="row">
-      <button id="btnWater" class="primary" type="button" disabled>💧 Jetzt bewässern</button>
-      <button id="btnLight" type="button" disabled>💡 Licht umschalten</button>
-      <button id="btnBuzz" type="button" disabled>🔊 Buzzer testen</button>
-      <button id="btnStop" class="danger" type="button" disabled>⏹️ Ausgänge stoppen</button>
+  <section class="card">
+    <h2><span class="icon">🎛️</span> Steuerung</h2>
+    <div class="controls">
+      <button id="btnWater" class="primary" type="button" disabled>💧 Bewässern</button>
+      <button id="btnLight" type="button" disabled>💡 Licht an/aus</button>
+      <button id="btnBuzz" type="button" disabled>🔊 Buzzer</button>
+      <button id="btnStop" class="danger" type="button" disabled>⏹️ Stop</button>
       <button id="btnEstop" class="danger" type="button" disabled>🛑 NOT-AUS</button>
       <button id="btnSettings" type="button" disabled>⚙️ Einstellungen</button>
     </div>
@@ -149,18 +166,58 @@
     <p class="note" id="authNote">Das Dashboard ist schreibgeschützt. Zum Steuern bitte anmelden.</p>
   </section>
 
-  <section aria-labelledby="evtH" class="card">
-    <h2 id="evtH" class="label"><span class="icon" aria-hidden="true">📋</span> Ereignisse &amp; Protokoll</h2>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
-      <div><h3 class="muted" style="font-size:1rem">Ereignisse</h3><table><tbody id="events"></tbody></table></div>
-      <div><h3 class="muted" style="font-size:1rem">Protokoll (nur angemeldet)</h3><table><tbody id="audit"></tbody></table></div>
+  <section class="card">
+    <h2><span class="icon">🧪</span> Kalibrierung Bodenfeuchte</h2>
+    <div class="cal-readout">
+      <span class="muted">Rohspannung: <b id="cal-soil">–</b> V</span>
+      <span class="muted">trocken: <b id="cal-dry">–</b> V</span>
+      <span class="muted">nass: <b id="cal-wet">–</b> V</span>
     </div>
+    <div class="cal">
+      <label class="fld">In Luft (trocken) — Volt
+        <input id="cal-dry-in" type="number" step="0.01" min="0" max="3.6" inputmode="decimal"></label>
+      <label class="fld">In Wasser (nass) — Volt
+        <input id="cal-wet-in" type="number" step="0.01" min="0" max="3.6" inputmode="decimal"></label>
+      <button id="btnCal" class="primary" type="button" disabled>Werte übernehmen</button>
+    </div>
+    <p class="note">Messwert <b>Rohspannung</b> aus der Pflanze abschreiben: Probe in Luft → links, in ein Glas Wasser → rechts.</p>
   </section>
+
+  <section class="card">
+    <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+      <h2 style="margin:0"><span class="icon">📈</span> Verlauf</h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <select id="chartField">
+          <option value="moisture_pct">Bodenfeuchte</option>
+          <option value="temp_c">Temperatur</option>
+          <option value="humidity">Luftfeuchte</option>
+          <option value="lux">Licht</option>
+        </select>
+        <select id="chartRange">
+          <option value="1">1 Stunde</option>
+          <option value="6" selected>6 Stunden</option>
+          <option value="24">24 Stunden</option>
+        </select>
+      </div>
+    </div>
+    <canvas id="chart" role="img" aria-label="Verlauf der Messwerte"></canvas>
+    <p class="note" id="chartNote">Verlauf wird geladen…</p>
+  </section>
+
+  <details class="card">
+    <summary><span class="icon">📋</span> Ereignisse &amp; Protokoll</summary>
+    <div style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:12px">
+      <div><h2 class="muted" style="font-size:.95rem">Ereignisse</h2>
+        <table><tbody id="events"></tbody></table></div>
+      <div><h2 class="muted" style="font-size:.95rem">Protokoll (nur angemeldet)</h2>
+        <table><tbody id="audit"></tbody></table></div>
+    </div>
+  </details>
 </main>
 
 <dialog id="settingsDlg" aria-labelledby="settingsH">
   <form method="dialog" class="dlg-body">
-    <h2 id="settingsH" style="margin-top:0">⚙️ Einstellungen</h2>
+    <h2 id="settingsH">⚙️ Einstellungen</h2>
     <fieldset><legend>Bewässerung</legend>
       <div class="sw"><label for="cfg-pump_auto">Automatisch bewässern</label><input id="cfg-pump_auto" type="checkbox"></div>
       <div class="field"><label for="cfg-pump_threshold_pct">Bewässern unter (%)</label><input id="cfg-pump_threshold_pct" type="number" min="0" max="100"></div>
@@ -180,7 +237,7 @@
       <div class="sw"><label for="cfg-light_auto">Licht automatisch</label><input id="cfg-light_auto" type="checkbox"></div>
       <div class="field"><label for="cfg-light_on_below_lux">Einschalten unter (lx)</label><input id="cfg-light_on_below_lux" type="number" min="0"></div>
     </fieldset>
-    <div class="row" style="justify-content:flex-end">
+    <div class="controls" style="grid-template-columns:1fr 1fr">
       <button value="cancel" type="submit">Abbrechen</button>
       <button id="saveCfg" class="primary" value="save" type="submit">Speichern</button>
     </div>
@@ -189,180 +246,168 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const FIELDS = ["moisture_pct","temp_c","humidity","lux","tank_pct"];
-const MAX_AGE = 60;              // seconds before readings count as stale
+const MAX_AGE = 60;
+let authed = false, cfgCache = {}, lastState = {};
+const last = {};
 
-/* ---------------------------------------------------------------- formatting */
-function fmt(key, val){
-  if (val === null || val === undefined || Number.isNaN(val)) return "–";
-  if (key === "moisture_pct" || key === "tank_pct") return Math.round(val);
-  if (key === "lux") return Math.round(val);
-  return Math.round(val * 10) / 10;
-}
+/* --------------------------------------------------------------- formatting */
+const fmtNum = (v, d=1) => (v===null||v===undefined||Number.isNaN(Number(v))) ? null : Number(v).toFixed(d);
 function rel(ts){
-  if (!ts) return "nie";
+  if(!ts) return "nie";
   const s = Math.max(0, Date.now()/1000 - ts);
-  if (s < 90) return `${Math.round(s)} s`;
-  if (s < 5400) return `${Math.round(s/60)} min`;
+  if(s < 90) return `${Math.round(s)} s`;
+  if(s < 5400) return `${Math.round(s/60)} min`;
   return `${Math.round(s/3600)} h`;
 }
-function esc(s){ const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+function esc(s){ const d=document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
 
-/* --------------------------------------------------------------------- state */
-let authed = false;
-const last = {};                 // metric -> timestamp of last change
-
-/* ------------------------------------------------------------------- network */
+/* ------------------------------------------------------------------ network */
 async function json(url, opts){
   const r = await fetch(url, {credentials:"same-origin", headers:{"Content-Type":"application/json"}, ...opts});
   const body = await r.json().catch(()=>({}));
-  if (!r.ok) throw new Error(body.detail || r.statusText);
+  if(!r.ok) throw new Error(body.detail || r.statusText);
   return body;
 }
 
-async function refresh(){
-  try{
-    const s = await json("/api/state");
-    render(s);
-  }catch(e){ /* the SSE stream will retry */ }
+/* ------------------------------------------------------------------- plants */
+function mini(label, icon, value, unit){
+  return `<div class="mini" data-metric="${label}"><div class="l"><span>${icon}</span>${label}</div>
+    <div class="v">${value ?? "–"}${unit?`<small>${unit}</small>`:""}</div></div>`;
+}
+/* `states` is an array so multi-node drops in later; today it holds one node. */
+function renderPlants(states){
+  const box = $("plants");
+  box.innerHTML = states.map(s => {
+    const m = s.metrics || {};
+    const online = !!s.online;
+    const pump = s.pump === "watering" ? ["watering","Bewässert 💧"]
+               : s.pump === "cooldown" ? ["cooldown","Sperrzeit ⏳"] : ["idle","Bereit"];
+    const fault = (s.fault && s.fault !== "ok")
+      ? `<div class="note fault">⚠️ Fault: ${esc(s.fault)}</div>` : "";
+    return `<div class="plant">
+      <div class="top"><span class="dot ${online?"on":""}"></span>
+        <span class="name">${esc(s.device || "smartplanter")}</span>
+        <span class="muted" style="font-size:.85rem">${online?`online · ${rel(s.last_seen)}`:"offline"}</span></div>
+      <div class="big-metric">
+        <span class="num">${fmtNum(m.moisture_pct,0) ?? "–"}</span><span class="unit">% Boden</span></div>
+      <div class="row-metrics">
+        ${mini("Temperatur","🌡️", fmtNum(m.temp_c,1),"°C")}
+        ${mini("Luft","☁️", fmtNum(m.humidity,0),"%")}
+        ${mini("Licht","☀️", fmtNum(m.lux,0),"lx")}
+      </div>
+      <div class="pump-state ${pump[0]}"><span class="tag">🚰 ${pump[1]}</span>
+        <span class="muted" style="font-size:.85rem">${s.pump_count_today??0}× heute</span></div>
+      ${fault}
+    </div>`;
+  }).join("");
+  // freshness dimming
+  box.querySelectorAll(".plant").forEach((el,i)=>{
+    const s = states[i];
+    el.classList.toggle("stale", !(s && s.online));
+  });
 }
 
 function render(s){
+  lastState = s;
+  renderPlants([{...s, device: s.device || "smartplanter"}]);
   const m = s.metrics || {};
-  FIELDS.forEach(k => {
-    if (m[k] !== undefined) last[k] = Math.max(last[k] || 0, Date.now()/1000);
-    $("v-" + k).textContent = fmt(k, m[k]);
-    const card = $("v-" + k).closest(".card");
-    const fresh = (Date.now()/1000 - (last[k] || 0)) < MAX_AGE;
-    card.classList.toggle("stale", !fresh);
-  });
-  $("v-pump").textContent = s.pump === "watering" ? "Bewässert 💧" : (s.pump === "cooldown" ? "Sperrzeit ⏳" : "Bereit");
-  $("pumpCount").textContent = s.pump_count_today ? `${s.pump_count_today}× heute bewässert` : "heute noch nicht bewässert";
+  $("cal-soil").textContent = fmtNum(m.soil_v ?? m.soil_raw_v, 3) ?? "–";
+  $("cal-dry").textContent  = fmtNum(m.cal_dry, 3) ?? "–";
+  $("cal-wet").textContent  = fmtNum(m.cal_wet, 3) ?? "–";
+  // prefill inputs once from the node's current calibration
+  if(document.activeElement !== $("cal-dry-in") && !$("cal-dry-in").value && m.cal_dry != null) $("cal-dry-in").value = m.cal_dry;
+  if(document.activeElement !== $("cal-wet-in") && !$("cal-wet-in").value && m.cal_wet != null) $("cal-wet-in").value = m.cal_wet;
 
-  const nodeOk = s.online;
-  $("nodeState").className = "pill " + (nodeOk ? "on" : "off");
-  $("nodeText").textContent = nodeOk ? `Knoten online (${rel(s.last_seen)} her)` : `Knoten offline (${rel(s.last_seen)} her)`;
+  $("nodeState").className = "pill " + (s.online ? "on":"off");
+  $("nodeText").textContent = s.online ? `Knoten online (${rel(s.last_seen)} her)` : `Knoten offline (${rel(s.last_seen)} her)`;
+}
+
+async function refresh(){
+  try{ render(await json("/api/state")); }catch(e){}
 }
 
 function renderAlerts(events){
   const active = events.filter(e => e.active);
   const box = $("alerts");
-  if (!active.length){
-    box.innerHTML = '<p class="muted">✅ Keine Meldungen. Alles im grünen Bereich.</p>';
-    return;
-  }
+  if(!active.length){ box.innerHTML = '<p class="muted">✅ Keine Meldungen. Alles im grünen Bereich.</p>'; return; }
   box.innerHTML = active.map(e => `
-    <div class="alert ${e.level === "critical" ? "critical" : ""}">
-      <div class="head"><span aria-hidden="true">${e.level === "critical" ? "🚨" : "⚠️"}</span>
-        <span class="badge">${e.level === "critical" ? "Kritisch" : "Warnung"}</span>
+    <div class="alert ${e.level==="critical"?"critical":""}">
+      <div class="head"><span>${e.level==="critical"?"🚨":"⚠️"}</span>
+        <span class="badge">${e.level==="critical"?"Kritisch":"Warnung"}</span>
         <span>${esc(e.code)}</span></div>
       <div>${esc(e.message)}</div>
       <div class="meta">seit ${rel(e.ts)}</div>
     </div>`).join("");
 }
-
 function renderEvents(events){
   $("events").innerHTML = events.slice(0,12).map(e => {
-    const icon = e.active ? (e.level === "critical" ? "🚨" : "⚠️") : "✅";
-    const state = e.active ? "aktiv" : "behoben";
-    return `<tr><td>${icon} <span>${esc(e.code)}</span></td>
-      <td class="muted">${state} · ${rel(e.ts)}</td></tr>`;
+    const icon = e.active ? (e.level==="critical"?"🚨":"⚠️") : "✅";
+    return `<tr><td>${icon} ${esc(e.code)}</td><td class="muted">${e.active?"aktiv":"behoben"} · ${rel(e.ts)}</td></tr>`;
   }).join("") || '<tr><td class="muted">Keine Ereignisse</td></tr>';
 }
-
 function renderAudit(rows){
   $("audit").innerHTML = rows.slice(0,12).map(r =>
     `<tr><td>${esc(r.action)}</td><td class="muted">${esc(r.actor)} · ${rel(r.ts)}</td></tr>`
   ).join("") || '<tr><td class="muted">Nur für angemeldete Nutzer sichtbar</td></tr>';
 }
-
 async function loadTables(){
-  try{
-    const [ev, cfg] = await Promise.all([json("/api/events?limit=50"), json("/api/config")]);
-    renderAlerts(ev); renderEvents(ev);
-  }catch(e){}
-  if (authed){
-    try{ renderAudit(await json("/api/audit?limit=50")); }catch(e){}
-  }
+  try{ const ev = await json("/api/events?limit=50"); renderAlerts(ev); renderEvents(ev); }catch(e){}
+  if(authed){ try{ renderAudit(await json("/api/audit?limit=50")); }catch(e){} }
 }
 
 /* --------------------------------------------------------------------- chart */
 let chartData = [];
 function drawChart(){
   const c = $("chart"), dpr = window.devicePixelRatio || 1;
-  const w = c.clientWidth, h = 210;
-  c.width = w * dpr; c.height = h * dpr;
-  const ctx = c.getContext("2d");
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0,0,w,h);
-
+  const w = c.clientWidth, h = 200;
+  c.width = w*dpr; c.height = h*dpr;
+  const ctx = c.getContext("2d"); ctx.scale(dpr,dpr); ctx.clearRect(0,0,w,h);
   const css = getComputedStyle(document.documentElement);
-  const ink = css.getPropertyValue("--ink").trim(), muted = css.getPropertyValue("--muted").trim();
-  const accent = css.getPropertyValue("--accent").trim(), line = css.getPropertyValue("--line").trim();
-
-  if (chartData.length < 2){
-    ctx.fillStyle = muted; ctx.font = "16px system-ui";
+  const muted = css.getPropertyValue("--muted").trim(), accent = css.getPropertyValue("--accent").trim(),
+        line = css.getPropertyValue("--line").trim();
+  if(chartData.length < 2){
+    ctx.fillStyle = muted; ctx.font = "15px system-ui";
     ctx.fillText("Noch keine Verlaufsdaten – der Knoten sendet alle 10 Sekunden.", 12, h/2);
     return;
   }
-  const pad = {l:44, r:12, t:12, b:26};
-  const vals = chartData.map(p => p.v);
-  let min = Math.min(...vals), max = Math.max(...vals);
-  if (max - min < 1){ max += 1; min -= 1; }
-  const pad5 = (max - min) * 0.12; min -= pad5; max += pad5;
-
-  const t0 = new Date(chartData[0].t).getTime(), t1 = new Date(chartData[chartData.length-1].t).getTime();
-  const X = t => pad.l + (t1 === t0 ? 0.5 : (t - t0)/(t1 - t0)) * (w - pad.l - pad.r);
-  const Y = v => pad.t + (1 - (v - min)/(max - min)) * (h - pad.t - pad.b);
-
-  // grid + y labels
-  ctx.strokeStyle = line; ctx.fillStyle = muted; ctx.font = "12px system-ui"; ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++){
-    const v = min + (max - min) * i/4, y = Y(v);
-    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
-    ctx.fillText(v.toFixed(0), 6, y + 4);
-  }
-  // time labels
-  for (let i = 0; i <= 3; i++){
-    const t = t0 + (t1 - t0) * i/3;
-    const d = new Date(t);
-    ctx.fillText(d.toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"}), X(t) - 16, h - 6);
-  }
-  // area + line
-  ctx.beginPath(); ctx.moveTo(X(t0), Y(chartData[0].v));
-  chartData.forEach(p => ctx.lineTo(X(new Date(p.t).getTime()), Y(p.v)));
-  ctx.lineTo(X(t1), h - pad.b); ctx.lineTo(X(t0), h - pad.b); ctx.closePath();
-  ctx.fillStyle = accent + "22"; ctx.fill();
-
-  ctx.beginPath(); ctx.moveTo(X(t0), Y(chartData[0].v));
-  chartData.forEach(p => ctx.lineTo(X(new Date(p.t).getTime()), Y(p.v)));
-  ctx.strokeStyle = accent; ctx.lineWidth = 2.5; ctx.stroke();
-
-  // threshold line for moisture
-  const f = $("chartField").value;
-  if (f === "moisture_pct" && window.cfgCache && window.cfgCache.pump_threshold_pct !== undefined){
-    const th = Number(window.cfgCache.pump_threshold_pct);
-    if (th >= min && th <= max){
-      ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle = muted; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(pad.l, Y(th)); ctx.lineTo(w - pad.r, Y(th)); ctx.stroke(); ctx.restore();
-      ctx.fillStyle = muted; ctx.font = "12px system-ui";
-      ctx.fillText(`Schwelle ${th}%`, pad.l + 6, Y(th) - 5);
-    }
+  const pad={l:46,r:12,t:12,b:26};
+  const vals = chartData.map(p=>p.v);
+  let min=Math.min(...vals), max=Math.max(...vals);
+  if(max-min<1){ max+=1; min-=1; }
+  const p5=(max-min)*0.12; min-=p5; max+=p5;
+  const t0=new Date(chartData[0].t).getTime(), t1=new Date(chartData[chartData.length-1].t).getTime();
+  const X=t=>pad.l+(t1===t0?0.5:(t-t0)/(t1-t0))*(w-pad.l-pad.r);
+  const Y=v=>pad.t+(1-(v-min)/(max-min))*(h-pad.t-pad.b);
+  ctx.strokeStyle=line; ctx.fillStyle=muted; ctx.font="12px system-ui"; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){ const v=min+(max-min)*i/4,y=Y(v);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke();
+    ctx.fillText(v.toFixed(0),6,y+4); }
+  for(let i=0;i<=3;i++){ const t=t0+(t1-t0)*i/3,d=new Date(t);
+    ctx.fillText(d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}),X(t)-16,h-6); }
+  ctx.beginPath(); ctx.moveTo(X(t0),Y(chartData[0].v));
+  chartData.forEach(p=>ctx.lineTo(X(new Date(p.t).getTime()),Y(p.v)));
+  ctx.lineTo(X(t1),h-pad.b); ctx.lineTo(X(t0),h-pad.b); ctx.closePath();
+  ctx.fillStyle=accent+"22"; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(X(t0),Y(chartData[0].v));
+  chartData.forEach(p=>ctx.lineTo(X(new Date(p.t).getTime()),Y(p.v)));
+  ctx.strokeStyle=accent; ctx.lineWidth=2.5; ctx.stroke();
+  if($("chartField").value==="moisture_pct" && cfgCache.pump_threshold_pct!==undefined){
+    const th=Number(cfgCache.pump_threshold_pct);
+    if(th>=min&&th<=max){ ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle=muted; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(pad.l,Y(th)); ctx.lineTo(w-pad.r,Y(th)); ctx.stroke(); ctx.restore();
+      ctx.fillStyle=muted; ctx.fillText(`Schwelle ${th}%`,pad.l+6,Y(th)-5); }
   }
 }
-
 async function loadChart(){
-  const f = $("chartField").value, hours = Number($("chartRange").value);
-  const every = hours <= 1 ? "10s" : (hours <= 6 ? "1m" : "5m");
+  const f=$("chartField").value, hours=Number($("chartRange").value);
+  const every = hours<=1?"10s":(hours<=6?"1m":"5m");
   try{
     const r = await json(`/api/history?field=${f}&hours=${hours}&every=${every}`);
     chartData = r.points || [];
     $("chartNote").textContent = chartData.length
-      ? `${chartData.length} Messpunkte · Quelle: ${r.source === "influxdb" ? "InfluxDB" : "Arbeitsspeicher"}`
+      ? `${chartData.length} Messpunkte · Quelle: ${r.source==="influxdb"?"InfluxDB":"Arbeitsspeicher"}`
       : "Keine Daten im gewählten Zeitraum.";
-  }catch(e){
-    chartData = []; $("chartNote").textContent = "Verlauf nicht verfügbar: " + e.message;
-  }
+  }catch(e){ chartData=[]; $("chartNote").textContent="Verlauf nicht verfügbar: "+e.message; }
   drawChart();
 }
 
@@ -370,135 +415,105 @@ async function loadChart(){
 function connect(){
   const es = new EventSource("/api/stream");
   es.onopen = () => setConn(true);
-  es.onerror = () => { setConn(false); };
+  es.onerror = () => setConn(false);
   es.onmessage = ev => {
     let d; try{ d = JSON.parse(ev.data); }catch(e){ return; }
-    if (d.type === "telemetry"){
-      // patch just what changed, no full refetch
-      const p = d.data;
-      FIELDS.forEach(k => {
-        if (p[k] !== undefined){ $("v-"+k).textContent = fmt(k, p[k]); last[k] = Date.now()/1000;
-          $("v-"+k).closest(".card").classList.remove("stale"); }
-      });
-      $("nodeState").className = "pill on"; $("nodeText").textContent = "Knoten online (gerade eben)";
-    }
-    if (d.type === "alert" || d.type === "alert_cleared"){ loadTables(); }
-    if (d.type === "telemetry" && d.data.halted !== undefined) refreshHalted();
+    if(d.type==="telemetry"){ refresh(); }
+    if(d.type==="alert"||d.type==="alert_cleared"){ loadTables(); }
   };
 }
 function setConn(ok){
-  $("conn").className = "pill " + (ok ? "on" : "off");
+  $("conn").className = "pill " + (ok?"on":"off");
   $("connText").textContent = ok ? "Live verbunden" : "Verbindung unterbrochen";
 }
 
 /* ---------------------------------------------------------------------- auth */
+const WRITE_BTNS = ["btnWater","btnLight","btnBuzz","btnStop","btnEstop","btnSettings","btnResume","btnCal"];
 function setAuthed(v){
   authed = v;
-  ["btnWater","btnLight","btnBuzz","btnStop","btnEstop","btnSettings","btnResume"]
-    .forEach(id => $(id).disabled = !v);
+  WRITE_BTNS.forEach(id => { const el=$(id); if(el) el.disabled = !v; });
   $("authBtn").textContent = v ? "Abmelden" : "Anmelden";
   $("authNote").textContent = v
     ? "Angemeldet – Änderungen werden im Protokoll erfasst."
     : "Das Dashboard ist schreibgeschützt. Zum Steuern bitte anmelden.";
   loadTables();
 }
-
-async function checkMe(){
-  try{ const me = await json("/api/me"); setAuthed(me.authenticated); }catch(e){ setAuthed(false); }
-}
-
+async function checkMe(){ try{ setAuthed((await json("/api/me")).authenticated); }catch(e){ setAuthed(false); } }
 $("authBtn").onclick = async () => {
-  if (authed){ await json("/api/logout", {method:"POST"}); setAuthed(false); return; }
-  const u = prompt("Benutzername:");
-  if (u === null) return;
-  const p = prompt("Passwort:");
-  if (p === null) return;
-  try{
-    await json("/api/login", {method:"POST", body: JSON.stringify({username:u, password:p})});
-    setAuthed(true);
-  }catch(e){ alert("Anmeldung fehlgeschlagen: " + e.message); }
+  if(authed){ await json("/api/logout",{method:"POST"}); setAuthed(false); return; }
+  const u = prompt("Benutzername:"); if(u===null) return;
+  const p = prompt("Passwort:"); if(p===null) return;
+  try{ await json("/api/login",{method:"POST",body:JSON.stringify({username:u,password:p})}); setAuthed(true); }
+  catch(e){ alert("Anmeldung fehlgeschlagen: "+e.message); }
 };
 
 /* ------------------------------------------------------------------ commands */
-function command(action, extra){
-  return async () => {
-    try{
-      const r = await json("/api/command", {method:"POST", body: JSON.stringify({action, ...(extra||{})})});
-      loadTables();
-    }catch(e){ alert("Befehl fehlgeschlagen: " + e.message); }
-  };
+async function send(body){
+  try{ await json("/api/command",{method:"POST",body:JSON.stringify(body)}); loadTables(); refresh(); }
+  catch(e){ alert("Befehl fehlgeschlagen: "+e.message); throw e; }
 }
-$("btnWater").onclick = command("pump", {seconds: 15});
-$("btnLight").onclick = command("light", {state: "toggle"});   // ESP32 toggles on "on"
-$("btnBuzz").onclick  = command("buzzer", {seconds: 3});
-$("btnStop").onclick  = command("stop");
+$("btnWater").onclick = () => send({action:"pump", seconds: cfgCache.pump_seconds || 15});
+$("btnLight").onclick = () => send({action:"light", state:"toggle"});
+$("btnBuzz").onclick  = () => send({action:"buzzer", seconds:3});
+$("btnStop").onclick  = () => send({action:"stop"});
+$("btnCal").onclick = () => {
+  const dry = parseFloat($("cal-dry-in").value), wet = parseFloat($("cal-wet-in").value);
+  if(!(dry>0) || !(wet>0)){ alert("Bitte trockene und nasse Rohspannung eintragen."); return; }
+  send({action:"cal", soil_dry_v:dry, soil_wet_v:wet});
+};
 
-/* ------------------------------------------------------------------ settings */
+/* ------------------------------------------------------------------ estop */
 async function refreshHalted(){
   try{
-    const st = await json("/api/state");
-    const on = !!st.halted;
+    const st = await json("/api/state"); const on = !!st.halted;
     $("estopBanner").hidden = !on;
     $("btnEstop").textContent = on ? "🛑 NOT-AUS aktiv" : "🛑 NOT-AUS";
     $("estopNote").textContent = on
       ? "NOT-AUS ist gesetzt: Pumpe, Licht und Automatik sind gesperrt."
       : "NOT-AUS sperrt Pumpe, Licht und Automatik dauerhaft, bis freigegeben wird.";
-    $("btnEstop").className = on ? "danger" : "";
   }catch(e){}
 }
-
 $("btnEstop").onclick = async () => {
-  if (!confirm("NOT-AUS wirklich setzen? Pumpe, Licht und Automatik werden gesperrt.")) return;
-  try{
-    await json("/api/estop", {method:"POST"});
-    await refreshHalted(); loadTables();
-  }catch(e){ alert("NOT-AUS fehlgeschlagen: " + e.message); }
+  if(!confirm("NOT-AUS wirklich setzen? Pumpe, Licht und Automatik werden gesperrt.")) return;
+  try{ await json("/api/estop",{method:"POST"}); refreshHalted(); loadTables(); }
+  catch(e){ alert("NOT-AUS fehlgeschlagen: "+e.message); }
 };
-
 $("btnResume").onclick = async () => {
-  try{
-    await json("/api/resume", {method:"POST"});
-    await refreshHalted(); loadTables();
-  }catch(e){ alert("Freigabe fehlgeschlagen: " + e.message); }
+  try{ await json("/api/resume",{method:"POST"}); refreshHalted(); loadTables(); }
+  catch(e){ alert("Freigabe fehlgeschlagen: "+e.message); }
 };
 
+/* ------------------------------------------------------------------ settings */
 $("btnSettings").onclick = async () => {
-  const cfg = await json("/api/config");
-  window.cfgCache = cfg;
-  Object.entries(cfg).forEach(([k,v]) => {
-    const el = $("cfg-" + k);
-    if (!el) return;
-    if (el.type === "checkbox") el.checked = !!v; else el.value = v;
+  cfgCache = await json("/api/config");
+  Object.entries(cfgCache).forEach(([k,v]) => {
+    const el = $("cfg-"+k); if(!el) return;
+    if(el.type==="checkbox") el.checked = !!v; else el.value = v;
   });
   $("settingsDlg").showModal();
 };
 $("settingsDlg").addEventListener("close", async () => {
-  if ($("settingsDlg").returnValue !== "save") return;
+  if($("settingsDlg").returnValue !== "save") return;
   const updates = {};
-  Object.keys(window.cfgCache).forEach(k => {
-    const box = $("cfg-" + k);
-    if (!box) return;                                   // key has no field in the dialog
-    updates[k] = box.type === "checkbox" ? box.checked : Number(box.value);
-  });
-  try{
-    await json("/api/config", {method:"PUT", body: JSON.stringify(updates)});
-    loadTables(); loadChart();
-  }catch(e){ alert("Speichern fehlgeschlagen: " + e.message); }
+  Object.keys(cfgCache).forEach(k => { const b=$("cfg-"+k); if(!b) return;
+    updates[k] = b.type==="checkbox" ? b.checked : Number(b.value); });
+  try{ await json("/api/config",{method:"PUT",body:JSON.stringify(updates)}); loadTables(); loadChart(); }
+  catch(e){ alert("Speichern fehlgeschlagen: "+e.message); }
 });
-
 $("chartField").onchange = loadChart;
 $("chartRange").onchange = loadChart;
 window.addEventListener("resize", drawChart);
 
 /* --------------------------------------------------------------------- start */
 (async function init(){
+  try{ cfgCache = await json("/api/config"); }catch(e){}
   await checkMe();
   await refresh();
   await refreshHalted();
   await loadTables();
   await loadChart();
   connect();
-  setInterval(async () => { await refresh(); await refreshHalted(); }, 15000);
+  setInterval(async()=>{ await refresh(); await refreshHalted(); }, 15000);
   setInterval(loadTables, 20000);
   setInterval(loadChart, 60000);
 })();
