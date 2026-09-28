@@ -151,7 +151,7 @@ services:
   # Optional but recommended: edit + OTA-flash the ESP32 from the browser.
   # Reachable at http://<pi>:6052 — no need to plug in USB after the first flash.
   esphome:
-    image: esphome/esphome:2025.8
+    image: esphome/esphome:2025.8.4
     container_name: planter-esphome
     restart: unless-stopped
     network_mode: host          # needed for mDNS discovery + OTA broadcast
@@ -171,7 +171,7 @@ services:
   # POST /api/flash (see docs/DEVICES.md). Phases: spool now, USB passthrough
   # in the Phase F TODO.
   flasher:
-    image: esphome/esphome:2025.8
+    image: esphome/esphome:2025.8.4
     container_name: planter-flasher
     restart: unless-stopped
     network_mode: host
