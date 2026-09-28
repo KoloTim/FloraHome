@@ -157,6 +157,18 @@
   .gcard .gstats{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-top:4px}
   .gcard.off{opacity:.55}
 
+  /* backend: api keys + system */
+  .keyrow{padding:12px 0;border-bottom:1px solid var(--line)}
+  .keyrow:last-child{border-bottom:none}
+  .keyrow .klabel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;margin-bottom:6px}
+  .keyrow .khint{font-size:.8rem;color:var(--muted);font-weight:400}
+  .keyrow .keyform{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+  .sysgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+  .sysrow{display:flex;justify-content:space-between;gap:10px;padding:9px 11px;
+    background:var(--card2);border:1px solid var(--line);border-radius:10px;font-size:.92rem}
+  .sysrow b{font-variant-numeric:tabular-nums}
+  .ok{color:var(--ok)} .no{color:var(--crit)}
+
   /* UI scale control */
   .scalebar{display:inline-flex;gap:6px}
   .scalebar button{min-width:56px}
@@ -398,6 +410,24 @@
     <div id="backendNodes" class="plants"></div>
     <p class="note">Detaillierte Werte, Firmware, Pins und Rohdaten. „Details" je Knoten öffnen.</p>
   </section>
+
+  <details class="card" open>
+    <summary><span class="icon">🔑</span> API-Schlüssel &amp; Zugänge</summary>
+    <div style="margin-top:12px">
+      <div id="keysBox"><p class="muted">Anmelden, um Schlüssel zu sehen und zu ändern.</p></div>
+      <div class="controls" style="grid-template-columns:1fr 1fr;margin-top:12px">
+        <button id="keysSave" class="primary" type="button" disabled>Schlüssel speichern</button>
+        <button id="keysReload" type="button">↻ Neu laden</button>
+      </div>
+      <p class="note">Werte werden serverseitig gespeichert und <b>sofort</b> übernommen.
+        Leeres Feld = unverändert. „Zurücksetzen“ stellt den .env-Wert wieder her.</p>
+    </div>
+  </details>
+
+  <details class="card">
+    <summary><span class="icon">🧭</span> System &amp; Status</summary>
+    <div id="systemBox" style="margin-top:12px"><p class="muted">Lade…</p></div>
+  </details>
 
   <details class="card" open>
     <summary><span class="icon">🔌</span> Geräte &amp; Flashen</summary>
@@ -872,6 +902,7 @@ function setAuthed(v){
   const ci = $("chatInput"), cb = $("btnChat"), mb = $("btnMic");
   if(ci) ci.disabled = !v; if(cb) cb.disabled = !v; if(mb) mb.disabled = !v;
   loadTables();
+  loadKeys();
 }
 async function checkMe(){ try{ setAuthed((await json("/api/me")).authenticated); }catch(e){ setAuthed(false); } }
 $("authBtn").onclick = async () => {
@@ -1358,6 +1389,71 @@ $("btnFlash").onclick = async () => {
   finally{ $("btnFlash").disabled = !authed; loadDevices(); }
 };
 
+/* --------------------------------------------------- backend: keys + system */
+const SRC_LABEL = { ui:"Dashboard", env:".env", unset:"nicht gesetzt" };
+function renderKeys(d){
+  $("keysBox").innerHTML = (d.keys||[]).map(k => `
+    <div class="keyrow" data-key="${k.name}">
+      <div class="klabel">${esc(k.label)}
+        <span class="badge">${SRC_LABEL[k.source]||k.source}</span>
+        ${k.configured?'<span class="badge ok">gesetzt</span>':''}
+        ${k.hint?`<span class="khint">${esc(k.hint)}</span>`:""}</div>
+      <div class="keyform">
+        <input data-k="${k.name}" type="${k.secret?"password":"text"}" autocomplete="off"
+               placeholder="${k.configured?("gespeichert: "+esc(k.preview)):"noch nicht gesetzt"}">
+        <button class="ghost" type="button" data-reset="${k.name}" ${k.source==="ui"?"":"disabled"}>Zurücksetzen</button>
+      </div>
+    </div>`).join("");
+  $("keysBox").querySelectorAll("[data-reset]").forEach(b =>
+    b.onclick = () => saveKeys({ [b.dataset.reset]: null }));
+}
+async function loadKeys(){
+  if(!authed){
+    $("keysBox").innerHTML = '<p class="muted">Anmelden, um Schlüssel zu sehen und zu ändern.</p>';
+    $("keysSave").disabled = true; return;
+  }
+  try{ renderKeys(await json("/api/settings/keys")); $("keysSave").disabled = false; }
+  catch(e){ $("keysBox").innerHTML = '<p class="muted">Nicht verfügbar: ' + esc(e.message) + '</p>'; }
+}
+async function saveKeys(updates){
+  try{
+    await json("/api/settings/keys", {method:"PUT", body: JSON.stringify(updates)});
+    toast("🔑 Zugänge gespeichert"); loadKeys(); loadAI();
+  }catch(e){ alert("Speichern fehlgeschlagen: " + e.message); }
+}
+$("keysSave").onclick = () => {
+  const updates = {};
+  document.querySelectorAll("#keysBox input[data-k]").forEach(i => {
+    if(i.value.trim() !== "") updates[i.dataset.k] = i.value.trim(); });
+  if(!Object.keys(updates).length){ toast("Keine Änderungen"); return; }
+  saveKeys(updates);
+};
+$("keysReload").onclick = loadKeys;
+
+function sysRow(label, value){
+  return `<div class="sysrow"><span class="muted">${label}</span><span>${value}</span></div>`;
+}
+async function loadSystem(){
+  try{
+    const s = await json("/api/system");
+    const yn = v => v ? '<b class="ok">ja</b>' : '<b class="no">nein</b>';
+    $("systemBox").innerHTML = `<div class="sysgrid">
+      ${sysRow("API-Version", esc(s.api_version||"–"))}
+      ${sysRow("Laufzeit", rel(s.started_at) + " aktiv")}
+      ${sysRow("MQTT", s.mqtt_connected?'<b class="ok">verbunden</b>':'<b class="no">getrennt</b>')}
+      ${sysRow("Knoten offline nach", esc(String(s.node_offline_sec)) + " s")}
+      ${sysRow("KI (Flori)", yn(s.ai_configured))}
+      ${sysRow("KI-Modell", esc(s.ai_model||"–"))}
+      ${sysRow("InfluxDB", yn(s.influx_configured))}
+      ${sysRow("Telegram", yn(s.telegram_configured))}
+      ${sysRow("Python", esc(s.python||"–"))}
+      ${sysRow("Zähler", `Knoten ${s.counts?.nodes??0} · Ereignisse ${s.counts?.events??0} · Geräte ${s.counts?.devices??0}`)}
+      ${sysRow("DB", esc(s.db_path||"–"))}
+      ${sysRow("MQTT-Root", esc((s.topics&&s.topics.root)||"–"))}
+    </div>`;
+  }catch(e){ $("systemBox").innerHTML = '<p class="muted">Systeminfo nicht verfügbar: ' + esc(e.message) + '</p>'; }
+}
+
 /* ------------------------------------------------------------------------- */
 $("btnManual").onclick = () => $("manualDlg").showModal();
 
@@ -1369,7 +1465,7 @@ function showPage(name){
   localStorage.setItem("fhPage", name);
   if(name === "control"){ refreshCal(); }
   if(name === "graphs"){ if(!$("graphs").children.length) buildGraphCards(); loadGraphs(); }
-  if(name === "backend"){ loadDevices(); }
+  if(name === "backend"){ loadDevices(); loadSystem(); loadKeys(); }
 }
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => showPage(t.dataset.page));
 showPage(localStorage.getItem("fhPage") || "overview");
@@ -1628,6 +1724,7 @@ let floriDragging = false;
   await refreshHalted();
   await loadTables();
   await loadDevices();
+  await loadSystem();
   await loadAI();
   await refreshDiary();
   connect();

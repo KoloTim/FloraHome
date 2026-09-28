@@ -23,6 +23,7 @@ import io
 import json
 import logging
 import os
+import platform
 import secrets
 import sqlite3
 import threading
@@ -43,6 +44,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)-7s %(name)s | %(message)s",
 )
 log = logging.getLogger("planter")
+START_TS = time.time()
 
 # --------------------------------------------------------------------------- #
 # Config
@@ -219,6 +221,9 @@ def init_db() -> None:
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS meta (
+                key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at REAL NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts DESC);
             CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit(ts DESC);
             """
@@ -345,6 +350,32 @@ def audit(actor: str, action: str, detail: str = "", ip: str | None = None) -> N
             (time.time(), actor, ip, action, detail),
         )
         c.commit()
+
+
+def meta_get(key: str, default: str | None = None) -> str | None:
+    with _db_lock:
+        row = db().execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def meta_set(key: str, value: str | None) -> None:
+    with _db_lock:
+        c = db()
+        if value is None:
+            c.execute("DELETE FROM meta WHERE key=?", (key,))
+        else:
+            c.execute(
+                "INSERT INTO meta(key,value,updated_at) VALUES(?,?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
+                (key, str(value), time.time()),
+            )
+        c.commit()
+
+
+def meta_map(prefix: str = "") -> dict[str, str]:
+    with _db_lock:
+        rows = db().execute("SELECT key,value FROM meta WHERE key LIKE ?", (prefix + "%",)).fetchall()
+    return {r["key"]: r["value"] for r in rows}
 
 
 def open_event(level: str, code: str, message: str) -> bool:
@@ -1219,6 +1250,7 @@ async def lifespan(app: FastAPI):
     global LOOP
     LOOP = asyncio.get_running_loop()
     init_db()
+    _reload_secrets()
     threading.Thread(target=start_mqtt, daemon=True).start()
     t1 = asyncio.create_task(_loop_task(rules_tick, 5))
     t2 = asyncio.create_task(_loop_task(state_tick, 5))
@@ -1826,6 +1858,70 @@ HOST_HELPER_URL = env("HOST_HELPER_URL", "http://host.docker.internal:6054")
 HOST_HELPER_TOKEN = env("HOST_HELPER_TOKEN", "")
 
 
+# ---- runtime secret management --------------------------------------------- #
+# Keys can be viewed (masked) and rotated from the Backend tab. Overrides are
+# stored in the `meta` table as "secret:<NAME>" and applied on top of the .env
+# values without a container restart.
+
+SECRET_SPECS: list[dict[str, Any]] = [
+    {"name": "AI_API_KEY", "label": "KI-Schlüssel (AI_API_KEY)", "secret": True,
+     "hint": "Google AI Studio / OpenRouter / Groq – schaltet Flori frei"},
+    {"name": "AI_BASE_URL", "label": "KI-Endpunkt (AI_BASE_URL)", "secret": False,
+     "hint": "OpenAI-kompatibel, z. B. …/v1beta/openai"},
+    {"name": "AI_MODEL", "label": "KI-Modell (AI_MODEL)", "secret": False, "hint": "z. B. gemini-3.8-flash"},
+    {"name": "AI_VISION_MODEL", "label": "Vision-Modell (AI_VISION_MODEL)", "secret": False,
+     "hint": "für „Neue Pflanze“ aus Foto"},
+    {"name": "INFLUX_TOKEN", "label": "InfluxDB-Token", "secret": True, "hint": "speist die Verlaufs-Diagramme"},
+    {"name": "TELEGRAM_BOT_TOKEN", "label": "Telegram-Bot-Token", "secret": True, "hint": "für Meldungen"},
+    {"name": "TELEGRAM_CHAT_ID", "label": "Telegram-Chat-ID", "secret": False, "hint": ""},
+    {"name": "HOST_HELPER_TOKEN", "label": "Host-Helfer-Token", "secret": True, "hint": "Hotspot / Flashen / Audio"},
+]
+SECRET_NAMES = {s["name"] for s in SECRET_SPECS}
+
+# Fallbacks captured at import (the .env values), used when an override is cleared.
+_ENV_SECRETS: dict[str, str] = {
+    "AI_API_KEY": AI_API_KEY,
+    "AI_BASE_URL": AI_BASE_URL,
+    "AI_MODEL": AI_MODEL,
+    "AI_VISION_MODEL": env("AI_VISION_MODEL", ""),   # empty -> follow AI_MODEL
+    "INFLUX_TOKEN": INFLUX_TOKEN,
+    "TELEGRAM_BOT_TOKEN": TG_TOKEN,
+    "TELEGRAM_CHAT_ID": TG_CHAT,
+    "HOST_HELPER_TOKEN": HOST_HELPER_TOKEN,
+}
+
+
+def _reload_secrets() -> None:
+    """Apply runtime overrides stored in `meta` (secret:<NAME>) on top of env."""
+    global AI_API_KEY, AI_BASE_URL, AI_MODEL, AI_VISION_MODEL
+    global INFLUX_TOKEN, TG_TOKEN, TG_CHAT, HOST_HELPER_TOKEN
+    ov = meta_map("secret:")
+
+    def pick(name: str) -> str | None:
+        v = ov.get("secret:" + name)
+        return v if v is not None else _ENV_SECRETS.get(name)
+
+    AI_API_KEY = pick("AI_API_KEY") or ""
+    AI_BASE_URL = pick("AI_BASE_URL") or _ENV_SECRETS["AI_BASE_URL"]
+    AI_MODEL = pick("AI_MODEL") or _ENV_SECRETS["AI_MODEL"]
+    AI_VISION_MODEL = pick("AI_VISION_MODEL") or AI_MODEL
+    INFLUX_TOKEN = pick("INFLUX_TOKEN") or ""
+    TG_TOKEN = pick("TELEGRAM_BOT_TOKEN") or ""
+    TG_CHAT = pick("TELEGRAM_CHAT_ID") or ""
+    HOST_HELPER_TOKEN = pick("HOST_HELPER_TOKEN") or ""
+    log.info("secrets reloaded (AI=%s influx=%s telegram=%s)",
+             "set" if AI_API_KEY else "unset", "set" if INFLUX_TOKEN else "unset",
+             "set" if (TG_TOKEN and TG_CHAT) else "unset")
+
+
+def _mask(spec: dict[str, Any], value: str | None) -> str:
+    if not value:
+        return ""
+    if spec["secret"]:
+        return "••••" + (value[-4:] if len(value) > 4 else "")
+    return value
+
+
 async def _helper(method: str, path: str, body: dict[str, Any] | None = None,
                   timeout: float = 60) -> dict[str, Any]:
     headers = {"X-Host-Token": HOST_HELPER_TOKEN}
@@ -1915,6 +2011,78 @@ async def api_put_config(
     if changes:
         audit(user, "config_changed", json.dumps(changes, ensure_ascii=False), client_ip(request))
     return {"ok": True, "applied": changes, "config": get_config()}
+
+
+# ---- runtime secrets (API keys etc.) + system info ------------------------- #
+
+def _keys_overview() -> dict[str, Any]:
+    ov = meta_map("secret:")
+    out = []
+    for spec in SECRET_SPECS:
+        name = spec["name"]
+        db_val = ov.get("secret:" + name)
+        env_val = _ENV_SECRETS.get(name) or ""
+        value = db_val if db_val is not None else env_val
+        source = "ui" if db_val is not None else ("env" if env_val else "unset")
+        out.append({**spec, "configured": bool(value), "source": source,
+                    "preview": _mask(spec, value)})
+    return {"keys": out}
+
+
+@app.get("/api/settings/keys")
+async def api_get_keys(request: Request,
+                       planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    require_user(request, planter_session)
+    return _keys_overview()
+
+
+@app.put("/api/settings/keys")
+async def api_put_keys(body: dict[str, Any], request: Request,
+                       planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    """Set/rotate runtime secrets. A null or empty value clears the override and
+    falls back to the .env value. Changes apply immediately (no restart)."""
+    user = require_user(request, planter_session)
+    changed: list[str] = []
+    for name, value in body.items():
+        if name not in SECRET_NAMES:
+            continue
+        if value is None or str(value).strip() == "":
+            meta_set("secret:" + name, None)
+        else:
+            meta_set("secret:" + name, str(value).strip()[:400])
+        changed.append(name)
+    if changed:
+        _reload_secrets()
+        audit(user, "secrets_changed", "changed: " + ", ".join(sorted(changed)), client_ip(request))
+    return {"ok": True, "changed": sorted(changed), **_keys_overview()}
+
+
+@app.get("/api/system")
+async def api_system() -> dict[str, Any]:
+    """Operational overview for the Backend tab (no secrets)."""
+    cfg = _global_cached()
+    return {
+        "api_version": app.version,
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "uptime_s": round(time.time() - START_TS, 1),
+        "started_at": START_TS,
+        "mqtt_connected": MQTT_CONNECTED,
+        "topics": {"root": TOPIC_ROOT, "telemetry": TOPIC_TELEMETRY_WILDCARD},
+        "node_offline_sec": cfg.get("node_offline_sec", NODE_OFFLINE_SEC),
+        "ai_configured": bool(AI_API_KEY),
+        "ai_model": AI_MODEL,
+        "influx_configured": bool(INFLUX_TOKEN),
+        "telegram_configured": bool(TG_TOKEN and TG_CHAT),
+        "host_helper": HOST_HELPER_URL,
+        "db_path": DB_PATH,
+        "counts": {
+            "nodes": len(node_names()),
+            "events": len(recent("events", 1000)),
+            "audit": len(recent("audit", 1000)),
+            "devices": len(list_devices()),
+        },
+    }
 
 
 @app.post("/api/command")
