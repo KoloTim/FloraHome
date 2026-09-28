@@ -1,0 +1,230 @@
+# ============================================================================
+# FloraHome — BATTERY sensor node template (18650 + deep sleep)
+# ----------------------------------------------------------------------------
+# This variant is for a SENSOR-ONLY node (soil / DHT / LDR). It does NOT drive
+# the pump — a 12 V pump is an always-on load and cannot run off a cell.
+#
+# How it saves power: the node sleeps between reads. Wi-Fi is up only for a few
+# seconds per cycle. A 2500 mAh 18650 then lasts WEEKS-TO-MONTHS instead of ~1
+# day of always-on Wi-Fi.
+#
+# Create a real node from this with:
+#   deploy/add-node.sh new battery-a "Balcony" battery
+#
+# HARDWARE (see docs/BATTERY.md):
+#   18650 + protection  ->  low-Iq 3.3 V LDO (MCP1700/HT7333)  ->  3V3 + GND
+#   battery +           ->  divider (100k / 100k)              ->  GPIO 32 (ADC1)
+#   Remove/desolder the dev board's power LED and use a board without an
+#   always-on USB-serial chip where possible.
+# ============================================================================
+
+substitutions:
+  device_name: battery-node
+  friendly_name: "Battery Plant"
+  fw_version: "1.3.0"
+
+  mqtt_broker: "10.42.0.1"
+
+  soil_dry_v: "2.50"
+  soil_wet_v: "1.20"
+
+  # --- battery / sleep -----------------------------------------------------
+  # How long to sleep between readings. Longer = longer battery life.
+  sleep_duration: "15min"
+  # Battery divider: set the two resistor values (ohms). Equal values => *2.
+  batt_r_top: "100000"
+  batt_r_bottom: "100000"
+  # Usable window: empty at 3.3 V, full at 4.2 V (single cell).
+  batt_empty_v: "3.30"
+  batt_full_v: "4.20"
+
+  pin_soil_adc: "34"
+  pin_soil_power: "25"
+  pin_dht: "27"
+  pin_ldr: "35"
+  pin_batt_adc: "32"          # battery divider midpoint (ADC1)
+
+globals:
+  - id: soil_dry
+    type: float
+    restore_value: yes
+    initial_value: "${soil_dry_v}"
+  - id: soil_wet
+    type: float
+    restore_value: yes
+    initial_value: "${soil_wet_v}"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: "2025.8.0"
+  on_boot:
+    priority: 800
+    then:
+      - switch.turn_off: soil_power
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# --- deep sleep: wake on a timer, do the work, then sleep again -------------
+deep_sleep:
+  id: deep_sleep_1
+  sleep_duration: ${sleep_duration}
+
+logger:
+  level: INFO
+  # serial is off in the field; keep it on for bench bring-up
+  # baud_rate: 115200
+
+api:
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # give Wi-Fi time to connect on every wake
+  power_save_mode: LIGHT
+  ap:
+    ssid: "${device_name} fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+mqtt:
+  broker: ${mqtt_broker}
+  port: 1883
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  client_id: ${device_name}
+  topic_prefix: planter/${device_name}
+  discovery: false
+  birth_message:
+    topic: planter/${device_name}/status
+    payload: online
+  will_message:
+    topic: planter/${device_name}/status
+    payload: offline
+  on_connect:
+    # publish once connected, then go back to sleep
+    - delay: 3s
+    - component.update: soil_adc
+    - delay: 1s
+    - mqtt.publish_json:
+        topic: planter/${device_name}/telemetry
+        payload: !lambda |-
+          root["device"] = "${device_name}";
+          root["fw"] = "${fw_version}";
+          if (id(esptime).now().is_valid()) root["ts"] = id(esptime).now().timestamp;
+          if (!isnan(id(moisture_pct).state)) root["moisture_pct"] = roundf(id(moisture_pct).state * 10) / 10.0f;
+          if (!isnan(id(temp_c).state))       root["temp_c"]      = roundf(id(temp_c).state * 10) / 10.0f;
+          if (!isnan(id(humidity).state))     root["humidity"]    = roundf(id(humidity).state);
+          if (!isnan(id(lux).state))          root["lux"]         = roundf(id(lux).state);
+          if (!isnan(id(soil_adc).state))     root["soil_v"]      = roundf(id(soil_adc).state * 1000) / 1000.0f;
+          if (!isnan(id(battery_pct).state))  root["battery_pct"] = roundf(id(battery_pct).state);
+          if (!isnan(id(battery_v).state))    root["battery_v"]   = roundf(id(battery_v).state * 100) / 100.0f;
+          root["pump"] = "idle";
+          root["light"] = "off";
+          root["mode"] = "battery";
+          std::string fault = "";
+          if (isnan(id(moisture_pct).state)) fault += "soil ";
+          if (isnan(id(temp_c).state))       fault += "dht11 ";
+          if (isnan(id(lux).state))          fault += "ldr ";
+          for (auto &c : fault) if (c == ' ') c = ',';
+          if (fault.length()) fault.pop_back();
+          root["fault"] = fault.length() ? fault : "ok";
+    - delay: 2s
+    - deep_sleep.enter: deep_sleep_1
+
+time:
+  - platform: sntp
+    id: esptime
+    timezone: Europe/Berlin
+
+sensor:
+  - platform: adc
+    id: soil_adc
+    pin: GPIO${pin_soil_adc}
+    attenuation: 12db
+    update_interval: never
+    internal: true
+
+  - platform: template
+    name: "Bodenfeuchte"
+    id: moisture_pct
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: moisture
+    update_interval: never
+    lambda: |-
+      if (isnan(id(soil_adc).state)) return NAN;
+      float dry = id(soil_dry), wet = id(soil_wet);
+      if (dry == wet) return NAN;
+      float pct = (dry - id(soil_adc).state) / (dry - wet) * 100.0f;
+      return fmaxf(0.0f, fminf(100.0f, pct));
+
+  - platform: dht
+    pin: GPIO${pin_dht}
+    model: DHT11
+    update_interval: never
+    temperature: { name: "Temperatur", id: temp_c, accuracy_decimals: 1 }
+    humidity:    { name: "Luftfeuchte", id: humidity, accuracy_decimals: 0 }
+
+  - platform: adc
+    id: lux_adc
+    pin: GPIO${pin_ldr}
+    attenuation: 12db
+    update_interval: never
+    internal: true
+  - platform: template
+    name: "Licht"
+    id: lux
+    unit_of_measurement: "lx"
+    accuracy_decimals: 0
+    update_interval: never
+    lambda: |-
+      if (isnan(id(lux_adc).state)) return NAN;
+      return fmaxf(0.0f, id(lux_adc).state) / 3.3f * 10000.0f;
+
+  # --- battery -------------------------------------------------------------
+  - platform: adc
+    id: batt_adc
+    pin: GPIO${pin_batt_adc}
+    attenuation: 12db
+    update_interval: never
+    internal: true
+  - platform: template
+    name: "Batterie"
+    id: battery_v
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    device_class: voltage
+    update_interval: never
+    lambda: |-
+      if (isnan(id(batt_adc).state)) return NAN;
+      const float ratio = (${batt_r_top} + ${batt_r_bottom}) / ${batt_r_bottom};
+      return id(batt_adc).state * ratio;
+
+  - platform: template
+    name: "Batterie %"
+    id: battery_pct
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+    update_interval: never
+    lambda: |-
+      if (isnan(id(battery_v).state)) return NAN;
+      float pct = (id(battery_v).state - ${batt_empty_v}) / (${batt_full_v} - ${batt_empty_v}) * 100.0f;
+      return fmaxf(0.0f, fminf(100.0f, pct));
+
+switch:
+  - platform: gpio
+    id: soil_power
+    pin: GPIO${pin_soil_power}
+    restore_mode: ALWAYS_OFF
+    internal: true

@@ -22,6 +22,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 ESP="$REPO/esphome"
 TEMPLATE="$ESP/smartplanter.yaml"
+BATTERY_TEMPLATE="$ESP/battery-template.yaml"
 NODES="$ESP"
 
 ESPHOME="${ESPHOME:-$(command -v esphome || echo "$HOME/.local/bin/esphome")}"
@@ -31,15 +32,22 @@ die() { echo "error: $*" >&2; exit 1; }
 
 case "${1:-}" in
   new)
-    dev="${2:?usage: add-node.sh new <device> \"<friendly>\"}"
+    dev="${2:?usage: add-node.sh new <device> \"<friendly>\" [battery]}"
     friendly="${3:-$dev}"
+    kind="${4:-}"
     [[ "$dev" =~ ^[a-z0-9-]+$ ]] || die "device must be [a-z0-9-]+"
     mkdir -p "$NODES"
     [ -f "$NODES/$dev.yaml" ] && die "$NODES/$dev.yaml already exists"
+    if [ "$kind" = "battery" ]; then
+      src="$BATTERY_TEMPLATE"
+      [ -f "$src" ] || die "missing $src"
+    else
+      src="$TEMPLATE"
+    fi
     sed -e "s|^  device_name: .*|  device_name: $dev|" \
         -e "s|^  friendly_name: .*|  friendly_name: \"$friendly\"|" \
-        "$TEMPLATE" > "$NODES/$dev.yaml"
-    echo "created $NODES/$dev.yaml (device_name=$dev, friendly=$friendly)"
+        "$src" > "$NODES/$dev.yaml"
+    echo "created $NODES/$dev.yaml (device_name=$dev, friendly=$friendly, kind=${kind:-pump})"
     echo "next: edit it if needed, then: deploy/add-node.sh compile $dev"
     ;;
 

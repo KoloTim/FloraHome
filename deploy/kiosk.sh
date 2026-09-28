@@ -42,7 +42,6 @@ exec "$BROWSER" \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
-  --hide-scrollbars \
   --lang=de \
   --accept-lang=de-DE,de \
   --force-device-scale-factor="$SCALE" \

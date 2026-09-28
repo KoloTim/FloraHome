@@ -1239,6 +1239,130 @@ async def api_flash(
     return result
 
 
+# ---- AI (plant chat + photo identification) --------------------------------- #
+# Provider-agnostic OpenAI-compatible endpoint. Set AI_BASE_URL + AI_API_KEY +
+# AI_MODEL in .env. Works with a free Gemini key, OpenRouter :free models, Groq,
+# ModelScope, etc. If unset, the feature is simply reported as unavailable.
+
+AI_BASE_URL = env("AI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
+AI_API_KEY = env("AI_API_KEY", "")
+AI_MODEL = env("AI_MODEL", "gemini-3.8-flash")
+AI_VISION_MODEL = env("AI_VISION_MODEL", AI_MODEL)
+# Fallbacks tried in order when a model is busy/unavailable (503) or gone (404).
+AI_FALLBACKS = [m.strip() for m in env(
+    "AI_FALLBACKS", "gemini-3.8-flash,gemini-flash-latest,gemini-3.6-flash,gemini-2.5-flash,gemma-4-31b-it"
+).split(",") if m.strip()]
+
+
+async def _ai_chat(messages: list[dict[str, Any]], model: str | None = None,
+                   max_tokens: int = 400) -> str:
+    if not AI_API_KEY:
+        raise HTTPException(status_code=503, detail="AI not configured (set AI_API_KEY)")
+    tried: list[str] = []
+    candidates = [model or AI_MODEL] + [m for m in AI_FALLBACKS if m != (model or AI_MODEL)]
+    last = ""
+    async with httpx.AsyncClient(timeout=45) as client:
+        for m in candidates:
+            tried.append(m)
+            payload = {"model": m, "messages": messages,
+                       "max_tokens": max_tokens, "temperature": 0.7}
+            try:
+                r = await client.post(
+                    f"{AI_BASE_URL.rstrip('/')}/chat/completions",
+                    headers={"Authorization": f"Bearer {AI_API_KEY}",
+                             "Content-Type": "application/json"},
+                    json=payload,
+                )
+            except Exception as exc:  # noqa: BLE001
+                last = str(exc); continue
+            if r.status_code < 400:
+                data = r.json()
+                return (data.get("choices", [{}])[0].get("message", {}) or {}).get("content", "").strip()
+            last = f"{r.status_code}: {r.text[:160]}"
+            if r.status_code not in (429, 503, 404, 500):
+                break
+    raise HTTPException(status_code=502, detail=f"AI unavailable (tried {', '.join(tried)}): {last}")
+
+
+def _plant_context(node_name: str) -> str:
+    n = node(node_name)
+    plant = get_plant(node_name) or {}
+    care = plant.get("care") or {}
+    m = n["metrics"]
+    return (
+        f"Plant node '{node_name}', nickname {plant.get('nickname') or '—'}, "
+        f"species {plant.get('species') or plant.get('name') or 'unknown'}.\n"
+        f"Current readings: moisture={m.get('moisture_pct')}%, temperature={m.get('temp_c')}C, "
+        f"humidity={m.get('humidity')}%, light={m.get('lux')}lx, tank={m.get('tank_pct')}%, "
+        f"pump={n['pump']}, fault={n.get('fault')}, online={node_fresh(n)}.\n"
+        f"Species care ranges: {care}."
+    )
+
+
+@app.get("/api/ai/status")
+async def api_ai_status() -> dict[str, Any]:
+    return {"configured": bool(AI_API_KEY), "model": AI_MODEL, "vision_model": AI_VISION_MODEL,
+            "base_url": AI_BASE_URL}
+
+
+@app.post("/api/ai/chat")
+async def api_ai_chat(body: dict[str, Any], request: Request,
+                      planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    """Chat about a plant. Grounded in the live telemetry + species care data so
+    the answer is about *this* plant, not generic."""
+    require_user(request, planter_session)
+    node_name = str(body.get("node") or _primary_name())
+    question = str(body.get("message", ""))[:1000]
+    system = (
+        "You are FloraHome's friendly plant companion. Answer in German, warmly and "
+        "concretely, based ONLY on the data provided. If the plant seems unwell, say "
+        "what the numbers suggest and what the human should do. Keep it to 2-4 sentences.\n\n"
+        + _plant_context(node_name)
+    )
+    reply = await _ai_chat([{"role": "system", "content": system},
+                            {"role": "user", "content": question}])
+    audit("system", "ai_chat", f"{node_name}: {question[:80]}", client_ip(request))
+    return {"node": node_name, "reply": reply}
+
+
+@app.post("/api/ai/identify")
+async def api_ai_identify(body: dict[str, Any], request: Request,
+                          planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    """Photo -> species guess + profile draft. `image` is a base64 data URL."""
+    require_user(request, planter_session)
+    image = str(body.get("image", ""))
+    if not image.startswith("data:image"):
+        raise HTTPException(status_code=400, detail="image must be a base64 data URL")
+    species_list = ", ".join(p["common_de"] for p in load_plant_db().values())
+    system = (
+        "Du bist ein Pflanzenbestimmer. Antworte NUR mit JSON: "
+        '{"common":"...","scientific":"...","confidence":0-1,"care_hint":"..."}. '
+        f"Bevorzuge diese Arten, wenn sie passen: {species_list}."
+    )
+    content = [
+        {"type": "text", "text": "Bestimme die Pflanze auf dem Foto."},
+        {"type": "image_url", "image_url": {"url": image}},
+    ]
+    reply = await _ai_chat([{"role": "system", "content": system},
+                            {"role": "user", "content": content}],
+                           model=AI_VISION_MODEL, max_tokens=300)
+    guess: dict[str, Any] = {}
+    try:
+        start = reply.find("{"); end = reply.rfind("}")
+        guess = json.loads(reply[start:end + 1])
+    except Exception:  # noqa: BLE001
+        guess = {"common": reply[:120]}
+    # match the guess to our catalog (best effort)
+    match = None
+    common = str(guess.get("common", "")).lower()
+    for p in load_plant_db().values():
+        if common and (common in p["common"].lower() or common in (p.get("common_de") or "").lower()
+                       or p["common"].lower() in common):
+            match = p["id"]; break
+    audit("system", "ai_identify", f"{guess.get('common','?')} -> {match}", client_ip(request))
+    return {"guess": guess, "species_id": match}
+
+
 # ---- hotspot / Wi-Fi settings (applied via the host helper) ----------------- #
 
 HOST_HELPER_URL = env("HOST_HELPER_URL", "http://host.docker.internal:6054")

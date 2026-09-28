@@ -22,6 +22,14 @@
        -webkit-tap-highlight-color:transparent;
        overscroll-behavior:contain;
        -webkit-user-select:none;user-select:none}
+  /* A real, always-visible scrollbar — single-touch panels scroll badly, so give
+     the finger something obvious to aim at. */
+  html{scrollbar-color:var(--accent) var(--card);scrollbar-width:auto}
+  ::-webkit-scrollbar{width:20px;height:20px}
+  ::-webkit-scrollbar-track{background:var(--card);border-radius:10px}
+  ::-webkit-scrollbar-thumb{background:var(--accent);border-radius:10px;
+    border:4px solid var(--card)}
+  ::-webkit-scrollbar-thumb:hover{background:var(--ok)}
   input,textarea{-webkit-user-select:text;user-select:text}
   a,button,input,select,summary{touch-action:manipulation}
   header{position:sticky;top:0;z-index:10;display:flex;gap:12px;align-items:center;
@@ -120,6 +128,15 @@
   .brand .logo,.brand h1{cursor:pointer}
   .plant{box-shadow:inset 0 3px 0 var(--plant,transparent)}
 
+  /* UI scale control */
+  .scalebar{display:inline-flex;gap:6px}
+  .scalebar button{min-width:56px}
+  /* tap feedback for single-touch */
+  .tapfx{position:fixed;width:44px;height:44px;border-radius:50%;pointer-events:none;z-index:97;
+    border:2px solid var(--accent);transform:translate(-50%,-50%) scale(.3);opacity:.9;
+    animation:tapfx .4s ease-out forwards}
+  @keyframes tapfx{to{transform:translate(-50%,-50%) scale(1.6);opacity:0}}
+
   /* toast */
   .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);
     background:var(--card2);border:1px solid var(--accent);color:var(--ink);
@@ -153,6 +170,10 @@
     <span id="conn" class="pill off" role="status">◌ <span id="connText">Verbinde…</span></span>
     <span id="nodeState" class="pill off">◌ <span id="nodeText">Knoten unbekannt</span></span>
   </div>
+  <span class="scalebar" role="group" aria-label="Schriftgröße">
+    <button id="uiSmaller" class="ghost" type="button" title="Kleiner">A−</button>
+    <button id="uiLarger" class="ghost" type="button" title="Größer">A+</button>
+  </span>
   <button id="authBtn" class="ghost" type="button">Anmelden</button>
 </header>
 
@@ -174,9 +195,20 @@
   <section class="card">
     <h2><span class="icon">🪴</span> Pflanzen
       <button id="btnEditPlant" class="ghost" style="margin-left:auto" type="button" disabled>Profil bearbeiten</button>
+      <button id="btnNewPlant" class="ghost" type="button" disabled>📷 Neue Pflanze</button>
       <button id="btnManual" class="ghost" type="button">Hilfe</button>
     </h2>
     <div id="plants" class="plants"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="icon">💬</span> Mit den Pflanzen sprechen</h2>
+    <div id="chatlog" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:auto;margin-bottom:10px"></div>
+    <div class="row" style="display:flex;gap:8px">
+      <input id="chatInput" type="text" placeholder="Wie geht es Moni?" style="flex:1" disabled>
+      <button id="btnChat" class="primary" type="button" disabled>Senden</button>
+    </div>
+    <p class="note" id="aiNote"></p>
   </section>
 
   <section class="card">
@@ -258,6 +290,24 @@
     </div>
   </details>
 </main>
+
+<dialog id="newPlantDlg" aria-labelledby="newPlantH">
+  <form method="dialog" class="dlg-body">
+    <h2 id="newPlantH">📷 Neue Pflanze aus Foto</h2>
+    <p class="note">Mach ein Foto der Pflanze – die KI bestimmt die Art und legt ein Profil an.
+      Danach kannst du einen freien ESP dazu flashen.</p>
+    <input id="npFile" type="file" accept="image/*" capture="environment"
+           style="font:inherit;padding:10px;border:1px dashed var(--line);border-radius:12px;width:100%">
+    <div id="npPreview" style="margin-top:10px"></div>
+    <div class="field"><label for="np-node">Knoten (Config)</label>
+      <select id="np-node" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select></div>
+    <p class="note" id="npResult">Noch kein Foto.</p>
+    <div class="controls" style="grid-template-columns:1fr 1fr">
+      <button value="cancel" type="submit">Schließen</button>
+      <button id="np-confirm" class="primary" type="button" disabled>Profil anlegen</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="plantDlg" aria-labelledby="plantH">
   <form method="dialog" class="dlg-body">
@@ -563,6 +613,9 @@ function setAuthed(v){
     : "Das Dashboard ist schreibgeschützt. Zum Steuern bitte anmelden.";
   const fb = $("btnFlash"); if(fb) fb.disabled = !v;
   const ep = $("btnEditPlant"); if(ep) ep.disabled = !v;
+  const npl = $("btnNewPlant"); if(npl) npl.disabled = !v;
+  const ci = $("chatInput"), cb = $("btnChat");
+  if(ci) ci.disabled = !v; if(cb) cb.disabled = !v;
   loadTables();
 }
 async function checkMe(){ try{ setAuthed((await json("/api/me")).authenticated); }catch(e){ setAuthed(false); } }
@@ -742,6 +795,83 @@ async function greetChanges(){
 }
 const greeted = {};
 
+/* ------------------------------------------------------------------------ AI */
+const chatLog = (who, text) => {
+  const el = document.createElement("div");
+  el.style.cssText = `padding:10px 12px;border-radius:12px;max-width:88%;${
+    who==="me" ? "align-self:flex-end;background:var(--accent);color:var(--accent-ink)"
+               : "align-self:flex-start;background:var(--card2);border:1px solid var(--line)"}`;
+  el.textContent = text;
+  $("chatlog").appendChild(el);
+  $("chatlog").scrollTop = 1e9;
+};
+async function loadAI(){
+  try{
+    const st = await json("/api/ai/status");
+    $("aiNote").textContent = st.configured
+      ? `KI aktiv (${st.model}).`
+      : "KI nicht konfiguriert – setze AI_API_KEY in .env (kostenlos: Google AI Studio / OpenRouter :free).";
+    return st.configured;
+  }catch(e){ $("aiNote").textContent = "KI-Status unbekannt."; return false; }
+}
+async function sendChat(){
+  const q = $("chatInput").value.trim(); if(!q) return;
+  chatLog("me", q); $("chatInput").value = "";
+  chatLog("plant", "…");
+  const last = $("chatlog").lastChild;
+  try{
+    const r = await json("/api/ai/chat", {method:"POST", body: JSON.stringify({message:q, node: primaryNode()})});
+    last.textContent = r.reply || "(keine Antwort)";
+  }catch(e){ last.textContent = "Fehler: " + e.message; }
+}
+$("btnChat").onclick = sendChat;
+$("chatInput").addEventListener("keydown", e => { if(e.key === "Enter") sendChat(); });
+
+/* ------------------------------------------------- photo -> new plant entry */
+let npGuess = null;
+async function openNewPlant(){
+  await loadSpecies();
+  const nodes = (await json("/api/nodes/available")).nodes || [];
+  $("np-node").innerHTML = nodes.map(n => `<option value="${n}">${n}</option>`).join("");
+  $("npPreview").innerHTML = ""; $("npResult").textContent = "Noch kein Foto.";
+  $("np-confirm").disabled = true; npGuess = null;
+  $("newPlantDlg").showModal();
+}
+$("btnNewPlant").onclick = openNewPlant;
+$("npFile").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const dataUrl = reader.result;
+    $("npPreview").innerHTML = `<img alt="Vorschau" style="max-width:100%;border-radius:12px" src="${dataUrl}">`;
+    $("npResult").textContent = "KI bestimmt die Pflanze…";
+    try{
+      const r = await json("/api/ai/identify", {method:"POST", body: JSON.stringify({image: dataUrl})});
+      npGuess = r;
+      const g = r.guess || {};
+      $("npResult").textContent = `Erkannt: ${g.common || "?"} (${g.scientific || "?"})` +
+        (r.species_id ? " – im Katalog ✅" : " – nicht im Katalog") +
+        (g.care_hint ? ` · ${g.care_hint}` : "");
+      $("np-confirm").disabled = false;
+    }catch(err){
+      $("npResult").textContent = "Bestimmung fehlgeschlagen: " + err.message;
+    }
+  };
+  reader.readAsDataURL(f);
+});
+$("np-confirm").onclick = async () => {
+  const node = $("np-node").value;
+  if(!node) return;
+  const body = { species_id: npGuess && npGuess.species_id,
+                 name: (npGuess && npGuess.guess && npGuess.guess.common_de) ||
+                       (npGuess && npGuess.guess && npGuess.guess.common) || null };
+  try{
+    await json(`/api/plant/${encodeURIComponent(node)}`, {method:"PUT", body: JSON.stringify(body)});
+    toast(`🌱 Profil für ${node} angelegt`);
+    $("newPlantDlg").close(); refresh();
+  }catch(e){ alert("Anlegen fehlgeschlagen: " + e.message); }
+};
+
 /* ------------------------------------------------------------------- devices */
 async function loadDevices(){
   try{
@@ -840,8 +970,29 @@ if(!localStorage.getItem("fhHint")){
   const s = document.createElement("style");
   s.textContent = `button{min-height:48px}
     .pill{min-height:40px}
-    header .ghost{min-width:96px}`;
+    header .ghost{min-width:80px}`;
   document.head.appendChild(s);
+
+  // visible ripple on every tap, so a single-touch panel feels responsive
+  document.addEventListener("pointerdown", e => {
+    const r = document.createElement("span");
+    r.className = "tapfx";
+    r.style.left = e.clientX + "px"; r.style.top = e.clientY + "px";
+    document.body.appendChild(r);
+    setTimeout(() => r.remove(), 420);
+  }, {passive:true});
+})();
+
+/* --------------------------------------------------------------- UI scaling
+ * The 800x480 panel is tight. Let the user scale the whole UI from the header.
+ * Persisted so the kiosk keeps the choice. */
+(function uiScale(){
+  const KEY = "fhScale";
+  let s = parseFloat(localStorage.getItem(KEY) || "1");
+  function apply(){ document.documentElement.style.fontSize = (17 * s) + "px"; }
+  apply();
+  $("uiLarger").onclick = () => { s = Math.min(1.6, s + 0.1); localStorage.setItem(KEY, s); apply(); };
+  $("uiSmaller").onclick = () => { s = Math.max(0.8, s - 0.1); localStorage.setItem(KEY, s); apply(); };
 })();
 
 /* --------------------------------------------------------------------- start */
@@ -853,6 +1004,7 @@ if(!localStorage.getItem("fhHint")){
   await loadTables();
   await loadChart();
   await loadDevices();
+  await loadAI();
   connect();
   setInterval(async()=>{ await refresh(); await refreshHalted(); }, 15000);
   setInterval(loadTables, 20000);
