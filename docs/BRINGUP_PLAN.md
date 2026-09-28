@@ -4,6 +4,11 @@ Ordered, verifiable stages. Each stage ends with a **pass criterion**. Do not
 start the next stage until the current one passes — that is how you keep a
 failure attributable to one wire/sensor.
 
+> **Our parts differ from the stock design — see [`ACTUAL_HARDWARE.md`](ACTUAL_HARDWARE.md).**
+> Phase A here is **DHT11 + LDR + HW-390 soil**; there is **no BH1750 and no
+> ultrasonic/tank sensor**. The active firmware is `esphome/smartplanter.yaml`
+> v1.1.0 (customised).
+
 Current state (see `../DEPLOYMENT_HANDOFF.md`): Pi stack healthy, ESP32 online,
 `fault = dht22,bh1750,jsn_sr04t,`, nothing wired.
 
