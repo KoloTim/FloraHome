@@ -171,7 +171,11 @@ Toolchain download ≈ 1.5 GB. Needs ~3 GB free.
 
 ---
 
-## 6. SD-card clone (15 GB → 32 GB)
+## 6. SD-card clone (15 GB → 32 GB) — done
+
+**Outcome:** the live 15 GB card was cloned to a 32 GB card. The Pi now boots
+from the 32 GB card: `mmcblk0` = 29.1 GiB, root = 28 GB (17 GB free). All Docker
+images/volumes and `~/smartplanter` came across. The old card is the backup.
 
 `rpi-clone` runs **on the Pi** against a card in a USB reader.
 
@@ -182,12 +186,45 @@ sudo cp rpi-clone/rpi-clone /usr/local/sbin/ && sudo chmod +x /usr/local/sbin/rp
 
 # stop heavy writers for a consistent snapshot
 cd ~/smartplanter && docker compose stop
-sudo umount /dev/sda                       # reader target, if auto-mounted
-sudo rpi-clone sda -f -U                   # -f force-init, -U unattended
+sudo umount /dev/sda                        # reader target, if auto-mounted
+sudo rpi-clone sda -f -U                    # -f force-init, -U unattended
 ```
 
-`rpi-clone` images the booted partition layout, syncs the filesystems and grows
-the destination root to fill the card. When done: power off, swap cards, boot.
+### ⚠️ rpi-clone over SSH — its finalisation can be cut off
+
+When `rpi-clone` is launched from a remote (non-interactive) SSH session it may
+be killed after the **root rsync** finishes but **before** it syncs the boot
+partition and rewrites `fstab`/`cmdline.txt` to the destination PARTUUID. The
+result *looks* done but is **unbootable** (empty boot partition; fstab pointing
+at the source PARTUUID).
+
+Check and finish it manually (this is what was actually needed):
+
+```bash
+sudo mount /dev/sda2 /mnt/clone
+sudo mount /dev/sda1 /mnt/cloneboot
+
+# 1. boot partition was empty -> copy it
+sudo rsync -a --delete /boot/firmware/ /mnt/cloneboot/
+
+# 2. point the clone at its OWN PARTUUIDs (read them with blkid /dev/sda1 /dev/sda2)
+sudo sed -i 's/<OLD>-01/<NEW>-01/g; s/<OLD>-02/<NEW>-02/g' /mnt/clone/etc/fstab
+sudo sed -i 's/root=PARTUUID=<OLD>-02/root=PARTUUID=<NEW>-02/g' /mnt/cloneboot/cmdline.txt
+
+sync
+sudo umount /mnt/cloneboot /mnt/clone
+```
+
+In this deployment `<OLD>` was `e24cffd1` (source) and `<NEW>` was `1b74d8ed`
+(the PARTUUIDs rpi-clone generated on `/dev/sda`).
+
+Before powering off, confirm:
+`fstab` and `cmdline.txt` both reference the **destination** PARTUUIDs and the
+boot partition actually contains `cmdline.txt`, `config.txt`, `kernel*.img`,
+`*.dtb`, `overlays/`.
+
+**After the swap:** the cloned containers were captured *stopped*, so run
+`cd ~/smartplanter && docker compose up -d` after the first boot.
 
 **Power note:** plugging the USB reader caused one Pi reboot during the first
 attempt. Use a good supply; keep hot-plugging to a minimum.
