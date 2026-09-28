@@ -15,10 +15,10 @@ rework.
 | Demo host | Raspberry Pi 4B, hostname `Tim`, **192.168.91.68**, user `tim` / `timtimtim` |
 | SSH to Pi | works with paramiko (password); a helper script exists (see §7) |
 | Stack dir | `/home/tim/smartplanter` (Docker Compose project `smartplanter`) |
-| Containers | mosquitto, influxdb, telegraf, api, web, grafana, **esphome** (:6052), **flasher** (:6053) |
+| Containers | mosquitto, influxdb, telegraf, api, web, **esphome** (:6052), **flasher** (:6053) |
 | Dashboard | `http://192.168.91.68:8098` (kiosk runs it full-screen on the panel) |
 | API | `http://192.168.91.68:8097` (`/docs`, `/api/state`, `/health`) |
-| Grafana | `:3030` (anonymous Viewer) |
+| Graphs | built into the dashboard (**Verlauf** tab); Grafana removed |
 | ESPHome UI | `:6052` (build + OTA) |
 | **Host helper** | systemd `florahome-host-helper` on **:6054** (root; hotspot + USB flash + audio) |
 | Nodes | `plant-a` = `10.42.0.10` (`5c:01:3b:be:98:f4`), `plant-b` = `10.42.0.11` (`e0:8c:fe:e5:82:f4`) |
@@ -128,9 +128,15 @@ Also present on USB: `/dev/ttyUSB0` = plant-a, `/dev/ttyUSB1` = plant-b.
 ## 7. Dashboard
 
 Single file `web/index.html` (no build step; nginx serves it directly).
-Tabbed pages: **Übersicht · Steuern · KI · Backend**. Features:
+Tabbed pages: **Übersicht · Steuern · Verlauf · Backend**. Features:
 
-- Plant moodboard cards; per-node selector drives every control.
+- **Flori**, the animated floating companion (Clippy-style): contextual plant
+  tips, draggable, tap opens the chat. Chat lives at the **top of Übersicht**
+  (no separate KI tab any more).
+- **Verlauf** tab: per-metric charts from `/api/history` (InfluxDB, memory
+  fallback) — Grafana is gone.
+- Plant moodboard cards; one global plant selector in the header drives every
+  control.
 - Backend page: technical cards + "Details" dialog (GPIO pin map, firmware, raw
   `soil_v`/`ldr_v`, RSSI, uptime/restarts, fault, MQTT topics, test command).
 - Calibration, watering settings (per node), diary, history chart.
@@ -147,9 +153,21 @@ Tabbed pages: **Übersicht · Steuern · KI · Backend**. Features:
 2. **Wire plant-b's sensors** (DHT11→GPIO27, LDR→GPIO35, soil→GPIO34 power GPIO25).
 3. **USB mic** for voice input.
 4. **OTA is manual** — decide if you want a scheduled auto-OTA (not built).
-5. Chat/voice require login (writes are protected); kiosk has no saved session.
+5. Chat/voice require login (writes are protected). Login is now a dialog, but
+   the kiosk still has no saved session, so you re-login after each restart.
+   API keys can be set at runtime in **Backend → API-Schlüssel & Zugänge**.
 6. Battery node (`battery-template.yaml`) not yet built/flashed on real hardware.
-7. Touch panel is physically single-touch (no pinch) even with the bridge.
+7. Touch panel is physically single-touch (no pinch) even with the bridge; the
+   UI is optimised for pressure input but the panel itself is the limit.
+
+### Deploying these changes to the Pi
+
+```bash
+ssh tim@192.168.91.68
+cd ~/smartplanter && git pull
+docker compose up -d --build api web     # rebuild api, refresh web
+docker compose up -d --remove-orphans    # drops the old grafana container
+```
 
 ---
 

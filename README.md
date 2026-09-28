@@ -7,7 +7,7 @@ account.
 
 ![FloraHome dashboard](docs/img/dashboard-dark.png)
 
-> **New here?** Start with [`docs/TUTORIALS.md`](docs/TUTORIALS.md) � handoff: [`docs/HANDOFF_NEXT_SESSION.md`](docs/HANDOFF_NEXT_SESSION.md).
+> **New here?** Start with [`docs/TUTORIALS.md`](docs/TUTORIALS.md) � handoff: [`docs/HANDOFF_NEXT_SESSION.md`](docs/HANDOFF_NEXT_SESSION.md).
 > How it all fits together: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 > (with diagrams). Real Pi + ESP32 deployment log:
 > [`DEPLOYMENT_HANDOFF.md`](DEPLOYMENT_HANDOFF.md). Breadboard wiring, one sensor
@@ -23,7 +23,9 @@ account.
 - **The plant is safe even if the Pi dies.** The pump relay is forced off on boot
   and every dose is clamped to 45 s **in firmware** — the Pi only decides *when*.
 - **Comfort on the Pi.** Auto-watering, cooldowns, daily caps, Telegram alerts,
-  audit trail, history in InfluxDB, Grafana.
+  audit trail, history in InfluxDB, and a built-in graph dashboard.
+- **Flori, the plant companion.** An animated mascot floats over the dashboard,
+  hands out contextual tips and answers questions about your plants.
 - **Moodboard.** Give each plant a species from the built-in catalog (Monstera,
   Snake Plant, Calathea…) and it gets a nickname, an avatar, and a live *mood*
   derived from how its readings compare to that species' care range.
@@ -44,11 +46,10 @@ account.
 | `planter-telegraf` | MQTT → InfluxDB writer (`planter/+/telemetry`) | – |
 | `planter-api` | per-node rules, alerts, audit, history, plants, SSE | 8097 |
 | `planter-web` | dashboard + reverse proxy (nginx) | 8098 |
-| `planter-grafana` | bonus: stock Grafana dashboard | 3030 |
 | `planter-esphome` | optional (tools): build + OTA the nodes from a browser | 6052 |
 | `planter-flasher` | optional (tools): detect + flash ESPs over USB | 6053 |
 
-Data path: **ESP32 → MQTT → { Telegraf → InfluxDB → Grafana }** and
+Data path: **ESP32 → MQTT → { Telegraf → InfluxDB }** and
 **→ API → SSE → dashboard**, plus **→ Home Assistant** via retained discovery.
 
 ---
@@ -67,7 +68,7 @@ docker compose up -d --force-recreate api
 |---|---|
 | Dashboard | http://&lt;host&gt;:8098 |
 | API docs / state | http://&lt;host&gt;:8097/docs · `/api/state` |
-| Grafana | http://&lt;host&gt;:3030 |
+| Verlauf (graphs) | dashboard tab, no extra service |
 | ESPHome (tools) | http://&lt;host&gt;:6052 |
 
 ### Add a plant (one command per node)
@@ -89,8 +90,8 @@ Then give it a species/avatar in the dashboard (**Profil bearbeiten**).
 ```mermaid
 graph LR
   P["🌱 ESP32 nodes<br/>planter/&lt;node&gt;/…"] --> MQ["mosquitto"]
-  MQ --> TG["telegraf"] --> IN["influxdb"] --> GF["grafana"]
-  MQ --> API["api"] --> WEB["web dashboard"]
+  MQ --> TG["telegraf"] --> IN["influxdb"]
+  MQ --> API["api"] --> WEB["web dashboard<br/>+ Verlauf graphs + Flori"]
   API --> HA["🏠 Home Assistant"]
   API --> TG2["📱 Telegram"]
 ```
@@ -135,7 +136,7 @@ Telemetry payload:
 Failure mode of a crashed Pi: *the plant goes thirsty*, never *the plant drowns*.
 
 Guards: per-node cooldown, daily cap, tank-low block, dry-soil alert that
-re-raises until moisture rises. Rules and tuning: [`docs/ALERTS.md`](docs/ALERTS.md) � AI: [`docs/AI.md`](docs/AI.md) � battery: [`docs/BATTERY.md`](docs/BATTERY.md) � voice: [`docs/VOICE.md`](docs/VOICE.md).
+re-raises until moisture rises. Rules and tuning: [`docs/ALERTS.md`](docs/ALERTS.md) � AI: [`docs/AI.md`](docs/AI.md) � battery: [`docs/BATTERY.md`](docs/BATTERY.md) � voice: [`docs/VOICE.md`](docs/VOICE.md).
 
 ---
 
@@ -160,7 +161,8 @@ re-raises until moisture rises. Rules and tuning: [`docs/ALERTS.md`](docs/ALERTS
 - Login rate-limited (10 failures/IP → 5-min lockout).
 - Every config change, command, login, failure, alert and flash is written to the
   `audit` table with actor + IP + timestamp.
-- Anonymous Grafana is **Viewer only**.
+- API keys can be viewed masked / rotated from the Backend tab; values are stored
+  server-side and applied without a restart.
 - Secrets (`esphome/secrets.yaml`, `.env`, `data/`) are gitignored; compiled
   firmware contains Wi-Fi/MQTT passwords and is never committed.
 

@@ -29,8 +29,7 @@ graph TB
       TG["telegraf<br/>MQTT → Influx"]
       IN["influxdb<br/>time-series :8086"]
       API["api (FastAPI)<br/>rules · alerts · audit · SSE :8097"]
-      WEB["web (nginx)<br/>dashboard + reverse proxy :8098"]
-      GRAF["grafana<br/>bonus dashboards :3030"]
+      WEB["web (nginx)<br/>dashboard + Verlauf graphs + Flori :8098"]
       ESPH["esphome dashboard<br/>build + OTA :6052 (profile tools)"]
     end
     KIOSK["Chromium kiosk<br/>800×480 touch panel"]
@@ -72,8 +71,7 @@ thirsty", never "the plant drowns".
 | `planter-influxdb` | influxdb:2.7 | time-series history (30 d) | 8086 |
 | `planter-telegraf` | telegraf:1.32-alpine | subscribes `planter/+/telemetry`, writes Influx | – |
 | `planter-api` | built from `api/` | per-node rules, alerts, audit, history, SSE | 8097 |
-| `planter-web` | nginx:1.27-alpine | dashboard + `/api` reverse proxy | 8098 |
-| `planter-grafana` | grafana-oss:11.5.1 | optional analytics; anonymous = Viewer | 3030 |
+| `planter-web` | nginx:1.27-alpine | dashboard + Verlauf graphs + `/api` reverse proxy | 8098 |
 | `planter-esphome` | esphome/esphome:2025.8 | build + **OTA-flash** nodes from a browser | 6052 |
 
 Start the optional ESPHome dashboard with `docker compose --profile tools up -d`.
@@ -275,7 +273,9 @@ to `audit` with actor + IP + timestamp.
 - Dashboard is **read-only until login**; every `PUT`/`POST` needs an
   HMAC-signed session cookie (12 h).
 - Login is rate-limited (10 failures from one IP → 5-minute lockout).
-- Grafana anonymous role is **Viewer** only.
+- API keys are stored masked; they can be rotated from the Backend tab and apply
+  without a restart. The history graphs are rendered by the dashboard itself, so
+  no separate Grafana container is shipped any more.
 - Secrets (`esphome/secrets.yaml`, `.env`, `data/`) are gitignored; compiled
   firmware contains Wi-Fi/MQTT passwords and is never committed.
 

@@ -1,11 +1,30 @@
 # Status — live build log
 
-_Last updated: 2026-09-28 (night)._
+_Last updated: 2026-09-29._
+
+## Neu (Dashboard-/Resilienz-Session)
+
+- **Flori**: animiertes Maskottchen als schwebender Begleiter (Clippy-Style) mit
+  kontextuellen Pflanzentipps; antippbar (öffnet den Chat), verschiebbar,
+  ausblendbar. Der Chat ist nach ganz oben in **Übersicht** gezogen, der separate
+  **KI-Tab ist weg**.
+- **Verlauf-Tab**: eigenes Diagramm-Dashboard (Bodenfeuchte, Temperatur,
+  Luftfeuchte, Licht, Tank, Rohspannung, RSSI) direkt aus InfluxDB. **Grafana
+  entfernt** (InfluxDB + Telegraf bleiben der Datenspeicher).
+- **Knoten-Resilienz**: Offline-Erkennung jetzt konfigurierbar (Standard **90 s**
+  statt hart 30 s), LWT/Birth wird respektiert, kein Wiederbeleben durch retained
+  „online“ beim Reconnect, Regeln gießen nicht mehr auf veralteten Werten.
+- **Tagebuch**: Erklärung + Einstellungen (automatische Einträge, Intervall in
+  Tagen) pro Pflanze; Timer übersteht Neustarts.
+- **Resistive-Touch**: größere Ziele, Press-Feedback, Phantom-Klick-Filter,
+  20 px Drag-Totzone, echter Login-Dialog statt `prompt()`, NOT-AUS zweistufig.
+- **Backend**: „API-Schlüssel & Zugänge“ (maskiert, zur Laufzeit änderbar,
+  ohne Neustart) + „System & Status“-Karte.
 
 ## Done
 
 - **Pi** (`Tim`, `192.168.91.68`): full stack; dashboard `:8098`, API `:8097`,
-  Grafana `:3030`, InfluxDB `:8086`, Mosquitto healthy.
+  InfluxDB `:8086`, Mosquitto healthy.
 - **Multi-node**: `plant-a` (`10.42.0.10`, Monstera "Moni") and `plant-b`
   (`10.42.0.11`, Sansevieria "Sanse") on their own MQTT namespaces and Home
   Assistant devices. OTA works (Pi hotspot `FloraHome`).
