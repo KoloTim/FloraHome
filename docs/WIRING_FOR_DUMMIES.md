@@ -122,6 +122,95 @@ Steps:
 
 ---
 
+## Actuator 1 — Buzzer
+
+The buzzer only sounds on things the node itself can see (button press, NOT-AUS
+acknowledge). It is **not** a sensor, so it never appears in the `fault` list.
+
+| Buzzer pin | Connect to |
+|---|---|
+| VCC / + | **5 V** (logic buck, *not* the 3.3 V rail, if it is an active 5 V module) |
+| GND / − | **GND** (blue rail / common ground) |
+| SIG / IN | **GPIO 14** |
+
+Steps:
+1. USB **out**.
+2. Active 5 V module: VCC → 5 V, GND → GND, SIG → GPIO 14. Done.
+3. USB **in**. Tap **"Wasser jetzt"** once — you should hear a short beep.
+4. If it is a *bare* piezo buzzer (no driver board): do **not** hang it straight on
+   the pin. Use an NPN transistor — base → 1 kΩ → GPIO 14, collector → buzzer −,
+   buzzer + → 5 V, emitter → GND.
+
+> The dashboard **Buzzer** switch and the `{"action":"buzzer"}` command both drive
+> GPIO 14, so you can test it from the web UI without touching the board.
+
+---
+
+## Actuator 2 — Relay module (pump + grow light)  ← the 12 V part
+
+⚠️ **Stop and read this whole section before wiring.** This is the part that can
+fry a pump or a GPIO. Everything here is **screw terminal**, never breadboard.
+
+**The two-bus rule (repeat it out loud):**
+
+| Bus | Feeds | Never |
+|---|---|---|
+| **5 V logic** | ESP32 + relay coils | — |
+| **12 V** | pump + grow light (through the relay) | **never** the ESP32, never the breadboard |
+
+### The relay module
+
+Most HLS8L / blue relay boards are **active LOW** and need a driver:
+
+| Relay module pin | Connect to |
+|---|---|
+| VCC | **5 V** (logic buck) |
+| GND | **GND** (tie to the ESP32 GND at the buck, one point) |
+| IN1 | **GPIO 26** (pump) |
+| IN2 | **GPIO 13** (grow light) |
+
+- **10 kΩ from GPIO 26 to GND** — stops the relay chattering on boot.
+- If the module has **no** driver transistor, add an NPN + flyback diode yourself.
+  A GPIO is ~12–40 mA; a relay coil is 70–90 mA. Don't hang it straight on the pin.
+
+### The pump (R385, 12 V diaphragm)
+
+```
+ +12V ──[ 2 A inline fuse ]──┬────────── relay COM
+                             │
+                     relay NO ┴── pump +        pump − ── GND (12 V)
+                     (flyback diode across the pump, cathode to +12V)
+```
+
+- The relay switches the pump's **own 12 V feed** — the ESP32 never sees 12 V.
+- **2 A fuse** on the 12 V input. Screw terminals or soldered joints only.
+- Flyback diode across the pump (cathode to +12 V) kills the turn-off spike.
+
+### The grow light
+
+Same idea on the second relay channel (IN2 → GPIO 13). Feed the light from 12 V
+through the relay's COM/NO. Keep its wiring away from the sensor jumpers.
+
+### Active level — measure, don't guess
+
+1. Power the relay module, ESP32 **not** yet driving the pin.
+2. Multimeter on the relay's **IN** pin:
+   - **3.3 V at rest → active LOW** → set `relay_inverted: "true"` in
+     `esphome/smartplanter.yaml`.
+   - **0 V at rest → active HIGH** → leave `"false"`.
+3. Then connect the pump. **It must not twitch** at boot. If it does, fix the
+   pull-down / the active level first.
+
+### Safety checks after wiring (the ones that matter)
+
+- Hold **"Wasser jetzt"** for 60 s → the pump must stop on its own at **45 s**
+  (firmware ceiling, `pump_max_seconds`).
+- Pull the ESP32's power mid-dose → pump off. Power back → still off.
+- Trigger **NOT-AUS** from the dashboard → pump and light off, auto-watering
+  blocked even at 5 % moisture. Clear it → watering works again.
+
+---
+
 ## How to watch it working
 
 - Open **http://192.168.91.68:8098** from your PC/phone. The tiles update every
@@ -131,8 +220,8 @@ Steps:
 ## Safety / rules
 
 - **Unplug USB before re-wiring.** Only 3.3 V on the breadboard for now.
-- The **12 V pump/light do NOT go on the breadboard** — that's the later phase
-  with screw terminals and a separate supply.
+- The **12 V pump/light do NOT go on the breadboard** — use the screw-terminal
+  method in **Actuator 2** with a separate supply and a 2 A fuse.
 - Never feed a sensor from the `VIN`/`5V` pin in this phase.
 - Keep the ESP32 and jumpers clear of the 12 V wiring when we get there.
 
@@ -144,4 +233,7 @@ Steps:
 | Bodenfeuchte stuck at 100 % | AOUT on wrong pin, VCC not on GPIO25, or uncalibrated |
 | Licht always ~0 | LDR/10 kΩ swapped, or reading is genuinely dark |
 | Fault lists a sensor you wired | re-seat the jumper in the correct **GPIO** row |
+| Buzzer silent | VCC not on 5 V, SIG not on GPIO 14, or a bare piezo with no NPN driver |
+| Pump runs at boot | relay is active LOW → `relay_inverted: "true"` **and** 10 kΩ pull-down on GPIO 26 |
+| Pump hums, moves no water | airlocked — submerge/prime it; do not run it dry |
 | Nothing on dashboard | check the node is online: `curl http://192.168.91.68:8097/api/state` |

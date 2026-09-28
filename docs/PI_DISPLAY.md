@@ -17,20 +17,37 @@ already includes Chromium.
 ### One-shot setup
 
 ```bash
-# on the Pi
-bash deploy/setup-kiosk.sh          # from a checkout of this repo, on the Pi
+# on the Pi, from a checkout of this repo
+bash deploy/setup-kiosk.sh    # installs deploy/kiosk.sh + autostart + policy
 ```
 
-That script installs Chromium if missing, disables blanking, and drops an
+That script installs Chromium if missing, drops the launcher `deploy/kiosk.sh`,
+installs a Chromium policy that disables the translate bubble, and adds an
 autostart entry so the dashboard opens full-screen after login.
 
-### What it runs
+### What it runs — `deploy/kiosk.sh`
 
-```
-chromium-browser --kiosk --noerrdialogs --disable-infobars \
-  --incognito --check-for-update-interval=31536000 \
+```bash
+chromium --kiosk \
+  --ozone-platform=wayland --enable-features=UseOzonePlatform \
+  --disable-features=Translate,TranslateUI,MediaRouter,OptimizationHints \
+  --disable-translate --noerrdialogs --disable-infobars --hide-scrollbars \
+  --lang=de --force-device-scale-factor=0.85 \
+  --user-data-dir="$HOME/.config/planter-kiosk" \
   http://localhost:8098/
 ```
+
+`--ozone-platform=wayland` is required on the Pi OS **labwc** session — without
+it Chromium tries X11 and exits with *"Missing X server or $DISPLAY"*. The scale
+factor makes the whole overview fit the 800×480 panel.
+
+### Touch
+
+The kiosk is touch-ready, but the panel's **USB touch cable must be connected**
+to the Pi — a 5" HDMI panel carries video only over HDMI. Verify with `lsusb`
+(a HID touchscreen should appear) and `libinput list-devices`. Add
+`--touch-events=enabled` to the Chromium flags if taps are not registering, and
+a libinput calibration/rotation matrix if the axes are rotated.
 
 ### Turn on desktop autologin
 

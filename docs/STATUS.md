@@ -1,6 +1,6 @@
 # Status — live build log
 
-_Last updated: 2026-09-28._
+_Last updated: 2026-09-28 (evening)._
 
 ## Done
 
@@ -8,37 +8,58 @@ _Last updated: 2026-09-28._
   from the 15 GB card). Dashboard `:8098`, API `:8097`, Grafana `:3030`,
   InfluxDB `:8086`, Mosquitto healthy.
 - **Repo published:** https://github.com/KoloTim/FloraHome
-- **Node #1** (ESP32 `5c:01:3b:be:98:f4`, /dev/ttyUSB0): flashed **firmware
-  1.1.0** — DHT11, LDR on GPIO35, HW-390 soil, no tank sensor.
-- Live telemetry to the Pi every 10 s (`device: smartplanter`).
+- **Node #1** (ESP32 `5c:01:3b:be:98:f4`): flashed **firmware 1.2.0** — DHT11,
+  LDR on GPIO35, HW-390 soil, no tank sensor.
+- **OTA is enabled.** Node #1 now joins the **Pi's own 2.4 GHz hotspot
+  `FloraHome`** (`10.42.0.10`), so its web UI (`:80`) and OTA (`:3232`) are
+  reachable again. `esphome upload smartplanter.yaml --device 10.42.0.10`
+  succeeds over Wi-Fi (~21 s, no USB).
+- **ESPHome web dashboard** running at `http://192.168.91.68:6052`
+  (compose profile `tools`) for browser-based OTA.
+- **Pi display kiosk**: Chromium full-screen on the 800×480 HDMI panel,
+  auto-started via `~/.config/autostart/planter-kiosk.desktop` +
+  `deploy/kiosk.sh`; verified after a reboot.
 - Fixed API alias bug (`api/app.py`): relay field `light` no longer clobbers
   numeric `lux`.
-- Pi display plan + kiosk script (`PI_DISPLAY.md`, `deploy/setup-kiosk.sh`).
 
-## Current sensor state (firmware 1.1.0)
+## Current sensor state (firmware 1.2.0)
 
 | Reading | Value | Verdict |
 |---|---|---|
-| `lux` (LDR, GPIO35) | ~679 | ✅ working |
-| `moisture_pct` (HW-390, GPIO34) | 100 | ⚠️ uncalibrated / check wiring |
-| `temp_c` / `humidity` (DHT11, GPIO27) | absent | ❌ `dht11` in `fault` |
-| `rssi` | ~−62 | ✅ |
-| `fault` | `dht11` | – |
+| `lux` (LDR, GPIO35) | ~4000 | ✅ working |
+| `temp_c` / `humidity` (DHT11, GPIO27) | ~22 °C / ~73 % | ✅ working |
+| `moisture_pct` (HW-390, GPIO34) | 0–100 | ⚠️ uncalibrated (`soil_v ≈ 2.6 V`) |
+| `rssi` | ~−40 | ✅ |
+| `fault` | `ok` | ✅ |
 
 ## Next actions
 
-1. **Fix the DHT11** — `[W][dht:050]: Invalid readings! Check pin number and
-   pull-up resistor.` Wire DATA→**GPIO27**, VCC→3V3, GND→GND, **10 kΩ DATA↔3V3**
-   (many modules lack it). Confirm it's a DHT11 (firmware model).
-2. **Check the HW-390** — AOUT→GPIO34, VCC→GPIO25, GND→GND. `moisture_pct` 100
-   with an uncalibrated probe is expected; calibrate in air vs tap water.
-3. **Next firmware build** adds **raw `soil_v` and `ldr_v` to telemetry** so
-   calibration can be done over MQTT (OTA is unavailable behind the NAT).
-4. Then Phase C (relay + 12 V pump, bucket of water) and Phase E (Pi display).
+1. **Calibrate the HW-390** — `bash deploy/calibrate.sh soil`, or send
+   `{"action":"cal","soil_dry_v":X,"soil_wet_v":Y}` on `planter/cmd`. Runtime
+   calibration persists on the node; no reflash.
+2. **Wire the buzzer + relay/pump** — see `WIRING_FOR_DUMMIES.md` (Actuators).
+3. Then Phase C bench safety checks (bucket of water) and Phase E polish.
 
 ## Open issues
 
-- **`Group1` is NATed** → node web UI + OTA unreachable. USB flashing for now.
-- **Node #2** (ESP32 `e0:8c:fe:e5:82:f4`, /dev/ttyUSB1) **not flashed** — needs
-  the multi-node rework first (absolute `planter/cmd` would water both plants).
+- **Pi touchscreen not detected** — `lsusb` shows only a hub + the CP210x
+  (ESP32); there is no HID touch device and nothing on I²C. The display's USB
+  **touch cable must be connected** before touch can work. Then Chromium needs
+  `--touch-events=enabled` and, if the axes are rotated, a libinput calibration
+  matrix.
+- **Node #2** (ESP32 `e0:8c:fe:e5:82:f4`) **not flashed** — needs the
+  multi-node rework first (absolute `planter/cmd` would water both plants).
 - No JSN-SR04T → tank feature intentionally absent.
+
+## Operations (on the Pi)
+
+```bash
+# OTA from the Pi CLI (no USB):
+cd ~/smartplanter/esphome && esphome upload smartplanter.yaml --device 10.42.0.10
+
+# OTA from a browser on the LAN:
+#   http://192.168.91.68:6052   (login: ADMIN_USER / ADMIN_PASSWORD from .env)
+
+# kiosk:
+sudo systemctl restart lightdm        # or just reboot; kiosk comes up by itself
+```

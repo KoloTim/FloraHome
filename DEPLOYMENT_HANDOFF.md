@@ -45,15 +45,16 @@ relay still opens.
 
 - The Pi is on the wired LAN `192.168.91.0/24` (`eth0 = 192.168.91.68`).
 - The Pi's `wlan0` is on `FortLife` (5 GHz, `10.34.53.x`) — not used by the node.
-- The ESP32 joins **`Group1`** (2.4 GHz). `Group1` is a **NATed hotspot**:
-  its WAN address on the LAN is `192.168.91.39` (BSSID `D8:0D:17:83:D3:1F`).
-- Consequence: the node can reach the broker **outbound**, but the node's own
-  **web UI (`:80`) and ESPHome OTA (`:3232`) are NOT reachable** inbound from the
-  Pi/PC. Telemetry, auto-water commands and the retained e-stop all work because
-  the node subscribes outbound.
-- **To restore web UI + OTA**, move the node to a flat 2.4 GHz network that
-  bridges onto `192.168.91.0/24` (or set up the Pi as an AP), update
-  `esphome/secrets.yaml` and reflash.
+- **Solved (OTA):** the Pi runs its own 2.4 GHz hotspot **`FloraHome`** on
+  `wlan0` (`10.42.0.1/24`, WPA2, pinned to band `bg` channel 6 — the ESP32 has no
+  5 GHz radio). Node #1 joins it at **`10.42.0.10`**, so the Pi and the node share
+  an L2 segment.
+- Consequence: the node's **web UI (`:80`) and ESPHome OTA (`:3232`) are now
+  reachable from the Pi**, and OTA works over Wi-Fi:
+  `esphome upload smartplanter.yaml --device 10.42.0.10`.
+- The old `Group1` NATed hotspot is **no longer used**. (Historical: on `Group1`
+  the node could reach the broker outbound, but the node's web UI/OTA were
+  unreachable inbound.)
 
 ---
 
@@ -259,13 +260,14 @@ docker run --rm --network smartplanter_default eclipse-mosquitto:2 \
 
 | # | Check | Result |
 |---|---|---|
-| 1 | Node web UI `http://<node-ip>/` → 200 | ❌ **blocked by Group1 NAT** (not a firmware fault) |
+| 1 | Node web UI `http://10.42.0.10/` → 200 | ✅ (via Pi hotspot `10.42.0.x`) |
 | 2 | Telemetry every 10 s on `planter/telemetry` | ✅ real node, every 10 s |
 | 3 | Node registered, `online:true`, age < 30 s | ✅ |
 | 4 | `fault` reported | ✅ (`dht22,bh1750,jsn_sr04t,` — sensors not yet wired) |
 | 5 | `pump` reaches InfluxDB (string field) | ✅ verified with fake data |
 | 6 | E-stop suppresses watering | ✅ `test_estop.sh` PASS |
 | 7 | Audit trail written | ✅ |
+| 8 | **OTA over Wi-Fi (no USB)** | ✅ `esphome upload smartplanter.yaml --device 10.42.0.10` → `OTA successful` |
 
 ---
 

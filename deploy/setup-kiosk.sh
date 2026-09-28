@@ -1,43 +1,45 @@
 #!/usr/bin/env bash
-# Configure the Pi to boot straight into the Smart Planter dashboard, full screen.
-# Run ON the Pi, as the desktop user (no sudo needed except where noted).
+# Configure the Pi to boot straight into the FloraHome dashboard, full screen.
+# Works on the Raspberry Pi OS "labwc" (Wayland) desktop. Run as the desktop user
+# (tim) from the repo root or deploy/ directory.
 set -euo pipefail
 
+HERE="$(cd "$(dirname "$0")" && pwd)"
 URL="${PLANTER_URL:-http://localhost:8098/}"
-KIOSK_DIR="$HOME/.config/autostart"
-mkdir -p "$KIOSK_DIR"
 
-# Chromium binary name varies: chromium-browser (RPi OS) or chromium.
-BROWSER="$(command -v chromium-browser || command -v chromium || true)"
+BROWSER="$(command -v chromium || command -v chromium-browser || true)"
 if [ -z "$BROWSER" ]; then
   echo "Chromium not found; installing..."
-  sudo apt-get update -qq && sudo apt-get install -y chromium-browser
-  BROWSER="$(command -v chromium-browser || command -v chromium)"
+  sudo apt-get update -qq && sudo apt-get install -y chromium
+  BROWSER="$(command -v chromium || command -v chromium-browser || true)"
 fi
-echo "Using browser: $BROWSER"
+echo "Using browser: ${BROWSER:-NOT FOUND}"
 
-# Disable screen blanking at login.
-cat > "$KIOSK_DIR/planter-noblank.desktop" <<EOF
+# 1. Launcher (this repo's deploy/kiosk.sh), made executable.
+chmod +x "$HERE/kiosk.sh"
+
+# 2. Kill the Chromium translate bubble at the source (managed policy).
+sudo mkdir -p /etc/chromium/policies/managed
+printf '%s\n' '{"TranslateEnabled": false}' \
+  | sudo tee /etc/chromium/policies/managed/florahome.json >/dev/null
+
+# 3. Autostart on desktop login.
+#    The labwc session runs /usr/bin/lxsession-xdg-autostart, which honours
+#    ~/.config/autostart/*.desktop.
+mkdir -p "$HOME/.config/autostart"
+cat > "$HOME/.config/autostart/planter-kiosk.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Planter no-blank
-Exec=sh -c "xset s off; xset s noblank; xset -dpms"
-X-GNOME-Autostart-enabled=true
-EOF
-
-# Launch the dashboard kiosk.
-cat > "$KIOSK_DIR/planter-kiosk.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=Planter kiosk
-Comment=Smart Planter dashboard full screen
-Exec=$BROWSER --kiosk --noerrdialogs --disable-infobars --incognito --check-for-update-interval=31536000 $URL
+Name=FloraHome Kiosk
+Comment=Full-screen plant dashboard
+Exec=$HERE/kiosk.sh
+Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
 
 echo
-echo "Done. Enable desktop autologin so it starts by itself:"
-echo "  sudo raspi-config   # System Options -> Boot/Auto Login -> Desktop Autologin"
+echo "Installed kiosk launcher + autostart entry."
+echo "Enable desktop autologin once so it starts by itself:"
+echo "  sudo raspi-config   # System Options -> Boot / Auto Login -> Desktop Autologin"
 echo
-echo "Test it now (from the graphical session):"
-echo "  $BROWSER --kiosk --incognito $URL"
+echo "Test now (from the graphical session): $HERE/kiosk.sh"
