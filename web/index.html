@@ -168,11 +168,64 @@
   body.gg .plant::after{content:"🪴";position:absolute;right:12px;top:10px;font-size:1.4rem}
   body.gg .plant{position:relative}
 
+  /* global plant selector (single source of truth, lives in the header) */
+  .nodefilter{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-weight:700}
+  .nodefilter select{max-width:200px}
+
+  /* Flori — chat card at the top of Übersicht (communication first) */
+  #chatlog{display:flex;flex-direction:column;gap:8px;max-height:42vh;overflow:auto;margin-bottom:10px}
+  .chat-msg{padding:10px 13px;border-radius:14px;max-width:88%;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+  .chat-msg.me{align-self:flex-end;background:var(--accent);color:var(--accent-ink)}
+  .chat-msg.plant{align-self:flex-start;background:var(--card2);border:1px solid var(--line)}
+  .chat-msg.plant.thinking{opacity:.7;font-style:italic}
+
+  /* Flori — the floating companion (Clippy-style) */
+  .flori{position:fixed;right:18px;bottom:18px;z-index:95;width:106px;height:106px;
+    touch-action:none;cursor:pointer;filter:drop-shadow(0 14px 18px rgba(0,0,0,.45));
+    transition:transform .18s ease;-webkit-user-select:none;user-select:none}
+  .flori:active{transform:scale(.95)}
+  .flori.hidden,.flori-bubble.hidden{display:none}
+  .flori svg{width:100%;height:100%;overflow:visible}
+  .flori .flori-bot{animation:flori-bob 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+  .flori .flori-sprout{transform-box:view-box;transform-origin:250px 170px;
+    animation:flori-sway 3.6s ease-in-out infinite}
+  .flori .flori-led{animation:flori-led 2.1s ease-in-out infinite}
+  .flori .flori-eyes{transform-box:view-box;transform-origin:250px 222px;animation:flori-blink 5.4s infinite}
+  .flori .flori-shadow{animation:flori-shadow 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+  .flori.talking .flori-bot{animation-duration:1.05s}
+  .flori.talking .flori-eyes{animation:flori-blink 1.1s infinite}
+  @keyframes flori-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+  @keyframes flori-sway{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(6deg)}}
+  @keyframes flori-led{0%,100%{opacity:1}50%{opacity:.28}}
+  @keyframes flori-blink{0%,90%,100%{transform:scaleY(1)}93%{transform:scaleY(.06)}96%{transform:scaleY(1)}}
+  @keyframes flori-shadow{0%,100%{opacity:.28;transform:scaleX(1)}50%{opacity:.12;transform:scaleX(.8)}}
+
+  .flori-bubble{position:fixed;right:134px;bottom:30px;z-index:96;max-width:290px;
+    background:var(--card2);border:2px solid var(--accent);border-radius:16px;
+    padding:13px 16px;box-shadow:var(--shadow);font-size:.95rem;line-height:1.45;
+    transform-origin:bottom right;animation:bubbleIn .28s ease}
+  .flori-bubble::after{content:"";position:absolute;right:-11px;bottom:22px;width:16px;height:16px;
+    background:var(--card2);border-right:2px solid var(--accent);border-top:2px solid var(--accent);
+    transform:rotate(45deg)}
+  .flori-bubble.arrow-left::after{right:auto;left:-11px;border-right:none;border-top:none;
+    border-left:2px solid var(--accent);border-bottom:2px solid var(--accent)}
+  .flori-bubble b{color:var(--accent)}
+  .flori-bubble .flori-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .flori-bubble button{min-height:40px;padding:8px 12px;font-size:.9rem}
+  @keyframes bubbleIn{from{opacity:0;transform:translateY(8px) scale(.94)}to{opacity:1;transform:none}}
+
   @media (max-width:560px){
     body{font-size:16px}
     h1{font-size:1.15rem}
     .big-metric .num{font-size:2.6rem}
     .row-metrics{grid-template-columns:repeat(2,1fr)}
+    .nodefilter select{max-width:120px}
+    .flori{width:86px;height:86px;right:12px;bottom:12px}
+    .flori-bubble{right:12px;bottom:118px;max-width:80vw}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .flori .flori-bot,.flori .flori-sprout,.flori .flori-led,
+    .flori .flori-eyes,.flori .flori-shadow{animation:none}
   }
 </style>
 </head>
@@ -183,17 +236,20 @@
     <span id="conn" class="pill off" role="status">◌ <span id="connText">Verbinde…</span></span>
     <span id="nodeState" class="pill off">◌ <span id="nodeText">Knoten unbekannt</span></span>
   </div>
+  <label class="nodefilter" for="nodeSelect">🌱
+    <select id="nodeSelect" aria-label="Pflanze wählen"></select>
+  </label>
   <span class="scalebar" role="group" aria-label="Schriftgröße">
     <button id="uiSmaller" class="ghost" type="button" title="Kleiner">A−</button>
     <button id="uiLarger" class="ghost" type="button" title="Größer">A+</button>
   </span>
+  <button id="floriToggle" class="ghost" type="button" title="Flori ein-/ausblenden">🌱 Flori</button>
   <button id="authBtn" class="ghost" type="button">Anmelden</button>
 </header>
 
 <nav id="tabs">
   <button class="tab active" data-page="overview">🌿 Übersicht</button>
   <button class="tab" data-page="control">🎛️ Steuern</button>
-  <button class="tab" data-page="ai">💬 KI</button>
   <button class="tab" data-page="backend">🔧 Backend</button>
 </nav>
 
@@ -209,6 +265,19 @@
 
   <!-- ========================= PAGE: ÜBERSICHT ========================= -->
   <div class="page active" data-page="overview">
+  <section class="card" id="floriCard">
+    <h2><span class="icon">💬</span> Flori — dein Pflanzen-Begleiter
+      <span class="muted" style="font-size:.85rem;margin-left:auto" id="floriWho"></span>
+    </h2>
+    <div id="chatlog" aria-live="polite"></div>
+    <div class="row" style="display:flex;gap:8px">
+      <input id="chatInput" type="text" placeholder="Wie geht es meiner Pflanze?" style="flex:1" disabled>
+      <button id="btnMic" type="button" disabled title="Sprechen">🎤</button>
+      <button id="btnChat" class="primary" type="button" disabled>Fragen</button>
+    </div>
+    <p class="note" id="aiNote"></p>
+  </section>
+
   <section class="card">
     <h2><span class="icon">🔔</span> Meldungen</h2>
     <div id="alerts" role="region" aria-live="polite"></div>
@@ -228,8 +297,7 @@
   <div class="page" data-page="control">
   <section class="card">
     <h2><span class="icon">🎛️</span> Steuerung
-      <span class="muted" style="font-size:.85rem;margin-left:auto">Pflanze wählen:</span>
-      <select id="nodeSelect" style="font:inherit;padding:8px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select>
+      <span class="muted" style="font-size:.85rem;margin-left:auto">Pflanze oben im Kopf wählen 🌱</span>
     </h2>
     <div class="controls">
       <button id="btnWater" class="primary" type="button" disabled>💧 Bewässern</button>
@@ -291,30 +359,6 @@
   </section>
   </div><!-- /control -->
 
-  <!-- ============================= PAGE: KI ============================= -->
-  <div class="page" data-page="ai">
-  <section class="card">
-    <h2><span class="icon">💬</span> Mit den Pflanzen sprechen
-      <span class="muted" style="font-size:.85rem;margin-left:auto">Pflanze wählen:</span>
-      <select id="nodeSelect2" style="font:inherit;padding:8px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select>
-    </h2>
-    <div id="chatlog" style="display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto;margin-bottom:10px"></div>
-    <div class="row" style="display:flex;gap:8px">
-      <input id="chatInput" type="text" placeholder="Wie geht es Moni?" style="flex:1" disabled>
-      <button id="btnMic" type="button" disabled title="Sprechen">🎤</button>
-      <button id="btnChat" class="primary" type="button" disabled>Senden</button>
-    </div>
-    <p class="note" id="aiNote"></p>
-  </section>
-
-  <section class="card">
-    <h2><span class="icon">📔</span> Pflanzentagebuch — <span id="diaryNode" class="muted"></span>
-      <button id="btnDiaryWrite" class="ghost" style="margin-left:auto" type="button" disabled>Eintrag jetzt schreiben</button>
-    </h2>
-    <div id="diary" class="diary"></div>
-  </section>
-  </div><!-- /ai -->
-
   <!-- =========================== PAGE: BACKEND =========================== -->
   <div class="page" data-page="backend">
   <section class="card">
@@ -349,6 +393,7 @@
         <table><tbody id="audit"></tbody></table></div>
     </div>
   </details>
+  </div><!-- /backend -->
 </main>
 
 <dialog id="nodeDlg" aria-labelledby="nodeH">
@@ -456,11 +501,48 @@ deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
   </form>
 </dialog>
 
+<!-- ============================ Flori companion ============================ -->
+<div id="flori" class="flori" role="button" tabindex="0"
+     aria-label="Flori, dein Pflanzen-Begleiter – antippen zum Chat">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" aria-hidden="true">
+    <defs>
+      <filter id="floriShadowFilter" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#000000" flood-opacity="0.28"/>
+      </filter>
+    </defs>
+    <ellipse class="flori-shadow" cx="250" cy="436" rx="118" ry="20" fill="#000" opacity=".25"/>
+    <g class="flori-bot" filter="url(#floriShadowFilter)">
+      <g class="flori-sprout">
+        <path d="M 250 170 Q 250 130 230 110" fill="none" stroke="#10B981" stroke-width="8" stroke-linecap="round"/>
+        <path d="M 230 115 C 215 105 210 90 220 85 C 230 80 245 95 230 115 Z" fill="#34D399"/>
+      </g>
+      <g class="flori-pot">
+        <path d="M 160 300 C 160 380 180 410 250 410 C 320 410 340 380 340 300 Z" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="6"/>
+        <ellipse cx="250" cy="300" rx="90" ry="25" fill="#F1F5F9" stroke="#E2E8F0" stroke-width="6"/>
+        <rect class="flori-led" x="238" y="375" width="24" height="8" rx="4" fill="#10B981"/>
+      </g>
+      <rect x="165" y="160" width="170" height="150" rx="60" fill="#A7F3D0" stroke="#059669" stroke-width="6"/>
+      <rect x="185" y="180" width="130" height="110" rx="40" fill="#0F172A"/>
+      <g class="flori-eyes" fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="round">
+        <path d="M 215 220 Q 225 210 235 220"/>
+        <path d="M 265 220 Q 275 210 285 220"/>
+      </g>
+      <path class="flori-smile" d="M 235 245 Q 250 260 265 245" fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="round"/>
+    </g>
+  </svg>
+</div>
+<div id="floriBubble" class="flori-bubble hidden" role="status" aria-live="polite">
+  <div id="floriText"></div>
+  <div class="flori-actions">
+    <button id="floriChat" class="primary" type="button">Mit Flori reden</button>
+    <button id="floriNext" type="button">Noch ein Tipp</button>
+    <button id="floriHide" class="ghost" type="button">Ausblenden</button>
+  </div>
+</div>
+
 <script>
 const $ = id => document.getElementById(id);
-const MAX_AGE = 60;
 let authed = false, cfgCache = {}, lastState = {};
-const last = {};
 
 /* --------------------------------------------------------------- formatting */
 const fmtNum = (v, d=1) => (v===null||v===undefined||Number.isNaN(Number(v))) ? null : Number(v).toFixed(d);
@@ -550,6 +632,7 @@ function render(payload){
   renderPlants(nodes);
   renderNodeSelect();
   refreshCal();
+  floriRefreshWho();
 
   const n = nodes.length, online = nodes.filter(x => x.online).length;
   $("nodeState").className = "pill " + (online ? "on" : "off");
@@ -575,6 +658,12 @@ function renderAlerts(events){
       <div>${esc(e.message)}</div>
       <div class="meta">seit ${rel(e.ts)}</div>
     </div>`).join("");
+  // Flori reacts to a new critical alert (once per alert code).
+  const crit = active.find(e => e.level === "critical");
+  if(crit && crit.code !== floriLastAlert){
+    floriLastAlert = crit.code;
+    if(floriVisible()) showBubble(`🚨 ${esc(crit.message)}`, 16000);
+  } else if(!crit){ floriLastAlert = null; }
 }
 function renderEvents(events){
   $("events").innerHTML = events.slice(0,12).map(e => {
@@ -923,18 +1012,6 @@ function plantRain(n){
   }
 }
 
-/* ------------------------------------------------- touched nodes → notify */
-async function greetChanges(){
-  try{
-    const st = await json("/api/state");
-    const nodes = Object.values(st.nodes || {});
-    for(const n of nodes){
-      if(greeted[n.node] === undefined){ greeted[n.node] = true; continue; }
-    }
-  }catch(e){}
-}
-const greeted = {};
-
 /* ------------------------------------------------------- selected-node state */
 let selNode = null;
 function selectedNode(){
@@ -949,21 +1026,19 @@ function renderNodeSelect(){
   const names = Object.keys(lastPayload.nodes || {});
   const want = selectedNode() || names[0];
   const html = names.map(n => `<option value="${n}"${n===want?" selected":""}>${esc(nodeLabel(n))}</option>`).join("");
-  ["nodeSelect","nodeSelect2"].forEach(id => { const s = $(id); if(s) s.innerHTML = html; });
+  const s = $("nodeSelect"); if(s) s.innerHTML = html || '<option value="">— kein Knoten —</option>';
   renderBackendNodes(names);
   selNode = want || null;
 }
 function bindNodeSelect(id){
   const s = $(id); if(!s) return;
-  s.onchange = () => { selNode = s.value; renderNodeSelect(); refreshCal(); refreshDiary(); };
+  s.onchange = () => { selNode = s.value; renderNodeSelect(); refreshCal(); refreshDiary(); floriRefreshWho(); };
 }
-bindNodeSelect("nodeSelect"); bindNodeSelect("nodeSelect2");
+bindNodeSelect("nodeSelect");
 
 /* Backend page: one card per node with technical detail. */
 function renderBackendNodes(names){
   const box = $("backendNodes"); if(!box) return;
-  const PIN_MAP = {soil_adc:34, soil_power:25, dht:27, ldr:35, relay_pump:26,
-                   relay_light:13, buzzer:14, button:4, batt_adc:32};
   box.innerHTML = names.map(n => {
     const nv = lastPayload.nodes[n] || {}; const m = nv.metrics || {};
     return `<div class="plant">
@@ -1015,33 +1090,38 @@ $("btnDiaryWrite").onclick = async () => {
 /* --------------------------------------------------- UI scaling (A-/A+) lives above */
 
 /* ------------------------------------------------------------------------ AI */
-const chatLog = (who, text) => {
+const chatLog = (who, text, thinking=false) => {
   const el = document.createElement("div");
-  el.style.cssText = `padding:10px 12px;border-radius:12px;max-width:88%;${
-    who==="me" ? "align-self:flex-end;background:var(--accent);color:var(--accent-ink)"
-               : "align-self:flex-start;background:var(--card2);border:1px solid var(--line)"}`;
+  el.className = `chat-msg ${who}${thinking?" thinking":""}`;
   el.textContent = text;
-  $("chatlog").appendChild(el);
-  $("chatlog").scrollTop = 1e9;
+  const log = $("chatlog"); log.appendChild(el); log.scrollTop = 1e9;
+  return el;
 };
+function floriRefreshWho(){
+  const n = selectedNode();
+  const el = $("floriWho");
+  if(el) el.textContent = n ? nodeLabel(n) : "";
+}
 async function loadAI(){
   try{
     const st = await json("/api/ai/status");
     $("aiNote").textContent = st.configured
-      ? `KI aktiv (${st.model}).`
-      : "KI nicht konfiguriert – setze AI_API_KEY in .env (kostenlos: Google AI Studio / OpenRouter :free).";
+      ? `Flori ist wach (Modell ${st.model}). Frag alles rund um deine Pflanzen.`
+      : "Flori braucht einen Schlüssel: AI_API_KEY im Backend hinterlegen (Google AI Studio / OpenRouter :free).";
     return st.configured;
   }catch(e){ $("aiNote").textContent = "KI-Status unbekannt."; return false; }
 }
 async function sendChat(){
   const q = $("chatInput").value.trim(); if(!q) return;
   chatLog("me", q); $("chatInput").value = "";
-  chatLog("plant", "…");
-  const last = $("chatlog").lastChild;
+  const holder = chatLog("plant", "Flori denkt nach…", true);
+  floriEl.classList.add("talking");
   try{
     const r = await json("/api/ai/chat", {method:"POST", body: JSON.stringify({message:q, node: selectedNode() || primaryNode()})});
-    last.textContent = r.reply || "(keine Antwort)";
-  }catch(e){ last.textContent = "Fehler: " + e.message; }
+    holder.classList.remove("thinking");
+    holder.textContent = r.reply || "(keine Antwort)";
+  }catch(e){ holder.classList.remove("thinking"); holder.textContent = "Fehler: " + e.message; }
+  finally{ floriEl.classList.remove("talking"); }
 }
 $("btnChat").onclick = sendChat;
 $("chatInput").addEventListener("keydown", e => { if(e.key === "Enter") sendChat(); });
@@ -1124,15 +1204,14 @@ $("btnFlash").onclick = async () => {
 
 /* ------------------------------------------------------------------------- */
 $("btnManual").onclick = () => $("manualDlg").showModal();
-$("btnBuzz").addEventListener("click", () => toast("🔊 Buzzer-Test gesendet"), true);
 
 /* --------------------------------------------------------------------- tabs */
 function showPage(name){
+  if(!document.querySelector(`.page[data-page="${name}"]`)) name = "overview";
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.dataset.page === name));
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.page === name));
   localStorage.setItem("fhPage", name);
   if(name === "control"){ refreshCal(); loadChart(); }
-  if(name === "ai"){ refreshDiary(); }
   if(name === "backend"){ loadDevices(); }
 }
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => showPage(t.dataset.page));
@@ -1226,6 +1305,144 @@ if(!localStorage.getItem("fhHint")){
   $("uiSmaller").onclick = () => { s = Math.max(0.8, s - 0.1); localStorage.setItem(KEY, s); apply(); };
 })();
 
+/* ------------------------------------------------------------------- Flori
+ * The floating companion. He bobs around, greets you with contextual plant tips
+ * (Clippy-style), can be dragged anywhere, and taps open the chat at the top of
+ * Übersicht. Hidden state + position are remembered. */
+const floriEl = $("flori");
+const floriBubble = $("floriBubble");
+const floriText = $("floriText");
+const FLORI_KEY = "fhFlori", FLORI_POS = "fhFloriPos";
+let floriTipIdx = 0, floriAutoHide = 0, floriLastAlert = null;
+
+function floriVisible(){ return localStorage.getItem(FLORI_KEY) !== "0"; }
+function hideBubble(){
+  floriBubble.classList.add("hidden");
+  clearTimeout(floriAutoHide);
+  floriEl.classList.remove("talking");
+}
+function positionBubble(){
+  if(floriBubble.classList.contains("hidden") || floriEl.classList.contains("hidden")) return;
+  const r = floriEl.getBoundingClientRect();
+  const bw = floriBubble.offsetWidth, bh = floriBubble.offsetHeight;
+  let left = r.left - bw - 16, arrowLeft = false;
+  if(left < 8){ left = r.right + 16; arrowLeft = true; }
+  left = Math.max(8, Math.min(innerWidth - bw - 8, left));
+  const top = Math.max(8, Math.min(innerHeight - bh - 8, r.bottom - bh));
+  floriBubble.style.left = left + "px";
+  floriBubble.style.top = top + "px";
+  floriBubble.style.right = "auto";
+  floriBubble.style.bottom = "auto";
+  floriBubble.classList.toggle("arrow-left", arrowLeft);
+}
+function showBubble(html, ms = 13000){
+  floriText.innerHTML = html;
+  floriBubble.classList.remove("hidden");
+  floriEl.classList.add("talking");
+  positionBubble();
+  clearTimeout(floriAutoHide);
+  floriAutoHide = setTimeout(hideBubble, ms);
+}
+function setFloriVisible(v, announce = false){
+  localStorage.setItem(FLORI_KEY, v ? "1" : "0");
+  floriEl.classList.toggle("hidden", !v);
+  if(!v) hideBubble();
+  if(announce) toast(v ? "🌱 Flori ist wieder da!" : "Flori versteckt – der 🌱-Button oben rechts holt ihn zurück.");
+}
+function floriTips(){
+  const nodes = Object.values(lastPayload.nodes || {});
+  const names = Object.keys(lastPayload.nodes || {});
+  const cur = selectedNode();
+  const n = cur ? lastPayload.nodes[cur] : null;
+  const label = cur ? nodeLabel(cur) : "";
+  const tips = [];
+  if(n){
+    const m = n.metrics || {};
+    const care = (n.plant && n.plant.care) || {};
+    const mo = m.moisture_pct;
+    if(!n.online)
+      tips.push(`😴 <b>${esc(label)}</b> meldet sich gerade nicht. Ohne frische Werte gieße ich nicht automatisch – kurz Strom/WLAN prüfen.`);
+    else if(n.fault && n.fault !== "ok")
+      tips.push(`🤒 <b>${esc(label)}</b> meldet einen Sensorfehler (<b>${esc(n.fault)}</b>). Meist hilft die Verkabelung kurz prüfen.`);
+    if(typeof mo === "number"){
+      if(mo < (care.moisture_min_pct ?? 30))
+        tips.push(`💧 <b>${esc(label)}</b> ist durstig (${mo.toFixed(0)} % Bodenfeuchte). Tippe unter „Steuern“ auf Bewässern.`);
+      else if(mo > (care.moisture_max_pct ?? 70))
+        tips.push(`🌊 <b>${esc(label)}</b> ist gut gewässert (${mo.toFixed(0)} %). Erst mal abtrocknen lassen.`);
+    }
+    if(typeof m.temp_c === "number" && care.temp_max_c && m.temp_c > care.temp_max_c)
+      tips.push(`🥵 <b>${esc(label)}</b> ist warm (${m.temp_c.toFixed(0)} °C). Schatten oder Lüften tut gut.`);
+    if(n.pump === "watering") tips.push(`💦 Ich gieße <b>${esc(label)}</b> gerade.`);
+  }
+  if(names.length > 1)
+    tips.push(`🌱 Du hast <b>${names.length} Pflanzen</b>. Oben im Kopf schaltest du zwischen ihnen um.`);
+  tips.push(`👋 Ich bin <b>Flori</b>. Frag mich z. B. „Wie geht es meiner Pflanze?“ oder „Wann soll ich gießen?“`);
+  tips.push(`📔 Im <b>Pflanzentagebuch</b> (Tab „Steuern“) halte ich fest, wie sich deine Pflanze entwickelt.`);
+  tips.push(`🧪 Wackelige Bodenfeuchte? Einmal neu kalibrieren – Tab „Steuern“ → Kalibrierung.`);
+  tips.push(`🔔 Anmelden oben rechts schaltet Steuern, Gießen und das Tagebuch frei.`);
+  return tips;
+}
+function nextTip(){
+  const tips = floriTips();
+  showBubble(tips[floriTipIdx % tips.length]);
+  floriTipIdx++;
+}
+function openFloriChat(){
+  hideBubble();
+  showPage("overview");
+  const card = $("floriCard");
+  if(card) card.scrollIntoView({behavior:"smooth", block:"start"});
+  setTimeout(() => { const i = $("chatInput"); if(i && !i.disabled) i.focus(); }, 350);
+}
+floriEl.addEventListener("keydown", e => {
+  if(e.key === "Enter" || e.key === " "){ e.preventDefault(); openFloriChat(); }
+});
+$("floriChat").onclick = e => { e.stopPropagation(); openFloriChat(); };
+$("floriNext").onclick = e => { e.stopPropagation(); nextTip(); };
+$("floriHide").onclick = e => { e.stopPropagation(); setFloriVisible(false, true); };
+$("floriToggle").onclick = () => {
+  const v = floriEl.classList.contains("hidden");
+  setFloriVisible(v);
+  if(v) setTimeout(nextTip, 350);
+};
+window.addEventListener("resize", positionBubble);
+
+/* Drag Flori anywhere; a small movement counts as a tap (opens chat). */
+let floriDragging = false;
+(function floriDrag(){
+  let moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  floriEl.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    try{ floriEl.setPointerCapture(e.pointerId); }catch(err){}
+    const r = floriEl.getBoundingClientRect();
+    floriEl.style.left = r.left + "px"; floriEl.style.top = r.top + "px";
+    floriEl.style.right = "auto"; floriEl.style.bottom = "auto";
+    floriDragging = true; moved = false; sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+  });
+  floriEl.addEventListener("pointermove", e => {
+    if(!floriDragging) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if(Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+    if(!moved) return;
+    floriEl.style.left = Math.max(4, Math.min(innerWidth - floriEl.offsetWidth - 4, ox + dx)) + "px";
+    floriEl.style.top = Math.max(4, Math.min(innerHeight - floriEl.offsetHeight - 4, oy + dy)) + "px";
+    positionBubble();
+  });
+  floriEl.addEventListener("pointerup", () => {
+    if(!floriDragging) return;
+    floriDragging = false;
+    if(!moved) openFloriChat();
+    localStorage.setItem(FLORI_POS, JSON.stringify({ l: floriEl.style.left, t: floriEl.style.top }));
+    positionBubble();
+  });
+  try{
+    const p = JSON.parse(localStorage.getItem(FLORI_POS) || "null");
+    if(p && p.l && p.t){ floriEl.style.left = p.l; floriEl.style.top = p.t;
+      floriEl.style.right = "auto"; floriEl.style.bottom = "auto"; }
+  }catch(e){}
+})();
+
+
 /* --------------------------------------------------------------------- start */
 (async function init(){
   try{ cfgCache = await json("/api/config"); }catch(e){}
@@ -1238,6 +1455,16 @@ if(!localStorage.getItem("fhHint")){
   await loadAI();
   await refreshDiary();
   connect();
+  floriEl.classList.toggle("hidden", !floriVisible());
+  if(floriVisible()){
+    setTimeout(() => {
+      if(floriBubble.classList.contains("hidden"))
+        showBubble("👋 Hallo! Ich bin <b>Flori</b>, dein Pflanzen-Begleiter. Tippe auf mich, wenn du reden willst.", 15000);
+    }, 3500);
+  }
+  setInterval(() => {
+    if(floriVisible() && floriBubble.classList.contains("hidden")) nextTip();
+  }, 45000);
   setInterval(async()=>{ await refresh(); await refreshHalted(); }, 15000);
   setInterval(loadTables, 20000);
   setInterval(loadChart, 60000);
