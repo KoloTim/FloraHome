@@ -282,7 +282,14 @@ PUBLISH_FIELDS = ["moisture_pct", "temp_c", "humidity", "lux", "tank_pct", "rssi
 def normalise(payload: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for raw_k, v in payload.items():
-        k = ALIASES.get(raw_k.lower(), raw_k.lower())
+        raw = raw_k.lower()
+        k = ALIASES.get(raw, raw)
+        # Never let an alias clobber a key that was sent explicitly. The
+        # firmware publishes both `lux` (light level) and `light` (relay state);
+        # without this guard the alias light->lux would overwrite the real lux
+        # with "on"/"off".
+        if raw in ALIASES and k in out:
+            continue
         if isinstance(v, bool) or isinstance(v, (int, float)) or v is None:
             out[k] = v
         elif isinstance(v, str):
