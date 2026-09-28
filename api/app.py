@@ -815,17 +815,25 @@ def on_message(client, userdata, msg):  # noqa: ANN001
         n = node(node_name)
         now = time.time()
         with STATE_LOCK:
+            # If telemetry is still arriving, the node is alive no matter what a
+            # *retained* status says (the broker replays the last-will offline on
+            # every connect). A live, non-retained will is authoritative.
+            heartbeat_ok = bool(n["last_seen"]) and (now - n["last_seen"]) < (
+                float(_global_cached().get("node_offline_sec", NODE_OFFLINE_SEC)))
             if online:
                 n["online"] = True
                 n["offline_since"] = None
-                # A retained birth ("online") is replayed on every API reconnect.
-                # Only let it refresh last_seen when the node actually looks alive,
-                # otherwise a genuinely dead node gets resurrected on every restart.
-                if not msg.retain or (n["last_seen"] and now - n["last_seen"] < NODE_OFFLINE_SEC):
+                # A retained birth is replayed on every API reconnect: only trust it
+                # to refresh last_seen when the node already looks alive.
+                if not msg.retain or heartbeat_ok:
                     n["last_seen"] = now
-            else:
+            elif not msg.retain or not heartbeat_ok:
+                # Genuine last-will (or nothing better to go on): mark it down. We
+                # pull last_seen back so the API shows "offline" immediately.
                 n["online"] = False
                 n["offline_since"] = now
+                n["last_seen"] = min(n["last_seen"] or now, now)
+                n["metrics_ts"] = 0.0
         broadcast({"type": "status", "node": node_name, "online": online})
         return
 
@@ -930,13 +938,13 @@ def m(n: dict[str, Any], key: str) -> float | None:
 def node_fresh(n: dict[str, Any]) -> bool:
     """True if this node's last telemetry arrived recently enough to trust.
 
-    A node is offline the moment its LWT/birth flag says so, and otherwise once
-    the heartbeat has been silent for longer than the configured timeout.
+    Freshness is a function of *time* only. A status/LWT message can update the
+    flags, but it must never make a node that is actively sending telemetry look
+    dead — the retained "offline" last-will is replayed on every (re)connect and
+    would otherwise flap healthy nodes.
     """
     last = n.get("last_seen") or 0.0
     if not last:
-        return False
-    if not n.get("online", True):
         return False
     try:
         timeout = float(_global_cached().get("node_offline_sec", NODE_OFFLINE_SEC))
