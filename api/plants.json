@@ -1,0 +1,326 @@
+{
+  "version": 1,
+  "source": "FloraHome curated houseplant data (care guidance is indicative; tune per plant)",
+  "plants": [
+    {
+      "id": "monstera-deliciosa",
+      "common": "Monstera",
+      "common_de": "Fensterblatt",
+      "scientific": "Monstera deliciosa",
+      "emoji": "🌿",
+      "color": "#4fae6a",
+      "care": {
+        "moisture_min_pct": 30,
+        "moisture_max_pct": 65,
+        "temp_min_c": 18,
+        "temp_max_c": 30,
+        "humidity_min_pct": 50,
+        "light_min_lux": 2000,
+        "light_max_lux": 20000,
+        "watering_interval_days": 7,
+        "difficulty": "easy"
+      },
+      "notes": "Let the top 2–3 cm dry out. Loves indirect light; brown tips mean too dry air."
+    },
+    {
+      "id": "sansevieria-trifasciata",
+      "common": "Snake Plant",
+      "common_de": "Bogenhanf",
+      "scientific": "Sansevieria trifasciata",
+      "emoji": "🌵",
+      "color": "#3f9f6f",
+      "care": {
+        "moisture_min_pct": 15,
+        "moisture_max_pct": 45,
+        "temp_min_c": 16,
+        "temp_max_c": 32,
+        "humidity_min_pct": 30,
+        "light_min_lux": 500,
+        "light_max_lux": 20000,
+        "watering_interval_days": 21,
+        "difficulty": "very easy"
+      },
+      "notes": "Overwatering is the only way to kill it. Water sparingly, especially in winter."
+    },
+    {
+      "id": "ficus-lyrata",
+      "common": "Fiddle-leaf Fig",
+      "common_de": "Geigenfeige",
+      "scientific": "Ficus lyrata",
+      "emoji": "🌳",
+      "color": "#57a05c",
+      "care": {
+        "moisture_min_pct": 35,
+        "moisture_max_pct": 65,
+        "temp_min_c": 18,
+        "temp_max_c": 28,
+        "humidity_min_pct": 50,
+        "light_min_lux": 3000,
+        "light_max_lux": 25000,
+        "watering_interval_days": 7,
+        "difficulty": "medium"
+      },
+      "notes": "Hates being moved and cold draughts. Likes bright, indirect light."
+    },
+    {
+      "id": "epipremnum-aureum",
+      "common": "Golden Pothos",
+      "common_de": "Efeutute",
+      "scientific": "Epipremnum aureum",
+      "emoji": "🍃",
+      "color": "#63b56a",
+      "care": {
+        "moisture_min_pct": 25,
+        "moisture_max_pct": 60,
+        "temp_min_c": 17,
+        "temp_max_c": 30,
+        "humidity_min_pct": 40,
+        "light_min_lux": 800,
+        "light_max_lux": 20000,
+        "watering_interval_days": 8,
+        "difficulty": "very easy"
+      },
+      "notes": "Almost unkillable. Let it dry slightly between waterings."
+    },
+    {
+      "id": "spathiphyllum",
+      "common": "Peace Lily",
+      "common_de": "Einblatt",
+      "scientific": "Spathiphyllum wallisii",
+      "emoji": "🌸",
+      "color": "#5aa86a",
+      "care": {
+        "moisture_min_pct": 40,
+        "moisture_max_pct": 70,
+        "temp_min_c": 18,
+        "temp_max_c": 27,
+        "humidity_min_pct": 55,
+        "light_min_lux": 800,
+        "light_max_lux": 12000,
+        "watering_interval_days": 5,
+        "difficulty": "easy"
+      },
+      "notes": "Droops dramatically when thirsty, then recovers fast. Likes moist soil."
+    },
+    {
+      "id": "zamioculcas-zamiifolia",
+      "common": "ZZ Plant",
+      "common_de": "Glücksfeder",
+      "scientific": "Zamioculcas zamiifolia",
+      "emoji": "🌱",
+      "color": "#3f9f6f",
+      "care": {
+        "moisture_min_pct": 15,
+        "moisture_max_pct": 40,
+        "temp_min_c": 16,
+        "temp_max_c": 30,
+        "humidity_min_pct": 30,
+        "light_min_lux": 500,
+        "light_max_lux": 15000,
+        "watering_interval_days": 21,
+        "difficulty": "very easy"
+      },
+      "notes": "Stores water in its rhizomes; drought-tolerant. Never let it sit wet."
+    },
+    {
+      "id": "chlorophytum-comosum",
+      "common": "Spider Plant",
+      "common_de": "Grünlilie",
+      "scientific": "Chlorophytum comosum",
+      "emoji": "🌾",
+      "color": "#6cbb76",
+      "care": {
+        "moisture_min_pct": 25,
+        "moisture_max_pct": 55,
+        "temp_min_c": 15,
+        "temp_max_c": 28,
+        "humidity_min_pct": 40,
+        "light_min_lux": 1000,
+        "light_max_lux": 20000,
+        "watering_interval_days": 7,
+        "difficulty": "very easy"
+      },
+      "notes": "Brown leaf tips usually mean tap water; use filtered/rain water if fussy."
+    },
+    {
+      "id": "aloe-vera",
+      "common": "Aloe Vera",
+      "common_de": "Aloe Vera",
+      "scientific": "Aloe barbadensis miller",
+      "emoji": "🪴",
+      "color": "#4bbf8f",
+      "care": {
+        "moisture_min_pct": 10,
+        "moisture_max_pct": 35,
+        "temp_min_c": 15,
+        "temp_max_c": 35,
+        "humidity_min_pct": 20,
+        "light_min_lux": 5000,
+        "light_max_lux": 40000,
+        "watering_interval_days": 21,
+        "difficulty": "easy"
+      },
+      "notes": "Desert plant: bone-dry between waterings and lots of sun."
+    },
+    {
+      "id": "fittonia-albivenis",
+      "common": "Nerve Plant",
+      "common_de": "Fittonie",
+      "scientific": "Fittonia albivenis",
+      "emoji": "🎨",
+      "color": "#7ac48a",
+      "care": {
+        "moisture_min_pct": 50,
+        "moisture_max_pct": 80,
+        "temp_min_c": 18,
+        "temp_max_c": 26,
+        "humidity_min_pct": 60,
+        "light_min_lux": 500,
+        "light_max_lux": 8000,
+        "watering_interval_days": 3,
+        "difficulty": "medium"
+      },
+      "notes": "Dramatic fainting when dry. Loves humidity; great in a terrarium."
+    },
+    {
+      "id": "calathea-orbifolia",
+      "common": "Calathea",
+      "common_de": "Korbmarante",
+      "scientific": "Calathea orbifolia",
+      "emoji": "🌴",
+      "color": "#8fce9a",
+      "care": {
+        "moisture_min_pct": 45,
+        "moisture_max_pct": 75,
+        "temp_min_c": 18,
+        "temp_max_c": 26,
+        "humidity_min_pct": 60,
+        "light_min_lux": 500,
+        "light_max_lux": 8000,
+        "watering_interval_days": 4,
+        "difficulty": "hard"
+      },
+      "notes": "Prayer plant: fussy about humidity and water hardness. Filtered water helps."
+    },
+    {
+      "id": "pilea-peperomioides",
+      "common": "Chinese Money Plant",
+      "common_de": "Ufopflanze",
+      "scientific": "Pilea peperomioides",
+      "emoji": "🪙",
+      "color": "#5fbf7e",
+      "care": {
+        "moisture_min_pct": 25,
+        "moisture_max_pct": 55,
+        "temp_min_c": 16,
+        "temp_max_c": 27,
+        "humidity_min_pct": 40,
+        "light_min_lux": 1500,
+        "light_max_lux": 15000,
+        "watering_interval_days": 7,
+        "difficulty": "easy"
+      },
+      "notes": "Rotate regularly for even growth; it leans toward the light."
+    },
+    {
+      "id": "crassula-ovata",
+      "common": "Jade Plant",
+      "common_de": "Geldbaum",
+      "scientific": "Crassula ovata",
+      "emoji": "🌳",
+      "color": "#4fae6a",
+      "care": {
+        "moisture_min_pct": 12,
+        "moisture_max_pct": 35,
+        "temp_min_c": 15,
+        "temp_max_c": 30,
+        "humidity_min_pct": 25,
+        "light_min_lux": 4000,
+        "light_max_lux": 40000,
+        "watering_interval_days": 18,
+        "difficulty": "easy"
+      },
+      "notes": "Succulent: let it dry fully, then soak. Bright light for red edges."
+    },
+    {
+      "id": "dracaena-marginata",
+      "common": "Dragon Tree",
+      "common_de": "Drachenbaum",
+      "scientific": "Dracaena marginata",
+      "emoji": "🌿",
+      "color": "#57a05c",
+      "care": {
+        "moisture_min_pct": 20,
+        "moisture_max_pct": 50,
+        "temp_min_c": 16,
+        "temp_max_c": 28,
+        "humidity_min_pct": 40,
+        "light_min_lux": 1000,
+        "light_max_lux": 20000,
+        "watering_interval_days": 10,
+        "difficulty": "easy"
+      },
+      "notes": "Sensitive to fluoride; brown tips. Let the soil dry between waterings."
+    },
+    {
+      "id": "hedera-helix",
+      "common": "English Ivy",
+      "common_de": "Efeu",
+      "scientific": "Hedera helix",
+      "emoji": "🌿",
+      "color": "#4a9c5f",
+      "care": {
+        "moisture_min_pct": 30,
+        "moisture_max_pct": 60,
+        "temp_min_c": 10,
+        "temp_max_c": 24,
+        "humidity_min_pct": 50,
+        "light_min_lux": 1000,
+        "light_max_lux": 15000,
+        "watering_interval_days": 6,
+        "difficulty": "medium"
+      },
+      "notes": "Likes it cooler than most houseplants. Keep evenly moist."
+    },
+    {
+      "id": "phalaenopsis",
+      "common": "Moth Orchid",
+      "common_de": "Schmetterlingsorchidee",
+      "scientific": "Phalaenopsis",
+      "emoji": "🌺",
+      "color": "#8fce9a",
+      "care": {
+        "moisture_min_pct": 30,
+        "moisture_max_pct": 55,
+        "temp_min_c": 18,
+        "temp_max_c": 27,
+        "humidity_min_pct": 55,
+        "light_min_lux": 1500,
+        "light_max_lux": 12000,
+        "watering_interval_days": 7,
+        "difficulty": "medium"
+      },
+      "notes": "Bark/behaviour: water when roots turn silver, never leave in standing water."
+    },
+    {
+      "id": "succulent-generic",
+      "common": "Generic Succulent",
+      "common_de": "Sukkulente",
+      "scientific": "mixed succulents",
+      "emoji": "🌵",
+      "color": "#4bbf8f",
+      "care": {
+        "moisture_min_pct": 10,
+        "moisture_max_pct": 35,
+        "temp_min_c": 12,
+        "temp_max_c": 35,
+        "humidity_min_pct": 20,
+        "light_min_lux": 4000,
+        "light_max_lux": 40000,
+        "watering_interval_days": 18,
+        "difficulty": "easy"
+      },
+      "notes": "Soak-and-dry. When in doubt, do not water."
+    }
+  ]
+}

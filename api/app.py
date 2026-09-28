@@ -162,6 +162,33 @@ def init_db() -> None:
                 ts REAL NOT NULL, actor TEXT NOT NULL, ip TEXT,
                 action TEXT NOT NULL, detail TEXT
             );
+            CREATE TABLE IF NOT EXISTS plants (
+                id TEXT PRIMARY KEY,
+                node TEXT,
+                name TEXT NOT NULL,
+                species_id TEXT,
+                species TEXT,
+                emoji TEXT,
+                color TEXT,
+                nickname TEXT,
+                notes TEXT,
+                care TEXT,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS devices (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                kind TEXT,
+                chip TEXT,
+                mac TEXT,
+                ip TEXT,
+                port TEXT,
+                notes TEXT,
+                last_seen REAL,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts DESC);
             CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit(ts DESC);
             """
@@ -261,6 +288,129 @@ def recent(table: str, limit: int) -> list[dict[str, Any]]:
         rows = db().execute(
             f"SELECT * FROM {table} ORDER BY ts DESC LIMIT ?", (max(1, min(limit, 500)),)
         ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# --------------------------------------------------------------------------- #
+# Plant database (species) + per-node plant profiles + devices
+# --------------------------------------------------------------------------- #
+
+PLANTS_DB_PATH = env("PLANTS_DB", os.path.join(os.path.dirname(__file__), "plants.json"))
+_plant_db: dict[str, dict[str, Any]] = {}
+
+
+def load_plant_db() -> dict[str, dict[str, Any]]:
+    """Curated offline houseplant care data. Optionally refreshable from
+    OpenPlantbook later; this ships with the image and needs no network."""
+    global _plant_db
+    if _plant_db:
+        return _plant_db
+    try:
+        with open(PLANTS_DB_PATH, encoding="utf-8") as fh:
+            data = json.load(fh)
+        _plant_db = {p["id"]: p for p in data.get("plants", [])}
+    except Exception as exc:  # noqa: BLE001
+        log.warning("plant db load failed: %s", exc)
+        _plant_db = {}
+    return _plant_db
+
+
+def _plant_row(r: sqlite3.Row) -> dict[str, Any]:
+    d = dict(r)
+    for k in ("care",):
+        if d.get(k):
+            try:
+                d[k] = json.loads(d[k])
+            except (TypeError, json.JSONDecodeError):
+                d[k] = None
+    return d
+
+
+def get_plant(node_name: str) -> dict[str, Any] | None:
+    with _db_lock:
+        row = db().execute("SELECT * FROM plants WHERE node=?", (node_name,)).fetchone()
+    return _plant_row(row) if row else None
+
+
+def upsert_plant(node_name: str, data: dict[str, Any]) -> dict[str, Any]:
+    now = time.time()
+    species = None
+    if data.get("species_id"):
+        species = load_plant_db().get(str(data["species_id"]))
+    care = data.get("care")
+    if care is None and species:
+        care = species.get("care")
+    pid = str(data.get("id") or f"plant-{node_name}")
+    fields = {
+        "id": pid,
+        "node": node_name,
+        "name": str(data.get("name") or (species or {}).get("common_de")
+                    or (species or {}).get("common") or node_name),
+        "species_id": data.get("species_id"),
+        "species": (species or {}).get("scientific") or data.get("species"),
+        "emoji": data.get("emoji") or (species or {}).get("emoji") or "🪴",
+        "color": data.get("color") or (species or {}).get("color") or "#5fd08a",
+        "nickname": data.get("nickname"),
+        "notes": data.get("notes") or (species or {}).get("notes"),
+        "care": json.dumps(care) if care else None,
+    }
+    with _db_lock:
+        db().execute(
+            """INSERT INTO plants(id,node,name,species_id,species,emoji,color,nickname,notes,care,created_at,updated_at)
+               VALUES(:id,:node,:name,:species_id,:species,:emoji,:color,:nickname,:notes,:care,:now,:now)
+               ON CONFLICT(id) DO UPDATE SET
+                 node=excluded.node, name=excluded.name, species_id=excluded.species_id,
+                 species=excluded.species, emoji=excluded.emoji, color=excluded.color,
+                 nickname=excluded.nickname, notes=excluded.notes, care=excluded.care,
+                 updated_at=excluded.updated_at""",
+            {**fields, "now": now},
+        )
+        db().commit()
+    return get_plant(node_name) or {}
+
+
+def list_plants() -> list[dict[str, Any]]:
+    with _db_lock:
+        rows = db().execute("SELECT * FROM plants ORDER BY name").fetchall()
+    return [_plant_row(r) for r in rows]
+
+
+def get_device(dev_id: str) -> dict[str, Any] | None:
+    with _db_lock:
+        row = db().execute("SELECT * FROM devices WHERE id=?", (dev_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def upsert_device(dev_id: str, data: dict[str, Any]) -> dict[str, Any]:
+    now = time.time()
+    fields = {
+        "id": dev_id,
+        "name": data.get("name"),
+        "kind": data.get("kind", "esp32"),
+        "chip": data.get("chip"),
+        "mac": data.get("mac"),
+        "ip": data.get("ip"),
+        "port": data.get("port"),
+        "notes": data.get("notes"),
+        "last_seen": data.get("last_seen"),
+    }
+    with _db_lock:
+        db().execute(
+            """INSERT INTO devices(id,name,kind,chip,mac,ip,port,notes,last_seen,created_at,updated_at)
+               VALUES(:id,:name,:kind,:chip,:mac,:ip,:port,:notes,:last_seen,:now,:now)
+               ON CONFLICT(id) DO UPDATE SET
+                 name=excluded.name, kind=excluded.kind, chip=excluded.chip, mac=excluded.mac,
+                 ip=excluded.ip, port=excluded.port, notes=excluded.notes,
+                 last_seen=excluded.last_seen, updated_at=excluded.updated_at""",
+            {**fields, "now": now},
+        )
+        db().commit()
+    return get_device(dev_id) or {}
+
+
+def list_devices() -> list[dict[str, Any]]:
+    with _db_lock:
+        rows = db().execute("SELECT * FROM devices ORDER BY created_at").fetchall()
     return [dict(r) for r in rows]
 
 
@@ -952,12 +1102,148 @@ async def api_state() -> dict[str, Any]:
     """All nodes keyed by node name, plus a `primary` convenience node."""
     names = node_names()
     nodes = {k: public_node(k, NODES[k]) for k in names}
+    for k in names:
+        nodes[k]["plant"] = get_plant(k)
     return {
         "nodes": nodes,
         "count": len(names),
         "primary": nodes.get(_primary_name()) if names else None,
         "server_time": time.time(),
     }
+
+
+# ---- plant species database ------------------------------------------------- #
+
+@app.get("/api/plants")
+async def api_plants(q: str | None = None) -> dict[str, Any]:
+    """Species catalog (offline curated data). `?q=` filters by name."""
+    items = list(load_plant_db().values())
+    if q:
+        ql = q.lower()
+        items = [p for p in items if ql in p["common"].lower()
+                 or ql in (p.get("common_de") or "").lower()
+                 or ql in (p.get("scientific") or "").lower()]
+    return {"count": len(items), "plants": items}
+
+
+@app.get("/api/plants/{species_id}")
+async def api_plant_species(species_id: str) -> dict[str, Any]:
+    p = load_plant_db().get(species_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="unknown species")
+    return p
+
+
+# ---- per-node plant profiles ------------------------------------------------ #
+
+@app.get("/api/plant/{node}")
+async def api_get_plant(node: str) -> dict[str, Any]:
+    return {"node": node, "plant": get_plant(node)}
+
+
+@app.put("/api/plant/{node}")
+async def api_put_plant(
+    node: str,
+    data: dict[str, Any],
+    request: Request,
+    planter_session: str | None = Cookie(default=None),
+) -> dict[str, Any]:
+    user = require_user(request, planter_session)
+    plant = upsert_plant(node, data)
+    audit(user, "plant_profile_saved", f"{node}: {plant.get('name')}", client_ip(request))
+    return {"ok": True, "plant": plant}
+
+
+@app.get("/api/plants/assigned/all")
+async def api_plants_assigned() -> dict[str, Any]:
+    return {"plants": list_plants()}
+
+
+# ---- devices + flashing (dashboard) ----------------------------------------- #
+
+FLASHER_URL = env("FLASHER_URL", "http://127.0.0.1:6053")
+
+
+async def _flasher_get(path: str) -> dict[str, Any]:
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            r = await client.get(f"{FLASHER_URL}{path}")
+            return r.json()
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+
+
+@app.get("/api/devices")
+async def api_devices() -> dict[str, Any]:
+    """Attached ESPs + known devices. Merges the flasher service's view."""
+    live = await _flasher_get("/devices")
+    known = {d["id"]: d for d in list_devices()}
+    for dev in live.get("devices", []):
+        mac = dev.get("mac")
+        dev_id = mac or dev.get("port")
+        if dev_id and dev_id not in known:
+            upsert_device(dev_id, {"kind": "esp32", "port": dev.get("port"),
+                                   "chip": dev.get("chip"), "mac": mac, "last_seen": time.time()})
+    return {"attached": live.get("devices", []), "known": list_devices(),
+            "flasher": live.get("error") if live.get("error") else "ok"}
+
+
+@app.get("/api/nodes/available")
+async def api_nodes_available() -> dict[str, Any]:
+    """Node configs available to flash."""
+    return await _flasher_get("/nodes")
+
+
+@app.post("/api/flash")
+async def api_flash(
+    body: dict[str, Any],
+    request: Request,
+    planter_session: str | None = Cookie(default=None),
+) -> dict[str, Any]:
+    """Flash a node over USB. The flasher does the esptool/esphome work."""
+    user = require_user(request, planter_session)
+    node = str(body.get("node", ""))
+    port = str(body.get("port", "/dev/ttyUSB0"))
+    if not node:
+        raise HTTPException(status_code=400, detail="node required")
+    audit(user, "flash_requested", f"{node} on {port}", client_ip(request))
+    try:
+        async with httpx.AsyncClient(timeout=900) as client:
+            r = await client.post(f"{FLASHER_URL}/flash", json={"node": node, "port": port})
+            result = r.json()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"flasher unavailable: {exc}")
+    audit(user, "flash_done" if result.get("ok") else "flash_failed",
+          f"{node} on {port}", client_ip(request))
+    return result
+
+
+# ---- hotspot / Wi-Fi settings (needs host access) --------------------------- #
+
+@app.get("/api/hotspot")
+async def api_hotspot(request: Request, planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    require_user(request, planter_session)
+    return {
+        "note": "Hotspot (FloraHome) verwaltet der Host: nmcli con show Hotspot.",
+        "ssid": "FloraHome",
+        "owner": "host",
+    }
+
+
+@app.put("/api/hotspot")
+async def api_hotspot_put(
+    data: dict[str, Any],
+    request: Request,
+    planter_session: str | None = Cookie(default=None),
+) -> dict[str, Any]:
+    user = require_user(request, planter_session)
+    ssid = data.get("ssid")
+    # The API container has no host namespace; this is intentionally a spool.
+    audit(user, "hotspot_change_requested", json.dumps(data, ensure_ascii=False), client_ip(request))
+    return {"ok": False,
+            "detail": "Hotspot-Änderung wird gespoolt (siehe docs/DEVICES.md). "
+                      "Aktuell per Host: nmcli con mod Hotspot 802-11-wireless.ssid <name>",
+            "requested": {"ssid": ssid}}
 
 
 @app.get("/api/config")

@@ -107,6 +107,9 @@ services:
       PUMP_SECONDS: ${PUMP_SECONDS:-20}
       PUMP_COOLDOWN_MIN: ${PUMP_COOLDOWN_MIN:-30}
       DB_PATH: /data/planter.db
+      FLASHER_URL: ${FLASHER_URL:-http://host.docker.internal:6053}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/data
     ports:
@@ -173,7 +176,33 @@ services:
     command: dashboard /config --username ${ADMIN_USER:-admin} --password ${ADMIN_PASSWORD}
     profiles: ["tools"]          # start with: docker compose --profile tools up -d
 
+  # Detects ESPs plugged into the Pi and flashes them, so the dashboard's
+  # "Geräte" panel can flash a new node without SSH. Runs on the host network
+  # as root so it can read /dev/ttyUSB*; the API triggers it via
+  # POST /api/flash (see docs/DEVICES.md). Phases: spool now, USB passthrough
+  # in the Phase F TODO.
+  flasher:
+    image: esphome/esphome:2025.8
+    container_name: planter-flasher
+    restart: unless-stopped
+    network_mode: host
+    user: "0:0"
+    privileged: true
+    volumes:
+      - ./esphome:/config
+      - ./esphome/.esphome:/config/.esphome
+      - ./deploy/flasher.sh:/flasher.sh:ro
+      - /dev:/dev
+      - /run/udev:/run/udev:ro
+      - esphome-cache:/cache
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      PLATFORMIO_CORE_DIR: /cache/platformio
+    entrypoint: ["/bin/bash", "/flasher.sh"]
+    profiles: ["tools"]
+
 volumes:
   mqtt-data:
   influx-data:
   grafana-data:
+  esphome-cache:

@@ -117,6 +117,27 @@
   .field{display:grid;grid-template-columns:1fr 120px;gap:12px;align-items:center;margin-bottom:10px}
   .sw{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
   :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  .brand .logo,.brand h1{cursor:pointer}
+  .plant{box-shadow:inset 0 3px 0 var(--plant,transparent)}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);
+    background:var(--card2);border:1px solid var(--accent);color:var(--ink);
+    padding:12px 18px;border-radius:14px;box-shadow:var(--shadow);z-index:99;
+    opacity:0;transition:opacity .25s,transform .25s;max-width:90vw;text-align:center;font-weight:600}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* easter egg rain */
+  .eggfall{position:fixed;top:-40px;font-size:2rem;z-index:98;pointer-events:none;
+    animation-name:eggfall;animation-timing-function:ease-in;animation-fill-mode:forwards}
+  @keyframes eggfall{to{transform:translateY(105vh) rotate(360deg);opacity:.15}}
+
+  /* party mode */
+  body.party{animation:partyhue 2.4s linear infinite}
+  @keyframes partyhue{0%{filter:hue-rotate(0)}100%{filter:hue-rotate(360deg)}}
+  body.gg .plant::after{content:"🪴";position:absolute;right:12px;top:10px;font-size:1.4rem}
+  body.gg .plant{position:relative}
+
   @media (max-width:560px){
     body{font-size:16px}
     h1{font-size:1.15rem}
@@ -151,7 +172,10 @@
   </section>
 
   <section class="card">
-    <h2><span class="icon">🪴</span> Pflanzen</h2>
+    <h2><span class="icon">🪴</span> Pflanzen
+      <button id="btnEditPlant" class="ghost" style="margin-left:auto" type="button" disabled>Profil bearbeiten</button>
+      <button id="btnManual" class="ghost" type="button">Hilfe</button>
+    </h2>
     <div id="plants" class="plants"></div>
   </section>
 
@@ -208,6 +232,23 @@
   </section>
 
   <details class="card">
+    <summary><span class="icon">🔌</span> Geräte &amp; Flashen</summary>
+    <div style="margin-top:12px">
+      <div class="row" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+        <label class="fld">Knoten (Config)
+          <select id="flash-node" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select></label>
+        <label class="fld">Port
+          <select id="flash-port" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select></label>
+        <button id="btnFlash" class="primary" type="button" disabled>⚡ Flashen</button>
+        <button id="btnRefreshDevices" type="button">↻ Aktualisieren</button>
+      </div>
+      <p class="note" id="flashNote">Erstes Flashen per USB. Danach OTA (ESPHome :6052 oder
+        <code>deploy/add-node.sh ota</code>).</p>
+      <table style="margin-top:10px"><tbody id="devices"></tbody></table>
+    </div>
+  </details>
+
+  <details class="card">
     <summary><span class="icon">📋</span> Ereignisse &amp; Protokoll</summary>
     <div style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:12px">
       <div><h2 class="muted" style="font-size:.95rem">Ereignisse</h2>
@@ -217,6 +258,55 @@
     </div>
   </details>
 </main>
+
+<dialog id="plantDlg" aria-labelledby="plantH">
+  <form method="dialog" class="dlg-body">
+    <h2 id="plantH">🪴 Pflanzenprofil</h2>
+    <div class="field"><label>Knoten</label><input id="pl-node" type="text" readonly></div>
+    <div class="field"><label for="pl-species">Art / Pflanze</label>
+      <select id="pl-species" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)">
+        <option value="">— eigene —</option></select></div>
+    <p class="note" id="pl-care"></p>
+    <div class="field"><label for="pl-nickname">Spitzname</label><input id="pl-nickname" type="text"></div>
+    <div class="field"><label for="pl-name">Anzeigename</label><input id="pl-name" type="text"></div>
+    <div class="field"><label for="pl-emoji">Emoji / Avatar</label>
+      <input id="pl-emoji" type="text" maxlength="4" list="emojiList">
+      <datalist id="emojiList">
+        <option>🌿🌱🪴🌵🌳🌸🍃🌺🌴🌾🎨🪙💧</option>
+      </datalist></div>
+    <div class="field"><label for="pl-color">Farbe</label><input id="pl-color" type="color" value="#5fd08a"></div>
+    <div class="sw"><label for="pl-notes">Notiz</label><input id="pl-notes" type="text"></div>
+    <div class="controls" style="grid-template-columns:1fr 1fr">
+      <button value="cancel" type="submit">Abbrechen</button>
+      <button id="pl-save" class="primary" value="save" type="submit">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="manualDlg" aria-labelledby="manualH2">
+  <form method="dialog" class="dlg-body">
+    <h2 id="manualH2">📖 Kurzanleitung</h2>
+    <h3>1 · Pflanze bewässern</h3>
+    <p class="note">„💧 Bewässern" läuft als <b>einmalige Gabe</b> (Standard ~20 s, im Gerät
+      hart auf 45 s begrenzt). Für die Automatik: <b>Einstellungen → Bewässerung</b>.</p>
+    <h3>2 · Bodenfeuchte kalibrieren</h3>
+    <p class="note">Sonde in <b>Luft</b> → Rohspannung links eintragen; Sonde in ein <b>Glas Wasser</b>
+      → Wert rechts. „Werte übernehmen" sendet die Kalibrierung ans Gerät (bleibt gespeichert).</p>
+    <h3>3 · Pflanze einrichten</h3>
+    <p class="note">„Profil bearbeiten" → Art wählen (Bodenfeuchte-, Temperatur- und Licht­bereich
+      werden übernommen) und Spitzname/Emoji/Farbe festlegen.</p>
+    <h3>4 · Neuen Knoten anlegen</h3>
+    <pre style="white-space:pre-wrap;font-size:.85rem">deploy/add-node.sh new plant-d "Monstera"
+deploy/add-node.sh discover        # welcher ESP auf welchem Port
+deploy/add-node.sh compile plant-d
+deploy/add-node.sh flash  plant-d /dev/ttyUSB0
+deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
+    <p class="note">OTA geht auch aus dem Browser: ESPHome auf <b>:6052</b>. Volle Anleitungen:
+      <b>TUTORIALS.md</b> im Repo.</p>
+    <div class="controls" style="grid-template-columns:1fr">
+      <button class="primary" value="ok" type="submit">Alles klar</button></div>
+  </form>
+</dialog>
 
 <dialog id="settingsDlg" aria-labelledby="settingsH">
   <form method="dialog" class="dlg-body">
@@ -278,19 +368,42 @@ function mini(label, icon, value, unit){
     <div class="v">${value ?? "–"}${unit?`<small>${unit}</small>`:""}</div></div>`;
 }
 /* `states` is an array so multi-node drops in later; today it holds one node. */
+/* mood text from plant + live readings */
+function mood(s){
+  const m = s.metrics || {}, plant = s.plant, care = plant && plant.care;
+  if(!s.online) return ["😴","schläft", "var(--muted)"];
+  if(s.fault && s.fault !== "ok") return ["🤒","braucht Hilfe","var(--crit)"];
+  const mo = m.moisture_pct;
+  if(care && typeof mo === "number"){
+    if(mo < care.moisture_min_pct) return ["😟","durstig","var(--warn)"];
+    if(mo > care.moisture_max_pct) return ["😵","zu nass","var(--warn)"];
+  }
+  if(s.pump === "watering") return ["💧","trinkt gerade","var(--accent)"];
+  if(care && typeof m.temp_c === "number" && (m.temp_c < care.temp_min_c || m.temp_c > care.temp_max_c))
+    return ["🥶","zu kalt/warm","var(--warn)"];
+  return ["😊","glücklich","var(--ok)"];
+}
+
 function renderPlants(states){
   const box = $("plants");
   box.innerHTML = states.map(s => {
     const m = s.metrics || {};
     const online = !!s.online;
+    const plant = s.plant || {};
+    const name = plant.nickname || plant.name || s.device || "smartplanter";
+    const emoji = plant.emoji || "🪴";
     const pump = s.pump === "watering" ? ["watering","Bewässert 💧"]
                : s.pump === "cooldown" ? ["cooldown","Sperrzeit ⏳"] : ["idle","Bereit"];
     const fault = (s.fault && s.fault !== "ok")
       ? `<div class="note fault">⚠️ Fault: ${esc(s.fault)}</div>` : "";
-    return `<div class="plant">
+    const [me, mtext] = mood(s);
+    const cfg = (window.MOODBOARD && window.MOODBOARD.plant) || {};
+    return `<div class="plant" style="--plant:${plant.color||"#5fd08a"}">
       <div class="top"><span class="dot ${online?"on":""}"></span>
-        <span class="name">${esc(s.device || "smartplanter")}</span>
+        <span class="name">${emoji} ${esc(name)}</span>
         <span class="muted" style="font-size:.85rem">${online?`online · ${rel(s.last_seen)}`:"offline"}</span></div>
+      <div class="pump-state" style="margin:0 0 8px"><span class="tag" style="border-color:${cfg[6]||"var(--line)"}">${me} ${esc(mtext)}</span>
+        <span class="muted" style="font-size:.85rem">${esc(plant.species||"")}</span></div>
       <div class="big-metric">
         <span class="num">${fmtNum(m.moisture_pct,0) ?? "–"}</span><span class="unit">% Boden</span></div>
       <div class="row-metrics">
@@ -300,10 +413,10 @@ function renderPlants(states){
       </div>
       <div class="pump-state ${pump[0]}"><span class="tag">🚰 ${pump[1]}</span>
         <span class="muted" style="font-size:.85rem">${s.pump_count_today??0}× heute</span></div>
+      ${plant.notes?`<div class="note" style="margin-top:6px">💡 ${esc(plant.notes)}</div>`:""}
       ${fault}
     </div>`;
   }).join("");
-  // freshness dimming
   box.querySelectorAll(".plant").forEach((el,i)=>{
     const s = states[i];
     el.classList.toggle("stale", !(s && s.online));
@@ -448,6 +561,8 @@ function setAuthed(v){
   $("authNote").textContent = v
     ? "Angemeldet – Änderungen werden im Protokoll erfasst."
     : "Das Dashboard ist schreibgeschützt. Zum Steuern bitte anmelden.";
+  const fb = $("btnFlash"); if(fb) fb.disabled = !v;
+  const ep = $("btnEditPlant"); if(ep) ep.disabled = !v;
   loadTables();
 }
 async function checkMe(){ try{ setAuthed((await json("/api/me")).authenticated); }catch(e){ setAuthed(false); } }
@@ -522,6 +637,153 @@ $("chartField").onchange = loadChart;
 $("chartRange").onchange = loadChart;
 window.addEventListener("resize", drawChart);
 
+/* ------------------------------------------------------------ plant profiles */
+let SPECIES = [];
+async function loadSpecies(){
+  try{ SPECIES = (await json("/api/plants")).plants || []; }catch(e){ SPECIES = []; }
+  const sel = $("pl-species");
+  sel.innerHTML = '<option value="">— eigene —</option>' + SPECIES.map(p =>
+    `<option value="${p.id}">${p.emoji} ${esc(p.common_de||p.common)} (${esc(p.scientific)})</option>`).join("");
+}
+function showCare(pid){
+  const p = SPECIES.find(x => x.id === pid);
+  $("pl-care").textContent = p
+    ? `💧 ${p.care.moisture_min_pct}–${p.care.moisture_max_pct}% · 🌡️ ${p.care.temp_min_c}–${p.care.temp_max_c}°C · ☀️ ${p.care.light_min_lux}–${p.care.light_max_lux} lx · alle ${p.care.watering_interval_days} Tage · ${p.care.difficulty}`
+    : "";
+}
+$("pl-species").onchange = () => showCare($("pl-species").value);
+
+$("btnEditPlant").onclick = async () => {
+  const node = primaryNode(); if(!node) return;
+  const cur = (lastPayload.nodes[node] && lastPayload.nodes[node].plant) || {};
+  await loadSpecies();
+  $("pl-node").value = node;
+  $("pl-species").value = cur.species_id || "";
+  $("pl-nickname").value = cur.nickname || "";
+  $("pl-name").value = cur.name || "";
+  $("pl-emoji").value = cur.emoji || "🪴";
+  $("pl-color").value = cur.color || "#5fd08a";
+  $("pl-notes").value = cur.notes || "";
+  showCare(cur.species_id || "");
+  $("plantDlg").showModal();
+};
+$("plantDlg").addEventListener("close", async () => {
+  if($("plantDlg").returnValue !== "save") return;
+  const node = $("pl-node").value;
+  const body = {
+    species_id: $("pl-species").value || null,
+    nickname: $("pl-nickname").value || null,
+    name: $("pl-name").value || null,
+    emoji: $("pl-emoji").value || "🪴",
+    color: $("pl-color").value,
+    notes: $("pl-notes").value || null,
+  };
+  try{ await json(`/api/plant/${encodeURIComponent(node)}`, {method:"PUT", body: JSON.stringify(body)}); refresh(); }
+  catch(e){ alert("Speichern fehlgeschlagen: "+e.message); }
+});
+
+/* ----------------------------------------------------------------- feedback */
+function toast(msg){
+  const el = document.createElement("div");
+  el.className = "toast"; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.classList.add("show"), 10);
+  setTimeout(() => { el.classList.remove("show"); setTimeout(()=>el.remove(), 300); }, 5000);
+}
+function notify(msg){ if("Notification" in window && Notification.permission === "granted"){
+  try{ new Notification("FloraHome", {body: msg}); }catch(e){} } }
+
+/* -------------------------------------------------------------- easter eggs */
+const EGG_EMOJI = ["🌻","🌷","🌼","🪷","🍄","🐝","🦋","🐌","🌈","✨"];
+let clickCount = 0, clickTimer = 0, konami = [], gg = 0, plantClicks = 0;
+document.querySelector(".brand .logo").addEventListener("click", () => {
+  clearTimeout(clickTimer); clickCount += 1;
+  clickTimer = setTimeout(() => clickCount = 0, 900);
+  if(clickCount >= 3){ clickCount = 0; plantRain(3); toast("🌧️ Ein bisschen Regen für dich!"); }
+});
+document.querySelector(".brand h1").addEventListener("click", () => {
+  plantClicks += 1;
+  if(plantClicks >= 7){
+    plantClicks = 0; document.body.classList.toggle("party");
+    toast(document.body.classList.contains("party")
+      ? "🎉 Debug-Modus: Party 🌱" : "Party vorbei. Die Pflanzen schlafen weiter.");
+  }
+});
+window.addEventListener("keydown", e => {
+  konami.push(e.key); konami = konami.slice(-10);
+  if(["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"].every((k,i)=>konami[i]===k)){
+    document.body.classList.toggle("party");
+    toast("⬆️⬆️⬇️⬇️⬅️➡️⬅️➡️🅱️🅰️ — Wachstumsbooster aktiviert!");
+  }
+  if(e.key === "g"){ gg += 1; if(gg === 2){ gg = 0; document.body.classList.toggle("gg"); toast("🪴 gg — nettes Tippen!"); } }
+  else gg = 0;
+});
+function plantRain(n){
+  for(let i=0;i<n;i++){
+    const el = document.createElement("div");
+    el.className = "eggfall";
+    el.textContent = EGG_EMOJI[Math.floor(Math.random()*EGG_EMOJI.length)];
+    el.style.left = (15 + Math.random()*70) + "vw";
+    el.style.animationDuration = (2.2 + Math.random()*1.6) + "s";
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+}
+
+/* ------------------------------------------------- touched nodes → notify */
+async function greetChanges(){
+  try{
+    const st = await json("/api/state");
+    const nodes = Object.values(st.nodes || {});
+    for(const n of nodes){
+      if(greeted[n.node] === undefined){ greeted[n.node] = true; continue; }
+    }
+  }catch(e){}
+}
+const greeted = {};
+
+/* ------------------------------------------------------------------- devices */
+async function loadDevices(){
+  try{
+    const [avail, dev] = await Promise.all([json("/api/nodes/available"), json("/api/devices")]);
+    const nodes = avail.nodes || [];
+    $("flash-node").innerHTML = nodes.map(n => `<option value="${n}">${n}</option>`).join("");
+    const ports = (dev.attached || []);
+    $("flash-port").innerHTML = (ports.length ? ports : [{port:"/dev/ttyUSB0"}])
+      .map(p => `<option value="${p.port}">${p.port}${p.mac?" ("+p.mac+")":""}</option>`).join("");
+    $("devices").innerHTML = (dev.known || []).map(d =>
+      `<tr><td>🔌 ${esc(d.name||d.id)}</td><td class="muted">${esc(d.kind||"")} ${esc(d.mac||"")} ${esc(d.port||"")}</td></tr>`
+    ).join("") || '<tr><td class="muted">Keine bekannten Geräte</td></tr>';
+    $("flashNote").textContent = avail.error
+      ? "Flasher nicht erreichbar – starte: docker compose --profile tools up -d flasher"
+      : `${ports.length} angeschlossen · ${nodes.length} Knoten-Configs`;
+  }catch(e){ $("flashNote").textContent = "Geräte nicht verfügbar: " + e.message; }
+}
+$("btnRefreshDevices").onclick = loadDevices;
+$("btnFlash").onclick = async () => {
+  const node = $("flash-node").value, port = $("flash-port").value;
+  if(!node || !port) return;
+  if(!confirm(`"${node}" jetzt auf ${port} flashen? Das Gerät startet neu.`)) return;
+  $("btnFlash").disabled = true; $("flashNote").textContent = "Flashen läuft… (kann 1–2 min dauern)";
+  try{
+    const r = await json("/api/flash", {method:"POST", body: JSON.stringify({node, port})});
+    toast(r.ok ? `✅ ${node} geflasht` : "❌ Flash fehlgeschlagen");
+    $("flashNote").textContent = r.ok ? `✅ ${node} geflasht.` : (r.tail || "Fehler beim Flashen.");
+  }catch(e){ toast("Flash-Fehler: "+e.message); }
+  finally{ $("btnFlash").disabled = !authed; loadDevices(); }
+};
+
+/* ------------------------------------------------------------------------- */
+$("btnManual").onclick = () => $("manualDlg").showModal();
+$("btnBuzz").addEventListener("click", () => toast("🔊 Buzzer-Test gesendet"), true);
+
+/* touch on empty space: no selection; help card first-run hint */
+if(!localStorage.getItem("fhHint")){
+  setTimeout(() => { toast("Tipp: „Hilfe“ öffnet die Kurzanleitung 👋"); localStorage.setItem("fhHint","1"); }, 4000);
+}
+/* Notifications are requested on demand (e.g. after login), not on boot — an
+   auto-prompt on a kiosk with a fresh profile is just noise. */
+
 /* ------------------------------------------- drag-to-scroll for touch panels
  * The 5" panel's controller reports as an absolute MOUSE (no BTN_TOUCH), so the
  * browser never scrolls on drag. We turn a press-and-drag on empty space into a
@@ -558,6 +820,7 @@ window.addEventListener("resize", drawChart);
   await refreshHalted();
   await loadTables();
   await loadChart();
+  await loadDevices();
   connect();
   setInterval(async()=>{ await refresh(); await refreshHalted(); }, 15000);
   setInterval(loadTables, 20000);

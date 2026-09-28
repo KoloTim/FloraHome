@@ -6,7 +6,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY app.py .
+COPY app.py plants.json ./
 
 RUN useradd -u 10001 -m planter && mkdir -p /data && chown -R planter:planter /data /app
 USER planter
