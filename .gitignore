@@ -6,3 +6,5 @@ esphome/.esphome/
 *.db-wal
 *.db-shm
 grafana/grafana.ini
+__pycache__/
+*.pyc
