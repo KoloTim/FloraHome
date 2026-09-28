@@ -10,6 +10,28 @@ red **Fault** line (it names any sensor that failed).
 
 ---
 
+## The whole picture
+
+```mermaid
+graph LR
+  subgraph ESP["ESP32-WROOM (3.3 V logic)"]
+    G34["GPIO34 &#8592; HW-390 AOUT"]
+    G25["GPIO25 &#8594; probe power"]
+    G27["GPIO27 &#8592; DHT11 DATA"]
+    G35["GPIO35 &#8592; LDR divider"]
+    G26["GPIO26 &#8594; relay IN1"]
+    G13["GPIO13 &#8594; relay IN2"]
+    G14["GPIO14 &#8594; buzzer"]
+    G04["GPIO4 &#8592; water-now button"]
+  end
+  P3["3V3 rail"] --> G34 & G25 & G27 & G35
+  GND["GND rail"] --> G34 & G25 & G27 & G35
+  ESP --> REL["relay module"]
+  P12["12 V PSU (2 A fuse)"] --> REL
+  REL --> PUMP["R385 12 V pump"]
+  REL --> LIGHT["12 V grow light"]
+```
+
 ## 0. The two things you must understand first
 
 ### The breadboard

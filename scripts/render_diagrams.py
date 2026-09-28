@@ -15,6 +15,7 @@ import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DOC = ROOT / "docs" / "ARCHITECTURE.md"
+WIRING = ROOT / "docs" / "WIRING_FOR_DUMMIES.md"
 OUT = ROOT / "docs" / "diagrams"
 MERMAID_INK = "https://mermaid.ink/svg/"
 
@@ -42,6 +43,8 @@ def main() -> int:
         print("missing", DOC)
         return 1
     text = DOC.read_text(encoding="utf-8")
+    if WIRING.exists():
+        text += "\n" + WIRING.read_text(encoding="utf-8")
     blocks = re.findall(r"```mermaid\n(.*?)```", text, re.S)
     if not blocks:
         print("no mermaid blocks found")
