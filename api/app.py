@@ -88,7 +88,15 @@ TG_CHAT = env("TELEGRAM_CHAT_ID", "")
 TOPIC_ROOT = env("TOPIC_ROOT", "planter")
 TOPIC_TELEMETRY_WILDCARD = env("TOPIC_TELEMETRY_WILDCARD", f"{TOPIC_ROOT}/+/telemetry")
 TOPIC_STATUS_WILDCARD = env("TOPIC_STATUS_WILDCARD", f"{TOPIC_ROOT}/+/status")
+TOPIC_EVENT_WILDCARD = env("TOPIC_EVENT_WILDCARD", f"{TOPIC_ROOT}/+/event")
 DISCOVERY_PREFIX = env("DISCOVERY_PREFIX", "homeassistant")
+
+# How long without a message before a node counts as offline. This must be safely
+# larger than the firmware publish interval (10 s): the old hardcoded 30 s meant a
+# couple of missed cycles, a Wi-Fi roam, an AP rekey or a broker restart flipped a
+# perfectly healthy node to "offline". 90 s (9 missed heartbeats) is forgiving but
+# still fast enough to be useful. Editable at runtime via config `node_offline_sec`.
+NODE_OFFLINE_SEC = envf("NODE_OFFLINE_SEC", 90.0)
 
 
 def t_cmd(node: str) -> str:
@@ -121,9 +129,19 @@ DEFAULTS: dict[str, Any] = {
     "light_auto": False,
     "buzzer_enabled": True,
     "telegram_enabled": True,
+    "node_offline_sec": NODE_OFFLINE_SEC,   # heartbeat lost -> node offline
 }
 NUMERIC_KEYS = {k for k, v in DEFAULTS.items() if isinstance(v, (int, float))}
 BOOL_KEYS = {k for k, v in DEFAULTS.items() if isinstance(v, bool)}
+
+# `node_fresh()` runs in hot paths (per node, every tick and every request), so the
+# global config is cached for a couple of seconds instead of hitting SQLite each time.
+_cfg_cache: dict[str, Any] = {"t": 0.0, "v": None}
+CFG_CACHE_TTL = 3.0
+
+
+def _cache_bust() -> None:
+    _cfg_cache["t"] = 0.0
 
 # --------------------------------------------------------------------------- #
 # SQLite
@@ -227,15 +245,29 @@ def get_config() -> dict[str, Any]:
     return cfg
 
 
+def _global_cached() -> dict[str, Any]:
+    """Cached global config for hot paths (node_fresh, ticks)."""
+    now = time.time()
+    v = _cfg_cache["v"]
+    if v is None or now - _cfg_cache["t"] > CFG_CACHE_TTL:
+        v = get_config()
+        _cfg_cache["v"] = v
+        _cfg_cache["t"] = now
+    return v
+
+
 def set_config(updates: dict[str, Any]) -> dict[str, Any]:
     clean: dict[str, Any] = {}
     for k, v in updates.items():
         if k not in DEFAULTS:
             continue
-        if k in NUMERIC_KEYS:
-            v = max(0.0, float(v))
-        elif k in BOOL_KEYS:
-            v = bool(v)
+        try:
+            if k in BOOL_KEYS:
+                v = _as_bool(v)
+            elif k in NUMERIC_KEYS:
+                v = max(0.0, float(v))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"invalid value for {k!r}")
         clean[k] = v
     if clean:
         with _db_lock:
@@ -247,7 +279,16 @@ def set_config(updates: dict[str, Any]) -> dict[str, Any]:
                     (k, json.dumps(v), time.time()),
                 )
             c.commit()
+        _cache_bust()
     return clean
+
+
+def _as_bool(v: Any) -> bool:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return v != 0
+    return str(v).strip().lower() in ("1", "true", "on", "yes", "ja")
 
 
 def get_config_for(node_name: str) -> dict[str, Any]:
@@ -276,10 +317,13 @@ def set_config_for(node_name: str, updates: dict[str, Any]) -> dict[str, Any]:
                 c.execute("DELETE FROM node_config WHERE node=? AND key=?", (node_name, k))
                 clean[k] = None
                 continue
-            if k in NUMERIC_KEYS:
-                v = max(0.0, float(v))
-            elif k in BOOL_KEYS:
-                v = bool(v)
+            try:
+                if k in BOOL_KEYS:
+                    v = _as_bool(v)
+                elif k in NUMERIC_KEYS:
+                    v = max(0.0, float(v))
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"invalid value for {k!r}")
             c.execute(
                 "INSERT INTO node_config(node,key,value,updated_at) VALUES(?,?,?,?) "
                 "ON CONFLICT(node,key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
@@ -287,6 +331,7 @@ def set_config_for(node_name: str, updates: dict[str, Any]) -> dict[str, Any]:
             )
             clean[k] = v
         c.commit()
+    _cache_bust()
     return clean
 
 
@@ -473,6 +518,8 @@ def new_node(name: str) -> dict[str, Any]:
         "device": name,
         "online": False,
         "last_seen": 0.0,
+        "offline_since": None,
+        "metrics_ts": 0.0,   # when metrics were last refreshed (stale-data guard)
         "metrics": {},       # latest numeric readings
         "pump": "idle",      # idle | watering | cooldown
         "fault": None,
@@ -489,6 +536,7 @@ def new_node(name: str) -> dict[str, Any]:
 
 NODES: dict[str, dict[str, Any]] = {}
 NODES_LOCK = threading.Lock()
+STATE_LOCK = threading.RLock()   # guards per-node field mutation vs. serialization
 HISTORY: dict[str, deque[dict[str, Any]]] = {}      # per-node fallback when Influx is down
 SSE_CLIENTS: set[asyncio.Queue] = set()
 LOOP: asyncio.AbstractEventLoop | None = None
@@ -697,8 +745,9 @@ def on_connect(client, userdata, flags, reason_code, properties=None):  # noqa: 
         MQTT_CONNECTED = True
         client.subscribe(TOPIC_TELEMETRY_WILDCARD, qos=1)
         client.subscribe(TOPIC_STATUS_WILDCARD, qos=1)
-        log.info("MQTT connected, subscribed to %s + %s",
-                 TOPIC_TELEMETRY_WILDCARD, TOPIC_STATUS_WILDCARD)
+        client.subscribe(TOPIC_EVENT_WILDCARD, qos=1)
+        log.info("MQTT connected, subscribed to %s + %s + %s",
+                 TOPIC_TELEMETRY_WILDCARD, TOPIC_STATUS_WILDCARD, TOPIC_EVENT_WILDCARD)
     else:
         MQTT_CONNECTED = False
         log.error("MQTT connect failed rc=%s", reason_code)
@@ -731,10 +780,28 @@ def on_message(client, userdata, msg):  # noqa: ANN001
         if not exists and not online:
             return  # stale retained "offline" for a node we have never seen
         n = node(node_name)
-        n["online"] = online
-        if online:
-            n["last_seen"] = time.time()
+        now = time.time()
+        with STATE_LOCK:
+            if online:
+                n["online"] = True
+                n["offline_since"] = None
+                # A retained birth ("online") is replayed on every API reconnect.
+                # Only let it refresh last_seen when the node actually looks alive,
+                # otherwise a genuinely dead node gets resurrected on every restart.
+                if not msg.retain or (n["last_seen"] and now - n["last_seen"] < NODE_OFFLINE_SEC):
+                    n["last_seen"] = now
+            else:
+                n["online"] = False
+                n["offline_since"] = now
         broadcast({"type": "status", "node": node_name, "online": online})
+        return
+
+    if kind == "event":
+        text = msg.payload.decode(errors="replace").strip()[:200]
+        node(node_name)
+        log.info("[%s] event: %s", node_name, text or "(empty)")
+        broadcast({"type": "event", "node": node_name, "event": text})
+        audit("node", f"event_{text or 'unknown'}", node_name)
         return
 
     if kind != "telemetry":
@@ -750,23 +817,29 @@ def on_message(client, userdata, msg):  # noqa: ANN001
     payload = normalise(raw)
     payload.setdefault("ts", time.time())
     payload["device"] = raw.get("device", node_name)
-    n["metrics"].update({k: v for k, v in payload.items() if k not in ("ts", "device", "fw")})
-    n["last_seen"] = time.time()
-    n["online"] = True
-    n["device"] = payload["device"]
-    # A node that was running but now reports a small uptime has just restarted.
-    # This is how we catch the classic pump-inrush brownout reset.
-    on_s = payload.get("on_s")
-    if isinstance(on_s, (int, float)):
-        previous = n.get("on_s")
-        if previous is not None and on_s < previous:
-            n["restarts"] = n.get("restarts", 0) + 1
-            n["last_restart_ts"] = time.time()
-            log.warning("[%s] node restart detected (uptime %ss -> %ss)", node_name, previous, on_s)
-            audit("system", "node_restart_detected", f"{node_name}: on_s {previous} -> {on_s}")
-        n["on_s"] = on_s
-    if "fault" in payload:
-        n["fault"] = payload["fault"]
+    now = time.time()
+    with STATE_LOCK:
+        n["metrics"].update({k: v for k, v in payload.items()
+                             if k not in ("ts", "device", "fw")})
+        n["metrics_ts"] = now
+        n["last_seen"] = now
+        n["online"] = True
+        n["offline_since"] = None
+        n["last_msg_ts"] = float(payload.get("ts") or now)
+        n["device"] = payload["device"]
+        # A node that was running but now reports a small uptime has just restarted.
+        # This is how we catch the classic pump-inrush brownout reset.
+        on_s = payload.get("on_s")
+        if isinstance(on_s, (int, float)):
+            previous = n.get("on_s")
+            if previous is not None and on_s < previous:
+                n["restarts"] = n.get("restarts", 0) + 1
+                n["last_restart_ts"] = now
+                log.warning("[%s] node restart detected (uptime %ss -> %ss)", node_name, previous, on_s)
+                audit("system", "node_restart_detected", f"{node_name}: on_s {previous} -> {on_s}")
+            n["on_s"] = on_s
+        if "fault" in payload:
+            n["fault"] = payload["fault"]
     node_history(node_name).append(payload)
     broadcast({"type": "telemetry", "node": node_name, "data": payload})
 
@@ -799,8 +872,10 @@ def publish(topic: str, payload: dict[str, Any], retain: bool = False) -> bool:
     if MQTT_CLIENT is None or not MQTT_CONNECTED:
         return False
     try:
-        MQTT_CLIENT.publish(topic, json.dumps(payload), qos=1, retain=retain)
-        return True
+        info = MQTT_CLIENT.publish(topic, json.dumps(payload), qos=1, retain=retain)
+        # rc == 0 means the message was accepted for delivery. Previously we returned
+        # True unconditionally, so callers reported success even for a dropped send.
+        return info.rc == mqtt.MQTT_ERR_SUCCESS
     except Exception as exc:
         log.warning("publish failed: %s", exc)
         return False
@@ -820,10 +895,26 @@ def m(n: dict[str, Any], key: str) -> float | None:
 
 
 def node_fresh(n: dict[str, Any]) -> bool:
-    """True if this node's last telemetry arrived recently enough to trust."""
-    if not n["last_seen"]:
+    """True if this node's last telemetry arrived recently enough to trust.
+
+    A node is offline the moment its LWT/birth flag says so, and otherwise once
+    the heartbeat has been silent for longer than the configured timeout.
+    """
+    last = n.get("last_seen") or 0.0
+    if not last:
         return False
-    return (time.time() - n["last_seen"]) < 30
+    if not n.get("online", True):
+        return False
+    try:
+        timeout = float(_global_cached().get("node_offline_sec", NODE_OFFLINE_SEC))
+    except (TypeError, ValueError):
+        timeout = NODE_OFFLINE_SEC
+    return (time.time() - last) < timeout
+
+
+def metrics_fresh(n: dict[str, Any]) -> bool:
+    """True if the *readings* are recent (rules must not act on stale metrics)."""
+    return node_fresh(n) and bool(n.get("metrics_ts"))
 
 
 def is_fresh() -> bool:
@@ -837,6 +928,7 @@ async def _rules_for_node(node_name: str, n: dict[str, Any]) -> None:
     last_seen = n["last_seen"]
     age = now - last_seen if last_seen else 1e9
     label = n.get("device", node_name)
+    fresh = node_fresh(n)   # false when LWT offline or heartbeat too old
 
     # -- reset the daily pump counter ------------------------------------- #
     today = datetime.now(timezone.utc).date().isoformat()
@@ -853,7 +945,7 @@ async def _rules_for_node(node_name: str, n: dict[str, Any]) -> None:
             f"🚨 <b>{label}</b>: keine Sensordaten seit {age/60:.0f} Minuten. "
             "Bitte Strom und WLAN prüfen.",
         )
-    elif last_seen and age < 90:
+    elif fresh:
         await resolve_alert(f"{node_name}:node_silent")
 
     # -- watering decision ------------------------------------------------- #
@@ -868,6 +960,7 @@ async def _rules_for_node(node_name: str, n: dict[str, Any]) -> None:
 
     if (
         cfg["pump_auto"]
+        and fresh                        # never act on stale readings / dead node
         and not n["halted"]
         and moisture is not None
         and moisture < cfg["pump_threshold_pct"]
@@ -891,7 +984,7 @@ async def _rules_for_node(node_name: str, n: dict[str, Any]) -> None:
         n["pump"] = "idle"
 
     # -- dry soil too long ------------------------------------------------- #
-    dry = moisture is not None and moisture < cfg["alert_dry_pct"]
+    dry = fresh and moisture is not None and moisture < cfg["alert_dry_pct"]
     since = n.get("dry_since")
     if dry:
         n["dry_since"] = since or now
@@ -909,7 +1002,7 @@ async def _rules_for_node(node_name: str, n: dict[str, Any]) -> None:
         await resolve_alert(f"{node_name}:soil_dry")
 
     # -- empty tank -------------------------------------------------------- #
-    if tank is not None and tank <= cfg["alert_tank_pct"]:
+    if fresh and tank is not None and tank <= cfg["alert_tank_pct"]:
         await raise_alert(
             f"{node_name}:tank_empty", "warning", f"[{label}] Wassertank fast leer ({tank:.0f}%).",
             f"⚠️ <b>{label}</b>: Wassertank fast leer ({tank:.0f}%). Bitte nachfüllen.",
@@ -1082,22 +1175,24 @@ def _primary_name() -> str:
 
 
 def public_node(name: str, n: dict[str, Any]) -> dict[str, Any]:
-    age = time.time() - n["last_seen"] if n["last_seen"] else None
-    return {
-        "node": name,
-        "device": n.get("device", name),
-        "metrics": n["metrics"],
-        "pump": n["pump"],
-        "fault": n.get("fault"),
-        "alerts": n["alerts"],
-        "halted": n["halted"],
-        "restarts": n.get("restarts", 0),
-        "on_s": n.get("on_s"),
-        "online": node_fresh(n),
-        "last_seen": n["last_seen"],
-        "last_seen_age_s": round(age, 1) if age is not None else None,
-        "pump_count_today": n["pump_count_today"],
-    }
+    with STATE_LOCK:
+        age = time.time() - n["last_seen"] if n["last_seen"] else None
+        return {
+            "node": name,
+            "device": n.get("device", name),
+            # copy the live dict: the MQTT thread may be updating it right now
+            "metrics": dict(n["metrics"]),
+            "pump": n["pump"],
+            "fault": n.get("fault"),
+            "alerts": list(n["alerts"]),
+            "halted": n["halted"],
+            "restarts": n.get("restarts", 0),
+            "on_s": n.get("on_s"),
+            "online": node_fresh(n),
+            "last_seen": n["last_seen"],
+            "last_seen_age_s": round(age, 1) if age is not None else None,
+            "pump_count_today": n["pump_count_today"],
+        }
 
 
 # --------------------------------------------------------------------------- #
@@ -1802,12 +1897,10 @@ async def api_command(
     if action not in ("pump", "light", "buzzer", "stop", "cal"):
         raise HTTPException(status_code=400, detail="unknown action")
     payload: dict[str, Any] = {"action": action, "reason": "manual", "by": user}
+    pump_secs: int | None = None
     if action == "pump":
-        secs = int(max(1, min(float(body.get("seconds", get_config()["pump_seconds"])), 120)))
-        payload["seconds"] = secs
-        n["last_pump_ts"] = time.time()
-        n["pump"] = "watering"
-        n["pump_count_today"] += 1
+        pump_secs = int(max(1, min(float(body.get("seconds", get_config()["pump_seconds"])), 120)))
+        payload["seconds"] = pump_secs
     if action == "light":
         want = str(body.get("state", "on"))
         if want == "toggle":
@@ -1834,6 +1927,13 @@ async def api_command(
     payload["node"] = node_name
     if not publish(t_cmd(node_name), payload):
         raise HTTPException(status_code=503, detail="MQTT unavailable, command not sent")
+    # Only now that the broker accepted the command do we update local bookkeeping,
+    # so a failed send can no longer consume the daily pump budget.
+    if action == "pump":
+        with STATE_LOCK:
+            n["last_pump_ts"] = time.time()
+            n["pump"] = "watering"
+            n["pump_count_today"] += 1
     audit(user, f"manual_{action}", json.dumps(payload, ensure_ascii=False), client_ip(request))
     return {"ok": True, "node": node_name, "sent": payload}
 
