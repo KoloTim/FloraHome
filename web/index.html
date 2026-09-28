@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>FloraHome â€” Smart Planter</title>
+<title>FloraHome — Smart Planter</title>
 <style>
   :root{
     /* dark, green, friendly */
@@ -22,7 +22,7 @@
        -webkit-tap-highlight-color:transparent;
        overscroll-behavior:contain;
        -webkit-user-select:none;user-select:none}
-  /* A real, always-visible scrollbar â€” single-touch panels scroll badly, so give
+  /* A real, always-visible scrollbar — single-touch panels scroll badly, so give
      the finger something obvious to aim at. */
   html{scrollbar-color:var(--accent) var(--card);scrollbar-width:auto}
   ::-webkit-scrollbar{width:20px;height:20px}
@@ -143,8 +143,8 @@
   .diary-settings{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
   .diary-settings>summary{cursor:pointer;font-weight:700;color:var(--muted);list-style:none}
   .diary-settings>summary::-webkit-details-marker{display:none}
-  .diary-settings>summary::before{content:"â–¸ ";}
-  .diary-settings[open]>summary::before{content:"â–¾ ";}
+  .diary-settings>summary::before{content:"▸ ";}
+  .diary-settings[open]>summary::before{content:"▾ ";}
 
   /* graph dashboard */
   .graphs{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
@@ -193,21 +193,21 @@
   /* party mode */
   body.party{animation:partyhue 2.4s linear infinite}
   @keyframes partyhue{0%{filter:hue-rotate(0)}100%{filter:hue-rotate(360deg)}}
-  body.gg .plant::after{content:"ðŸª´";position:absolute;right:12px;top:10px;font-size:1.4rem}
+  body.gg .plant::after{content:"🪴";position:absolute;right:12px;top:10px;font-size:1.4rem}
   body.gg .plant{position:relative}
 
   /* global plant selector (single source of truth, lives in the header) */
   .nodefilter{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-weight:700}
   .nodefilter select{max-width:200px}
 
-  /* Flori â€” chat card at the top of Ãœbersicht (communication first) */
+  /* Flori — chat card at the top of Übersicht (communication first) */
   #chatlog{display:flex;flex-direction:column;gap:8px;max-height:42vh;overflow:auto;margin-bottom:10px}
   .chat-msg{padding:10px 13px;border-radius:14px;max-width:88%;line-height:1.45;white-space:pre-wrap;word-break:break-word}
   .chat-msg.me{align-self:flex-end;background:var(--accent);color:var(--accent-ink)}
   .chat-msg.plant{align-self:flex-start;background:var(--card2);border:1px solid var(--line)}
   .chat-msg.plant.thinking{opacity:.7;font-style:italic}
 
-  /* Flori â€” the floating companion (Clippy-style) */
+  /* Flori — the floating companion (Clippy-style) */
   .flori{position:fixed;right:18px;bottom:18px;z-index:95;width:106px;height:106px;
     touch-action:none;cursor:pointer;filter:drop-shadow(0 14px 18px rgba(0,0,0,.45));
     transition:transform .18s ease;-webkit-user-select:none;user-select:none}
@@ -259,29 +259,29 @@
 </head>
 <body>
 <header>
-  <div class="brand"><span class="logo" aria-hidden="true">ðŸŒ¿</span><h1>FloraHome</h1></div>
+  <div class="brand"><span class="logo" aria-hidden="true">🌿</span><h1>FloraHome</h1></div>
   <div class="pills">
-    <span id="conn" class="pill off" role="status">â—Œ <span id="connText">Verbindeâ€¦</span></span>
-    <span id="nodeState" class="pill off">â—Œ <span id="nodeText">Knoten unbekannt</span></span>
+    <span id="conn" class="pill off" role="status">◌ <span id="connText" data-i18n="conn.connecting">Connecting…</span></span>
+    <span id="nodeState" class="pill off">◌ <span id="nodeText" data-i18n="node.unknown">Node unknown</span></span>
   </div>
-  <label class="nodefilter" for="nodeSelect">ðŸŒ±
-    <select id="nodeSelect" aria-label="Pflanze wÃ¤hlen"></select>
+  <label class="nodefilter" for="nodeSelect">🌱
+    <select id="nodeSelect" aria-label="Pflanze wählen"></select>
   </label>
-  <span class="scalebar" role="group" aria-label="SchriftgrÃ¶ÃŸe">
-    <button id="uiSmaller" class="ghost" type="button" title="Kleiner">Aâˆ’</button>
-    <button id="uiLarger" class="ghost" type="button" title="GrÃ¶ÃŸer">A+</button>
+  <span class="scalebar" role="group" aria-label="Schriftgröße">
+    <button id="uiSmaller" class="ghost" type="button" title="Smaller" data-i18n-title="scale.smaller">A−</button>
+    <button id="uiLarger" class="ghost" type="button" title="Bigger" data-i18n-title="scale.larger">A+</button>
   </span>
-  <button id="floriToggle" class="ghost" type="button" title="Flori ein-/ausblenden">ðŸŒ± Flori</button>
-  <button id="authBtn" class="ghost" type="button">Anmelden</button>
+  <button id="floriToggle" class="ghost" type="button" title="Show/hide Flori" data-i18n-title="flori.toggle">🌱 Flori</button>
+  <button id="authBtn" class="ghost" type="button" data-i18n="auth.login">Sign in</button>
 </header>
 
 <nav id="tabs">
-  <button class="tab active" data-page="overview" data-i18n="tab.overview">ðŸŒ¿ Overview</button>
-  <button class="tab" data-page="control" data-i18n="tab.control">ðŸŽ›ï¸ Control</button>
-  <button class="tab" data-page="graphs" data-i18n="tab.graphs">ðŸ“ˆ History</button>
-  <button class="tab" data-page="backend" data-i18n="tab.backend">ðŸ”§ Backend</button>
+  <button class="tab active" data-page="overview" data-i18n="tab.overview">🌿 Overview</button>
+  <button class="tab" data-page="control" data-i18n="tab.control">🎛️ Control</button>
+  <button class="tab" data-page="graphs" data-i18n="tab.graphs">📈 History</button>
+  <button class="tab" data-page="backend" data-i18n="tab.backend">🔧 Backend</button>
   <span style="flex:1"></span>
-  <label class="nodefilter" for="langSelect" title="Language">ðŸŒ
+  <label class="nodefilter" for="langSelect" title="Language">🌐
     <select id="langSelect" aria-label="Language">
       <option value="en">English</option>
       <option value="de">Deutsch</option>
@@ -292,29 +292,28 @@
 
 <main>
   <section id="estopBanner" class="card banner" hidden>
-    <h2><span class="icon">ðŸ›‘</span> NOT-AUS AKTIV</h2>
-    <div>Pumpe und Licht sind aus, die automatische BewÃ¤sserung ist gesperrt â€“
-      auch nach einem Neustart, bis freigegeben wird.</div>
+    <h2 data-i18n="estop.active.title">🛑 EMERGENCY STOP ACTIVE</h2>
+    <div data-i18n="estop.active.body">Pump and light are off; automatic watering is blocked – also after a restart, until released.</div>
     <div class="controls" style="margin-top:12px">
-      <button id="btnResume" class="primary" type="button" disabled>â–¶ï¸ Freigeben</button>
+      <button id="btnResume" class="primary" type="button" disabled data-i18n="estop.resume">▶️ Release</button>
     </div>
   </section>
 
-  <!-- ========================= PAGE: ÃœBERSICHT ========================= -->
+  <!-- ========================= PAGE: ÜBERSICHT ========================= -->
   <div class="page active" data-page="overview">
   <section class="card" id="floriCard">
-    <h2><span class="icon">ðŸ’¬</span> Flori â€” dein Pflanzen-Begleiter
+    <h2><span class="icon">💬</span> <span data-i18n="flori.card.title">Flori — your plant companion</span>
       <span class="muted" style="font-size:.85rem;margin-left:auto" id="floriWho"></span>
     </h2>
     <div id="chatlog" aria-live="polite"></div>
     <div class="row" style="display:flex;gap:8px">
       <input id="chatInput" type="text" data-i18n-ph="flori.chat.placeholder" placeholder="How is my plant doing?" style="flex:1" disabled>
-      <button id="btnMic" type="button" disabled data-i18n-title="flori.chat.mic" title="Speak">ðŸŽ¤</button>
+      <button id="btnMic" type="button" disabled data-i18n-title="flori.chat.mic" title="Speak">🎤</button>
       <button id="btnChat" class="primary" type="button" disabled data-i18n="flori.chat.send">Ask</button>
     </div>
     <p class="note" id="aiNote"></p>
     <details class="diary-settings">
-      <summary data-i18n="voice.settings">ðŸŽ™ï¸ Voice</summary>
+      <summary data-i18n="voice.settings">🎙️ Voice</summary>
       <div class="row" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-top:10px">
         <label class="fld"><span data-i18n="voice.mode">Microphone</span>
           <select id="voiceMode">
@@ -329,15 +328,15 @@
   </section>
 
   <section class="card">
-    <h2><span class="icon">ðŸ””</span> Meldungen</h2>
+    <h2><span class="icon">🔔</span> <span data-i18n="alerts.title">Notifications</span></h2>
     <div id="alerts" role="region" aria-live="polite"></div>
   </section>
 
   <section class="card">
-    <h2><span class="icon">ðŸª´</span> Pflanzen
-      <button id="btnEditPlant" class="ghost" style="margin-left:auto" type="button" disabled>Profil bearbeiten</button>
-      <button id="btnNewPlant" class="ghost" type="button" disabled>ðŸ“· Neue Pflanze</button>
-      <button id="btnManual" class="ghost" type="button">Hilfe</button>
+    <h2><span class="icon">🪴</span> <span data-i18n="plants.title">Plants</span>
+      <button id="btnEditPlant" class="ghost" style="margin-left:auto" type="button" disabled data-i18n="plants.edit">Edit profile</button>
+      <button id="btnNewPlant" class="ghost" type="button" disabled data-i18n="plants.new">📷 New plant</button>
+      <button id="btnManual" class="ghost" type="button" data-i18n="plants.help">Help</button>
     </h2>
     <div id="plants" class="plants"></div>
   </section>
@@ -346,58 +345,56 @@
   <!-- ========================== PAGE: STEUERN ========================== -->
   <div class="page" data-page="control">
   <section class="card">
-    <h2><span class="icon">ðŸŽ›ï¸</span> Steuerung
-      <span class="muted" style="font-size:.85rem;margin-left:auto">Pflanze oben im Kopf wÃ¤hlen ðŸŒ±</span>
+    <h2><span class="icon">🎛️</span> <span data-i18n="control.title">Control</span>
+      <span class="muted" style="font-size:.85rem;margin-left:auto" data-i18n="control.pick">Pick a plant in the header 🌱</span>
     </h2>
     <div class="controls">
-      <button id="btnWater" class="primary" type="button" disabled>ðŸ’§ BewÃ¤ssern</button>
-      <button id="btnLight" type="button" disabled>ðŸ’¡ Licht an/aus</button>
-      <button id="btnBuzz" type="button" disabled>ðŸ”Š Buzzer</button>
-      <button id="btnVoice" type="button" disabled>ðŸŽ¤ Sprich mit mir</button>
-      <button id="btnStop" class="danger" type="button" disabled>â¹ï¸ Stop</button>
-      <button id="btnEstop" class="danger" type="button" disabled>ðŸ›‘ NOT-AUS</button>
-      <button id="btnSettings" type="button" disabled>âš™ï¸ BewÃ¤sserung</button>
-      <button id="btnNodeSettings" type="button" disabled>ðŸ”§ Details</button>
+      <button id="btnWater" class="primary" type="button" disabled data-i18n="btn.water">💧 Water</button>
+      <button id="btnLight" type="button" disabled data-i18n="btn.light">💡 Light on/off</button>
+      <button id="btnBuzz" type="button" disabled data-i18n="btn.buzzer">🔊 Buzzer</button>
+      <button id="btnVoice" type="button" disabled data-i18n="btn.voice">🎤 Talk to me</button>
+      <button id="btnStop" class="danger" type="button" disabled data-i18n="btn.stop">⏹️ Stop</button>
+      <button id="btnEstop" class="danger" type="button" disabled data-i18n="btn.estop">🛑 EMERGENCY STOP</button>
+      <button id="btnSettings" type="button" disabled data-i18n="btn.settings">⚙️ Watering</button>
+      <button id="btnNodeSettings" type="button" disabled data-i18n="btn.details">🔧 Details</button>
     </div>
     <p class="note" id="estopNote"></p>
-    <p class="note" id="authNote">Das Dashboard ist schreibgeschÃ¼tzt. Zum Steuern bitte anmelden.</p>
+    <p class="note" id="authNote" data-i18n="auth.readonly">The dashboard is read-only. Sign in to control.</p>
   </section>
 
   <section class="card">
-    <h2><span class="icon">ðŸ§ª</span> Kalibrierung Bodenfeuchte â€” <span id="calNode" class="muted"></span></h2>
+    <h2><span class="icon">🧪</span> <span data-i18n="cal.title">Soil moisture calibration</span> — <span id="calNode" class="muted"></span></h2>
     <div class="cal-readout">
-      <span class="muted">Rohspannung: <b id="cal-soil">â€“</b> V</span>
-      <span class="muted">trocken: <b id="cal-dry">â€“</b> V</span>
-      <span class="muted">nass: <b id="cal-wet">â€“</b> V</span>
+      <span class="muted"><span data-i18n="cal.raw">Raw voltage:</span> <b id="cal-soil">–</b> V</span>
+      <span class="muted"><span data-i18n="cal.dry">dry:</span> <b id="cal-dry">–</b> V</span>
+      <span class="muted"><span data-i18n="cal.wet">wet:</span> <b id="cal-wet">–</b> V</span>
     </div>
     <div class="cal">
-      <label class="fld">In Luft (trocken) â€” Volt
+      <label class="fld"><span data-i18n="cal.dry_in">In air (dry) — volts</span>
         <input id="cal-dry-in" type="number" step="0.01" min="0" max="3.6" inputmode="decimal"></label>
-      <label class="fld">In Wasser (nass) â€” Volt
+      <label class="fld"><span data-i18n="cal.wet_in">In water (wet) — volts</span>
         <input id="cal-wet-in" type="number" step="0.01" min="0" max="3.6" inputmode="decimal"></label>
-      <button id="btnCal" class="primary" type="button" disabled>Werte Ã¼bernehmen</button>
+      <button id="btnCal" class="primary" type="button" disabled data-i18n="cal.apply">Apply values</button>
     </div>
-    <p class="note">Pro Pflanze. Messwert <b>Rohspannung</b> abschreiben: Probe in Luft â†’ links, in ein Glas Wasser â†’ rechts.</p>
+    <p class="note" data-i18n="cal.hint.plain">Per plant. Copy the raw voltage: probe in air → left, in a glass of water → right.</p>
   </section>
 
   <section class="card">
-    <h2><span class="icon">ðŸ“”</span> Pflanzentagebuch â€” <span id="diaryNode" class="muted"></span>
-      <button id="btnDiaryWrite" class="ghost" style="margin-left:auto" type="button" disabled>Eintrag jetzt schreiben</button>
+    <h2><span class="icon">📔</span> <span data-i18n="diary.title">Plant diary</span> — <span id="diaryNode" class="muted"></span>
+      <button id="btnDiaryWrite" class="ghost" style="margin-left:auto" type="button" disabled data-i18n="diary.write">Write entry now</button>
     </h2>
-    <p class="note">Notizen aus Sicht deiner Pflanze. Flori fasst die Woche automatisch
-      zusammen (Art, Werte, GieÃŸen) â€“ du kannst auch jederzeit selbst einen Eintrag
-      schreiben. EintrÃ¤ge bleiben pro Pflanze gespeichert.</p>
+    <p class="note" data-i18n="diary.help">Notes from your plant's point of view. Flori summarises the week automatically (species, readings, watering) – you can also write one yourself any time. Entries are stored per plant.</p>
     <div id="diary" class="diary"></div>
     <details class="diary-settings">
-      <summary>âš™ï¸ Tagebuch-Einstellungen</summary>
+      <summary data-i18n="diary.settings">⚙️ Diary settings</summary>
       <div class="sw" style="margin-top:10px">
-        <label for="d-cfg-diary_enabled">Automatische EintrÃ¤ge schreiben</label>
+        <label for="d-cfg-diary_enabled" data-i18n="diary.auto">Write entries automatically</label>
         <input id="d-cfg-diary_enabled" type="checkbox"></div>
       <div class="field">
-        <label for="d-cfg-diary_interval_days">Intervall (Tage)</label>
+        <label for="d-cfg-diary_interval_days" data-i18n="diary.interval">Interval (days)</label>
         <input id="d-cfg-diary_interval_days" type="number" min="1" max="365"></div>
-      <button id="btnDiarySettings" class="primary" type="button" disabled>Einstellungen speichern</button>
-      <p class="note">Gilt fÃ¼r <b id="diarySettingsNode">diese Pflanze</b>.</p>
+      <button id="btnDiarySettings" class="primary" type="button" disabled data-i18n="diary.save">Save settings</button>
+      <p class="note"><span data-i18n="diary.for_prefix">Applies to</span> <b id="diarySettingsNode">this plant</b><span data-i18n="diary.for_suffix">.</span></p>
     </details>
   </section>
   </div><!-- /control -->
@@ -406,73 +403,71 @@
   <div class="page" data-page="graphs">
   <section class="card">
     <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
-      <h2 style="margin:0"><span class="icon">ðŸ“ˆ</span> Verlauf &amp; Diagramme â€”
+      <h2 style="margin:0"><span class="icon">📈</span> <span data-i18n="graphs.title">History & charts</span> —
         <span id="graphNode" class="muted"></span></h2>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <select id="graphRange" aria-label="Zeitraum">
-          <option value="1">1 Stunde</option>
-          <option value="6" selected>6 Stunden</option>
-          <option value="24">24 Stunden</option>
-          <option value="168">7 Tage</option>
-          <option value="720">30 Tage</option>
+          <option value="1" data-i18n="graphs.range.1h">1 hour</option>
+          <option value="6" selected data-i18n="graphs.range.6h">6 hours</option>
+          <option value="24" data-i18n="graphs.range.24h">24 hours</option>
+          <option value="168" data-i18n="graphs.range.7d">7 days</option>
+          <option value="720" data-i18n="graphs.range.30d">30 days</option>
         </select>
-        <button id="graphRefresh" type="button">â†» Aktualisieren</button>
+        <button id="graphRefresh" type="button" data-i18n="graphs.refresh">↻ Refresh</button>
       </div>
     </div>
     <div id="graphs" class="graphs"></div>
-    <p class="note" id="graphNote">Verlauf wird geladenâ€¦</p>
+    <p class="note" id="graphNote" data-i18n="graphs.loading">Loading history…</p>
   </section>
   </div><!-- /graphs -->
 
   <!-- =========================== PAGE: BACKEND =========================== -->
   <div class="page" data-page="backend">
   <section class="card">
-    <h2><span class="icon">ðŸ–¥ï¸</span> Knoten &amp; Technik</h2>
+    <h2><span class="icon">🖥️</span> <span data-i18n="backend.nodes.title">Nodes & hardware</span></h2>
     <div id="backendNodes" class="plants"></div>
-    <p class="note">Detaillierte Werte, Firmware, Pins und Rohdaten. â€žDetails" je Knoten Ã¶ffnen.</p>
+    <p class="note" data-i18n="backend.nodes.note">Detailed values, firmware, pins and raw data. Open “Details” per node.</p>
   </section>
 
   <details class="card" open>
-    <summary><span class="icon">ðŸ”‘</span> API-SchlÃ¼ssel &amp; ZugÃ¤nge</summary>
+    <summary><span class="icon">🔑</span> <span data-i18n="backend.keys.title">API keys & credentials</span></summary>
     <div style="margin-top:12px">
-      <div id="keysBox"><p class="muted">Anmelden, um SchlÃ¼ssel zu sehen und zu Ã¤ndern.</p></div>
+      <div id="keysBox"><p class="muted" data-i18n="backend.keys.locked">Sign in to view and change keys.</p></div>
       <div class="controls" style="grid-template-columns:1fr 1fr;margin-top:12px">
-        <button id="keysSave" class="primary" type="button" disabled>SchlÃ¼ssel speichern</button>
-        <button id="keysReload" type="button">â†» Neu laden</button>
+        <button id="keysSave" class="primary" type="button" disabled data-i18n="backend.keys.save">Save keys</button>
+        <button id="keysReload" type="button" data-i18n="backend.keys.reload">↻ Reload</button>
       </div>
-      <p class="note">Werte werden serverseitig gespeichert und <b>sofort</b> Ã¼bernommen.
-        Leeres Feld = unverÃ¤ndert. â€žZurÃ¼cksetzenâ€œ stellt den .env-Wert wieder her.</p>
+      <p class="note" data-i18n="backend.keys.note.plain">Values are stored server-side and applied immediately. An empty field = unchanged. “Reset” restores the .env value.</p>
     </div>
   </details>
 
   <details class="card">
-    <summary><span class="icon">ðŸ§­</span> System &amp; Status</summary>
-    <div id="systemBox" style="margin-top:12px"><p class="muted">Ladeâ€¦</p></div>
+    <summary><span class="icon">🧭</span> <span data-i18n="backend.system.title">System & status</span></summary>
+    <div id="systemBox" style="margin-top:12px"><p class="muted" data-i18n="common.loading">Loading…</p></div>
   </details>
 
   <details class="card" open>
-    <summary><span class="icon">ðŸ”Œ</span> GerÃ¤te &amp; Flashen</summary>
+    <summary><span class="icon">🔌</span> <span data-i18n="backend.devices.title">Devices & flashing</span></summary>
     <div style="margin-top:12px">
       <div class="row" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
-        <label class="fld">Knoten (Config)
+        <label class="fld"><span data-i18n="common.node_config">Node (config)</span>
           <select id="flash-node" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select></label>
-        <label class="fld">Port
+        <label class="fld"><span data-i18n="backend.flash.port">Port</span>
           <select id="flash-port" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select></label>
-        <button id="btnFlash" class="primary" type="button" disabled>âš¡ Flashen</button>
-        <button id="btnRefreshDevices" type="button">â†» Aktualisieren</button>
+        <button id="btnFlash" class="primary" type="button" disabled data-i18n="backend.flash.run">⚡ Flash</button>
+        <button id="btnRefreshDevices" type="button" data-i18n="graphs.refresh">↻ Refresh</button>
       </div>
-      <p class="note" id="flashNote">Erstes Flashen per USB. Danach OTA (ESPHome :6052 oder
-        <code>deploy/add-node.sh ota</code>).</p>
+      <p class="note" id="flashNote" data-i18n="backend.flash.note">First flash over USB. Afterwards OTA (ESPHome :6052 or deploy/add-node.sh ota).</p>
       <table style="margin-top:10px"><tbody id="devices"></tbody></table>
     </div>
   </details>
 
   <details class="card">
-    <summary><span class="icon">ðŸ“‹</span> Ereignisse &amp; Protokoll</summary>
+    <summary><span class="icon">📋</span> <span data-i18n="backend.events.title">Events</span> &amp; <span data-i18n="backend.audit.title">Log (signed in only)</span></summary>
     <div style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:12px">
-      <div><h2 class="muted" style="font-size:.95rem">Ereignisse</h2>
+      <div><h2 class="muted" style="font-size:.95rem" data-i18n="backend.events.title">Events</h2>
         <table><tbody id="events"></tbody></table></div>
-      <div><h2 class="muted" style="font-size:.95rem">Protokoll (nur angemeldet)</h2>
+      <div><h2 class="muted" style="font-size:.95rem" data-i18n="backend.audit.title">Log (signed in only)</h2>
         <table><tbody id="audit"></tbody></table></div>
     </div>
   </details>
@@ -481,127 +476,122 @@
 
 <dialog id="nodeDlg" aria-labelledby="nodeH">
   <form method="dialog" class="dlg-body">
-    <h2 id="nodeH">ðŸ”§ Details &amp; Troubleshooting â€” <span id="nd-node"></span></h2>
+    <h2 id="nodeH"><span data-i18n="nd.title">🔧 Details & troubleshooting</span> — <span id="nd-node"></span></h2>
     <div id="nd-body"></div>
     <div class="controls" style="grid-template-columns:1fr">
-      <button class="primary" value="ok" type="submit">SchlieÃŸen</button></div>
+      <button class="primary" value="ok" type="submit" data-i18n="common.close">Close</button></div>
   </form>
 </dialog>
 
 <dialog id="newPlantDlg" aria-labelledby="newPlantH">
   <form method="dialog" class="dlg-body">
-    <h2 id="newPlantH">ðŸ“· Neue Pflanze aus Foto</h2>
-    <p class="note">Mach ein Foto der Pflanze â€“ die KI bestimmt die Art und legt ein Profil an.
-      Danach kannst du einen freien ESP dazu flashen.</p>
+    <h2 id="newPlantH" data-i18n="newplant.title">📷 New plant from photo</h2>
+    <p class="note" data-i18n="newplant.help">Take a photo of the plant — the AI identifies the species and creates a profile. Then you can flash a spare ESP.</p>
     <input id="npFile" type="file" accept="image/*" capture="environment"
            style="font:inherit;padding:10px;border:1px dashed var(--line);border-radius:12px;width:100%">
     <div id="npPreview" style="margin-top:10px"></div>
-    <div class="field"><label for="np-node">Knoten (Config)</label>
+    <div class="field"><label for="np-node" data-i18n="common.node_config">Node (config)</label>
       <select id="np-node" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select></div>
-    <p class="note" id="npResult">Noch kein Foto.</p>
+    <p class="note" id="npResult" data-i18n="newplant.nofoto">No photo yet.</p>
     <div class="controls" style="grid-template-columns:1fr 1fr">
-      <button value="cancel" type="submit">SchlieÃŸen</button>
-      <button id="np-confirm" class="primary" type="button" disabled>Profil anlegen</button>
+      <button value="cancel" type="submit" data-i18n="common.close">Close</button>
+      <button id="np-confirm" class="primary" type="button" disabled data-i18n="newplant.create">Create profile</button>
     </div>
   </form>
 </dialog>
 
 <dialog id="plantDlg" aria-labelledby="plantH">
   <form method="dialog" class="dlg-body">
-    <h2 id="plantH">ðŸª´ Pflanzenprofil</h2>
-    <div class="field"><label>Knoten</label><input id="pl-node" type="text" readonly></div>
-    <div class="field"><label for="pl-species">Art / Pflanze</label>
+    <h2 id="plantH" data-i18n="plant.title">🪴 Plant profile</h2>
+    <div class="field"><label data-i18n="plant.node">Node</label><input id="pl-node" type="text" readonly></div>
+    <div class="field"><label for="pl-species" data-i18n="plant.species">Species / plant</label>
       <select id="pl-species" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)">
-        <option value="">â€” eigene â€”</option></select></div>
+        <option value="" data-i18n="plant.custom">— custom —</option></select></div>
     <p class="note" id="pl-care"></p>
-    <div class="field"><label for="pl-nickname">Spitzname</label><input id="pl-nickname" type="text"></div>
-    <div class="field"><label for="pl-name">Anzeigename</label><input id="pl-name" type="text"></div>
-    <div class="field"><label for="pl-emoji">Emoji / Avatar</label>
+    <div class="field"><label for="pl-nickname" data-i18n="plant.nickname">Nickname</label><input id="pl-nickname" type="text"></div>
+    <div class="field"><label for="pl-name" data-i18n="plant.displayname">Display name</label><input id="pl-name" type="text"></div>
+    <div class="field"><label for="pl-emoji" data-i18n="plant.emoji">Emoji / avatar</label>
       <input id="pl-emoji" type="text" maxlength="4" list="emojiList">
       <datalist id="emojiList">
-        <option>ðŸŒ¿ðŸŒ±ðŸª´ðŸŒµðŸŒ³ðŸŒ¸ðŸƒðŸŒºðŸŒ´ðŸŒ¾ðŸŽ¨ðŸª™ðŸ’§</option>
+        <option>🌿🌱🪴🌵🌳🌸🍃🌺🌴🌾🎨🪙💧</option>
       </datalist></div>
-    <div class="field"><label for="pl-color">Farbe</label><input id="pl-color" type="color" value="#5fd08a"></div>
-    <div class="sw"><label for="pl-notes">Notiz</label><input id="pl-notes" type="text"></div>
+    <div class="field"><label for="pl-color" data-i18n="plant.color">Color</label><input id="pl-color" type="color" value="#5fd08a"></div>
+    <div class="sw"><label for="pl-notes" data-i18n="plant.notes">Note</label><input id="pl-notes" type="text"></div>
     <div class="controls" style="grid-template-columns:1fr 1fr">
-      <button value="cancel" type="submit">Abbrechen</button>
-      <button id="pl-save" class="primary" value="save" type="submit">Speichern</button>
+      <button value="cancel" type="submit" data-i18n="common.cancel">Cancel</button>
+      <button id="pl-save" class="primary" value="save" type="submit" data-i18n="common.save">Save</button>
     </div>
   </form>
 </dialog>
 
 <dialog id="manualDlg" aria-labelledby="manualH2">
   <form method="dialog" class="dlg-body">
-    <h2 id="manualH2">ðŸ“– Kurzanleitung</h2>
-    <h3>1 Â· Pflanze bewÃ¤ssern</h3>
-    <p class="note">â€žðŸ’§ BewÃ¤ssern" lÃ¤uft als <b>einmalige Gabe</b> (Standard ~20 s, im GerÃ¤t
-      hart auf 45 s begrenzt). FÃ¼r die Automatik: <b>Einstellungen â†’ BewÃ¤sserung</b>.</p>
-    <h3>2 Â· Bodenfeuchte kalibrieren</h3>
-    <p class="note">Sonde in <b>Luft</b> â†’ Rohspannung links eintragen; Sonde in ein <b>Glas Wasser</b>
-      â†’ Wert rechts. â€žWerte Ã¼bernehmen" sendet die Kalibrierung ans GerÃ¤t (bleibt gespeichert).</p>
-    <h3>3 Â· Pflanze einrichten</h3>
-    <p class="note">â€žProfil bearbeiten" â†’ Art wÃ¤hlen (Bodenfeuchte-, Temperatur- und LichtÂ­bereich
-      werden Ã¼bernommen) und Spitzname/Emoji/Farbe festlegen.</p>
-    <h3>4 Â· Neuen Knoten anlegen</h3>
+    <h2 id="manualH2" data-i18n="manual.title">📖 Quick guide</h2>
+    <h3 data-i18n="manual.h1">1 · Watering your plant</h3>
+    <p class="note" data-i18n="manual.p1">“💧 Water” runs as a single dose (default ~20 s, hard-capped at 45 s on the device). For automatic watering: Settings → Watering.</p>
+    <h3 data-i18n="manual.h2">2 · Calibrating soil moisture</h3>
+    <p class="note" data-i18n="manual.p2">Probe in air → enter the raw voltage on the left; probe in a glass of water → value on the right. “Apply values” sends the calibration to the device (it stays saved).</p>
+    <h3 data-i18n="manual.h3">3 · Setting up a plant</h3>
+    <p class="note" data-i18n="manual.p3">“Edit profile” → choose the species (soil moisture, temperature and light ranges are applied) and set nickname/emoji/colour.</p>
+    <h3 data-i18n="manual.h4">4 · Adding a new node</h3>
     <pre style="white-space:pre-wrap;font-size:.85rem">deploy/add-node.sh new plant-d "Monstera"
 deploy/add-node.sh discover        # welcher ESP auf welchem Port
 deploy/add-node.sh compile plant-d
 deploy/add-node.sh flash  plant-d /dev/ttyUSB0
 deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
-    <p class="note">OTA geht auch aus dem Browser: ESPHome auf <b>:6052</b>. Volle Anleitungen:
-      <b>TUTORIALS.md</b> im Repo.</p>
+    <p class="note" data-i18n="manual.p5">OTA also works from the browser: ESPHome on :6052. Full guides: TUTORIALS.md in the repo.</p>
     <div class="controls" style="grid-template-columns:1fr">
-      <button class="primary" value="ok" type="submit">Alles klar</button></div>
+      <button class="primary" value="ok" type="submit" data-i18n="common.ok">Got it</button></div>
   </form>
 </dialog>
 
 <dialog id="loginDlg" aria-labelledby="loginH">
   <form method="dialog" class="dlg-body">
-    <h2 id="loginH">ðŸ” Anmelden</h2>
-    <p class="note">Anmelden schaltet Steuern, GieÃŸen, Tagebuch und Flashen frei.</p>
-    <div class="field"><label for="login-user">Benutzer</label>
+    <h2 id="loginH" data-i18n="login.title">🔐 Sign in</h2>
+    <p class="note" data-i18n="login.help">Signing in unlocks control, watering, the diary and flashing.</p>
+    <div class="field"><label for="login-user" data-i18n="login.user">Username</label>
       <input id="login-user" type="text" autocomplete="username" inputmode="text"></div>
-    <div class="field"><label for="login-pass">Passwort</label>
+    <div class="field"><label for="login-pass" data-i18n="login.pass">Password</label>
       <input id="login-pass" type="password" autocomplete="current-password"></div>
     <div class="controls" style="grid-template-columns:1fr 1fr">
-      <button value="cancel" type="submit">Abbrechen</button>
-      <button id="loginSubmit" class="primary" value="login" type="submit">Anmelden</button>
+      <button value="cancel" type="submit" data-i18n="common.cancel">Cancel</button>
+      <button id="loginSubmit" class="primary" value="login" type="submit" data-i18n="login.submit">Sign in</button>
     </div>
   </form>
 </dialog>
 
 <dialog id="settingsDlg" aria-labelledby="settingsH">
   <form method="dialog" class="dlg-body">
-    <h2 id="settingsH">âš™ï¸ BewÃ¤sserung &amp; Meldungen â€” <span id="settingsHNode" class="muted"></span></h2>
-    <fieldset><legend>BewÃ¤sserung</legend>
-      <div class="sw"><label for="cfg-pump_auto">Automatisch bewÃ¤ssern</label><input id="cfg-pump_auto" type="checkbox"></div>
-      <div class="field"><label for="cfg-pump_threshold_pct">BewÃ¤ssern unter (%)</label><input id="cfg-pump_threshold_pct" type="number" min="0" max="100"></div>
-      <div class="field"><label for="cfg-pump_seconds">Dauer pro Gabe (s)</label><input id="cfg-pump_seconds" type="number" min="1" max="45"></div>
-      <div class="field"><label for="cfg-pump_cooldown_min">Sperrzeit (min)</label><input id="cfg-pump_cooldown_min" type="number" min="0"></div>
-      <div class="field"><label for="cfg-pump_max_per_day">Max. Gaben pro Tag</label><input id="cfg-pump_max_per_day" type="number" min="0"></div>
+    <h2 id="settingsH"><span data-i18n="settings.title">⚙️ Watering & notifications</span> — <span id="settingsHNode" class="muted"></span></h2>
+    <fieldset><legend data-i18n="settings.watering">Watering</legend>
+      <div class="sw"><label for="cfg-pump_auto" data-i18n="settings.pump_auto">Water automatically</label><input id="cfg-pump_auto" type="checkbox"></div>
+      <div class="field"><label for="cfg-pump_threshold_pct" data-i18n="settings.pump_threshold">Water below (%)</label><input id="cfg-pump_threshold_pct" type="number" min="0" max="100"></div>
+      <div class="field"><label for="cfg-pump_seconds" data-i18n="settings.pump_seconds">Duration per dose (s)</label><input id="cfg-pump_seconds" type="number" min="1" max="45"></div>
+      <div class="field"><label for="cfg-pump_cooldown_min" data-i18n="settings.pump_cooldown">Cooldown (min)</label><input id="cfg-pump_cooldown_min" type="number" min="0"></div>
+      <div class="field"><label for="cfg-pump_max_per_day" data-i18n="settings.pump_max">Max. doses per day</label><input id="cfg-pump_max_per_day" type="number" min="0"></div>
     </fieldset>
-    <fieldset><legend>Meldungen</legend>
-      <div class="field"><label for="cfg-alert_dry_pct">Trocken-Warnung unter (%)</label><input id="cfg-alert_dry_pct" type="number" min="0" max="100"></div>
-      <div class="field"><label for="cfg-alert_dry_min">â€¦ fÃ¼r (min)</label><input id="cfg-alert_dry_min" type="number" min="1"></div>
-      <div class="field"><label for="cfg-alert_silent_min">Funkstille nach (min)</label><input id="cfg-alert_silent_min" type="number" min="1"></div>
-      <div class="field"><label for="cfg-alert_tank_pct">Tank-Warnung unter (%)</label><input id="cfg-alert_tank_pct" type="number" min="0" max="100"></div>
-      <div class="sw"><label for="cfg-telegram_enabled">Telegram-Benachrichtigung</label><input id="cfg-telegram_enabled" type="checkbox"></div>
-      <div class="sw"><label for="cfg-buzzer_enabled">Buzzer erlaubt</label><input id="cfg-buzzer_enabled" type="checkbox"></div>
+    <fieldset><legend data-i18n="alerts.title">Notifications</legend>
+      <div class="field"><label for="cfg-alert_dry_pct" data-i18n="settings.alert_dry">Dry warning below (%)</label><input id="cfg-alert_dry_pct" type="number" min="0" max="100"></div>
+      <div class="field"><label for="cfg-alert_dry_min" data-i18n="settings.alert_dry_min">… for (min)</label><input id="cfg-alert_dry_min" type="number" min="1"></div>
+      <div class="field"><label for="cfg-alert_silent_min" data-i18n="settings.alert_silent">Silence after (min)</label><input id="cfg-alert_silent_min" type="number" min="1"></div>
+      <div class="field"><label for="cfg-alert_tank_pct" data-i18n="settings.alert_tank">Tank warning below (%)</label><input id="cfg-alert_tank_pct" type="number" min="0" max="100"></div>
+      <div class="sw"><label for="cfg-telegram_enabled" data-i18n="settings.telegram">Telegram notification</label><input id="cfg-telegram_enabled" type="checkbox"></div>
+      <div class="sw"><label for="cfg-buzzer_enabled" data-i18n="settings.buzzer_allow">Buzzer allowed</label><input id="cfg-buzzer_enabled" type="checkbox"></div>
     </fieldset>
-    <fieldset><legend>Licht</legend>
-      <div class="sw"><label for="cfg-light_auto">Licht automatisch</label><input id="cfg-light_auto" type="checkbox"></div>
-      <div class="field"><label for="cfg-light_on_below_lux">Einschalten unter (lx)</label><input id="cfg-light_on_below_lux" type="number" min="0"></div>
+    <fieldset><legend data-i18n="settings.light">Light</legend>
+      <div class="sw"><label for="cfg-light_auto" data-i18n="settings.light_auto">Light automatically</label><input id="cfg-light_auto" type="checkbox"></div>
+      <div class="field"><label for="cfg-light_on_below_lux" data-i18n="settings.light_below">Switch on below (lx)</label><input id="cfg-light_on_below_lux" type="number" min="0"></div>
     </fieldset>
     <div class="controls" style="grid-template-columns:1fr 1fr">
-      <button value="cancel" type="submit">Abbrechen</button>
-      <button id="saveCfg" class="primary" value="save" type="submit">Speichern</button>
+      <button value="cancel" type="submit" data-i18n="common.cancel">Cancel</button>
+      <button id="saveCfg" class="primary" value="save" type="submit" data-i18n="common.save">Save</button>
     </div>
   </form>
 </dialog>
 
 <!-- ============================ Flori companion ============================ -->
 <div id="flori" class="flori" role="button" tabindex="0"
-     aria-label="Flori, dein Pflanzen-Begleiter â€“ antippen zum Chat">
+     aria-label="Flori, dein Pflanzen-Begleiter – antippen zum Chat">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" aria-hidden="true">
     <defs>
       <filter id="floriShadowFilter" x="-20%" y="-20%" width="140%" height="140%">
@@ -632,81 +622,81 @@ deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
 <div id="floriBubble" class="flori-bubble hidden" role="status" aria-live="polite">
   <div id="floriText"></div>
   <div class="flori-actions">
-    <button id="floriChat" class="primary" type="button">Mit Flori reden</button>
-    <button id="floriNext" type="button">Noch ein Tipp</button>
-    <button id="floriHide" class="ghost" type="button">Ausblenden</button>
+    <button id="floriChat" class="primary" type="button" data-i18n="flori.chat.cta">Chat with Flori</button>
+    <button id="floriNext" type="button" data-i18n="flori.next">Another tip</button>
+    <button id="floriHide" class="ghost" type="button" data-i18n="flori.hide">Hide</button>
   </div>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
 
-/* ============================ i18n (EN Â· DE Â· NL) ==========================
+/* ============================ i18n (EN · DE · NL) ==========================
  * English is the default. The choice persists in localStorage and every API call
  * sends `lang` so server-side text (alerts, Flori) matches. `data-i18n` on an
  * element sets its text; `data-i18n-ph` sets its placeholder. */
 const I18N = {
   en: {
     "app.title": "FloraHome",
-    "tab.overview": "ðŸŒ¿ Overview", "tab.control": "ðŸŽ›ï¸ Control",
-    "tab.graphs": "ðŸ“ˆ History", "tab.backend": "ðŸ”§ Backend",
-    "conn.connecting": "Connectingâ€¦", "conn.live": "Live connected",
+    "tab.overview": "🌿 Overview", "tab.control": "🎛️ Control",
+    "tab.graphs": "📈 History", "tab.backend": "🔧 Backend",
+    "conn.connecting": "Connecting…", "conn.live": "Live connected",
     "conn.lost": "Connection lost", "node.unknown": "Node unknown",
     "node.none": "No nodes", "node.online": "Node online ({ago} ago)",
     "node.offline": "Node offline ({ago} ago)", "node.count": "{n}/{total} nodes online",
     "scale.smaller": "Smaller", "scale.larger": "Bigger",
     "auth.login": "Sign in", "auth.logout": "Sign out",
     "flori.toggle": "Show/hide Flori",
-    "estop.active.title": "ðŸ›‘ EMERGENCY STOP ACTIVE",
-    "estop.active.body": "Pump and light are off; automatic watering is blocked â€“ also after a restart, until released.",
-    "estop.resume": "â–¶ï¸ Release",
-    "flori.card.title": "Flori â€” your plant companion",
+    "estop.active.title": "🛑 EMERGENCY STOP ACTIVE",
+    "estop.active.body": "Pump and light are off; automatic watering is blocked – also after a restart, until released.",
+    "estop.resume": "▶️ Release",
+    "flori.card.title": "Flori — your plant companion",
     "flori.chat.placeholder": "How is my plant doing?",
     "flori.chat.send": "Ask", "flori.chat.mic": "Speak",
-    "flori.thinking": "Flori is thinkingâ€¦",
+    "flori.thinking": "Flori is thinking…",
     "alerts.title": "Notifications",
-    "alerts.none": "âœ… No notices. Everything looks good.",
+    "alerts.none": "✅ No notices. Everything looks good.",
     "alerts.critical": "Critical", "alerts.warning": "Warning",
     "alerts.since": "since {ago}",
     "plants.title": "Plants", "plants.edit": "Edit profile",
-    "plants.new": "ðŸ“· New plant", "plants.help": "Help",
-    "control.title": "Control", "control.pick": "Pick a plant in the header ðŸŒ±",
-    "btn.water": "ðŸ’§ Water", "btn.light": "ðŸ’¡ Light on/off", "btn.buzzer": "ðŸ”Š Buzzer",
-    "btn.voice": "ðŸŽ¤ Talk to me", "btn.stop": "â¹ï¸ Stop", "btn.estop": "ðŸ›‘ EMERGENCY STOP",
-    "btn.estop.armed": "ðŸ›‘ Sure? Tap again", "btn.settings": "âš™ï¸ Watering",
-    "btn.details": "ðŸ”§ Details", "btn.resume.short": "â–¶ï¸ Release",
+    "plants.new": "📷 New plant", "plants.help": "Help",
+    "control.title": "Control", "control.pick": "Pick a plant in the header 🌱",
+    "btn.water": "💧 Water", "btn.light": "💡 Light on/off", "btn.buzzer": "🔊 Buzzer",
+    "btn.voice": "🎤 Talk to me", "btn.stop": "⏹️ Stop", "btn.estop": "🛑 EMERGENCY STOP",
+    "btn.estop.armed": "🛑 Sure? Tap again", "btn.settings": "⚙️ Watering",
+    "btn.details": "🔧 Details", "btn.resume.short": "▶️ Release",
     "auth.readonly": "The dashboard is read-only. Sign in to control.",
-    "auth.signedin": "Signed in â€“ changes are written to the log.",
+    "auth.signedin": "Signed in – changes are written to the log.",
     "cal.title": "Soil moisture calibration", "cal.raw": "Raw voltage:",
-    "cal.dry": "dry:", "cal.wet": "wet:", "cal.dry_in": "In air (dry) â€” volts",
-    "cal.wet_in": "In water (wet) â€” volts", "cal.apply": "Apply values",
-    "cal.hint": "Per plant. Copy the <b>raw voltage</b>: probe in air â†’ left, in a glass of water â†’ right.",
+    "cal.dry": "dry:", "cal.wet": "wet:", "cal.dry_in": "In air (dry) — volts",
+    "cal.wet_in": "In water (wet) — volts", "cal.apply": "Apply values",
+    "cal.hint": "Per plant. Copy the <b>raw voltage</b>: probe in air → left, in a glass of water → right.",
     "diary.title": "Plant diary", "diary.write": "Write entry now",
-    "diary.help": "Notes from your plant's point of view. Flori summarises the week automatically (species, readings, watering) â€“ you can also write one yourself any time. Entries are stored per plant.",
-    "diary.settings": "âš™ï¸ Diary settings", "diary.auto": "Write entries automatically",
+    "diary.help": "Notes from your plant's point of view. Flori summarises the week automatically (species, readings, watering) – you can also write one yourself any time. Entries are stored per plant.",
+    "diary.settings": "⚙️ Diary settings", "diary.auto": "Write entries automatically",
     "diary.interval": "Interval (days)", "diary.save": "Save settings",
-    "diary.for_plant": "Applies to {plant}.", "diary.none": "No entries yet â€“ write one or wait for the next automatic entry.",
+    "diary.for_plant": "Applies to {plant}.", "diary.none": "No entries yet – write one or wait for the next automatic entry.",
     "diary.unavailable": "Diary unavailable.",
     "graphs.title": "History & charts", "graphs.range": "Range",
     "graphs.range.1h": "1 hour", "graphs.range.6h": "6 hours", "graphs.range.24h": "24 hours",
     "graphs.range.7d": "7 days", "graphs.range.30d": "30 days",
-    "graphs.refresh": "â†» Refresh", "graphs.loading": "Loading historyâ€¦",
+    "graphs.refresh": "↻ Refresh", "graphs.loading": "Loading history…",
     "graphs.none": "No history data for the selected range.",
     "backend.nodes.title": "Nodes & hardware",
-    "backend.nodes.note": "Detailed values, firmware, pins and raw data. Open â€œDetailsâ€ per node.",
+    "backend.nodes.note": "Detailed values, firmware, pins and raw data. Open “Details” per node.",
     "backend.keys.title": "API keys & credentials",
     "backend.keys.locked": "Sign in to view and change keys.",
-    "backend.keys.save": "Save keys", "backend.keys.reload": "â†» Reload",
-    "backend.keys.note": "Values are stored server-side and applied <b>immediately</b>. An empty field = unchanged. â€œResetâ€ restores the .env value.",
+    "backend.keys.save": "Save keys", "backend.keys.reload": "↻ Reload",
+    "backend.keys.note": "Values are stored server-side and applied <b>immediately</b>. An empty field = unchanged. “Reset” restores the .env value.",
     "backend.system.title": "System & status",
-    "login.title": "ðŸ” Sign in", "login.help": "Signing in unlocks control, watering, the diary and flashing.",
+    "login.title": "🔐 Sign in", "login.help": "Signing in unlocks control, watering, the diary and flashing.",
     "login.user": "Username", "login.pass": "Password", "login.submit": "Sign in",
     "common.cancel": "Cancel", "common.save": "Save", "common.close": "Close",
     "common.ok": "Got it", "common.reset": "Reset", "common.set": "set", "common.unset": "not set",
-    "common.loading": "Loadingâ€¦", "common.none": "none", "common.yes": "yes", "common.no": "no",
-    "toast.cmd_failed": "Command failed: {msg}", "toast.voice_listen": "ðŸŽ¤ Listeningâ€¦ (4s)",
-    "toast.voice_think": "ðŸ§  Thinkingâ€¦", "toast.signed_in": "ðŸ”“ Signed in",
-    "toast.login_failed": "Sign-in failed: {msg}", "toast.buzzer": "ðŸ”Š Buzzer test sent",
+    "common.loading": "Loading…", "common.none": "none", "common.yes": "yes", "common.no": "no",
+    "toast.cmd_failed": "Command failed: {msg}", "toast.voice_listen": "🎤 Listening… (4s)",
+    "toast.voice_think": "🧠 Thinking…", "toast.signed_in": "🔓 Signed in",
+    "toast.login_failed": "Sign-in failed: {msg}", "toast.buzzer": "🔊 Buzzer test sent",
     "voice.no_mic": "No microphone found on this device.",
     "voice.denied": "Microphone permission denied.",
     "voice.record_failed": "Recording failed: {msg}",
@@ -715,142 +705,368 @@ const I18N = {
     "voice.mode": "Microphone", "voice.mode.browser": "This device",
     "voice.mode.pi": "The Pi (USB mic)",
     "voice.settings": "🎙️ Voice",
-    "flori.greeting": "ðŸ‘‹ Hi! I'm <b>Flori</b>, your plant companion. Tap me when you want to chat.",
+    "flori.greeting": "👋 Hi! I'm <b>Flori</b>, your plant companion. Tap me when you want to chat.",
     "flori.chat.cta": "Chat with Flori", "flori.next": "Another tip", "flori.hide": "Hide",
+    "common.node_config": "Node (config)",
+    "common.unavailable": "Unavailable: {msg}",
+    "common.save_failed": "Saving failed: {msg}",
+    "estop.btn.active": "🛑 EMERGENCY STOP active",
+    "estop.note.on": "Emergency stop is set: pump, light and automation are blocked.",
+    "estop.note.off": "Emergency stop blocks the pump, light and automation permanently until it is released.",
+    "estop.confirm": "Emergency stop: tap again within 4 s to confirm",
+    "estop.set": "🛑 Emergency stop set",
+    "estop.failed": "Emergency stop failed: {msg}",
+    "estop.resume_failed": "Release failed: {msg}",
+    "mood.sleeping": "sleeping", "mood.needs_help": "needs help", "mood.thirsty": "thirsty",
+    "mood.too_wet": "too wet", "mood.drinking": "drinking", "mood.temp": "too cold/warm",
+    "mood.happy": "happy",
+    "plantstate.watering": "Watered 💧", "plantstate.cooldown": "Cooldown ⏳", "plantstate.idle": "Ready",
+    "plant.fault": "⚠️ Fault: {msg}", "plant.online": "online · {ago}", "plant.offline": "offline",
+    "plant.soil_unit": "% soil", "plant.pump_today": "{n}× today", "plant.custom": "— custom —",
+    "metric.temp": "Temperature", "metric.humidity": "Air", "metric.light": "Light",
+    "metric.moisture": "Soil moisture", "metric.tank": "Water tank", "metric.soil_v": "Soil raw",
+    "metric.rssi": "Wi-Fi signal",
+    "events.active": "active", "events.resolved": "resolved", "events.none": "No events",
+    "audit.none": "Only visible to signed-in users",
+    "graphs.no_data_short": "no data",
+    "graphs.threshold": "Threshold {value}{unit}",
+    "graphs.stats": "min {min} · avg {avg} · max {max} {unit} · {n} points",
+    "graphs.unavailable": "unavailable", "graphs.no_range_data": "no data in range",
+    "graphs.source": "Source: {source} · Range: {hours} h",
+    "graphs.source.memory": "memory", "graphs.aria": "{metric} history",
+    "cal.need_values": "Please enter the dry and wet raw voltage.",
+    "cal.hint.plain": "Per plant. Copy the raw voltage: probe in air → left, in a glass of water → right.",
+    "settings.saved": "⚙️ Settings for {plant} saved",
+    "settings.title": "⚙️ Watering & notifications", "settings.watering": "Watering",
+    "settings.light": "Light", "settings.pump_auto": "Water automatically",
+    "settings.pump_threshold": "Water below (%)", "settings.pump_seconds": "Duration per dose (s)",
+    "settings.pump_cooldown": "Cooldown (min)", "settings.pump_max": "Max. doses per day",
+    "settings.alert_dry": "Dry warning below (%)", "settings.alert_dry_min": "… for (min)",
+    "settings.alert_silent": "Silence after (min)", "settings.alert_tank": "Tank warning below (%)",
+    "settings.telegram": "Telegram notification", "settings.buzzer_allow": "Buzzer allowed",
+    "settings.light_auto": "Light automatically", "settings.light_below": "Switch on below (lx)",
+    "node.no_nodes_opt": "— no node —",
+    "nd.title": "🔧 Details & troubleshooting", "nd.state": "State", "nd.online": "Online",
+    "nd.last_seen": "Last signal", "nd.ago": "{ago} ago", "nd.uptime": "Uptime",
+    "nd.restarts": "Restarts", "nd.firmware": "Firmware", "nd.fault": "Fault", "nd.raw": "Raw values",
+    "nd.battery": "Battery", "nd.pins": "Pins (ESP32)",
+    "nd.pins_source": "Source: <code>esphome/smartplanter.yaml</code> substitutions. Check here if you wired it yourself.",
+    "nd.network": "Network", "nd.mqtt_topics": "MQTT topics", "nd.hotspot": "Hotspot",
+    "nd.test_cmd": "Test command",
+    "ai.awake": "Flori is awake (model {model}). Ask anything about your plants.",
+    "ai.nokey": "Flori needs a key: set AI_API_KEY in the backend (Google AI Studio / OpenRouter :free).",
+    "ai.unknown": "AI status unknown.", "ai.no_reply": "(no reply)", "ai.error": "Error: {msg}",
+    "plant.care": "💧 {moist_min}–{moist_max}% · 🌡️ {temp_min}–{temp_max}°C · ☀️ {light_min}–{light_max} lx · every {days} days · {difficulty}",
+    "plant.title": "🪴 Plant profile", "plant.node": "Node", "plant.species": "Species / plant",
+    "plant.nickname": "Nickname", "plant.displayname": "Display name", "plant.emoji": "Emoji / avatar",
+    "plant.color": "Color", "plant.notes": "Note",
+    "newplant.title": "📷 New plant from photo",
+    "newplant.help": "Take a photo of the plant — the AI identifies the species and creates a profile. Then you can flash a spare ESP.",
+    "newplant.nofoto": "No photo yet.", "newplant.preview_alt": "Preview",
+    "newplant.identifying": "AI is identifying the plant…",
+    "newplant.identified": "Identified: {common} ({scientific})",
+    "newplant.in_catalog": " — in the catalogue ✅", "newplant.not_in_catalog": " — not in the catalogue",
+    "newplant.identify_failed": "Identification failed: {msg}",
+    "newplant.create": "Create profile", "newplant.created": "🌱 Profile for {node} created",
+    "newplant.create_failed": "Creating failed: {msg}",
+    "manual.title": "📖 Quick guide", "manual.h1": "1 · Watering your plant",
+    "manual.p1": "“💧 Water” runs as a single dose (default ~20 s, hard-capped at 45 s on the device). For automatic watering: Settings → Watering.",
+    "manual.h2": "2 · Calibrating soil moisture",
+    "manual.p2": "Probe in air → enter the raw voltage on the left; probe in a glass of water → value on the right. “Apply values” sends the calibration to the device (it stays saved).",
+    "manual.h3": "3 · Setting up a plant",
+    "manual.p3": "“Edit profile” → choose the species (soil moisture, temperature and light ranges are applied) and set nickname/emoji/colour.",
+    "manual.h4": "4 · Adding a new node",
+    "manual.p5": "OTA also works from the browser: ESPHome on :6052. Full guides: TUTORIALS.md in the repo.",
+    "backend.devices.title": "Devices & flashing", "backend.flash.port": "Port",
+    "backend.flash.run": "⚡ Flash",
+    "backend.flash.note": "First flash over USB. Afterwards OTA (ESPHome :6052 or deploy/add-node.sh ota).",
+    "backend.events.title": "Events", "backend.audit.title": "Log (signed in only)",
+    "backend.keys.note.plain": "Values are stored server-side and applied immediately. An empty field = unchanged. “Reset” restores the .env value.",
+    "backend.details": "Details", "backend.none": "No nodes.",
+    "devices.none": "No known devices",
+    "devices.flasher_unreachable": "Flasher unreachable — start: docker compose --profile tools up -d flasher",
+    "devices.summary": "{ports} attached · {nodes} node configs",
+    "devices.unavailable": "Devices unavailable: {msg}",
+    "flash.confirm": "Flash “{node}” to {port} now? The device will restart.",
+    "flash.running": "Flashing… (can take 1–2 min)", "flash.ok": "✅ {node} flashed",
+    "flash.failed": "❌ Flash failed", "flash.error": "Error while flashing.",
+    "flash.exception": "Flash error: {msg}",
+    "keys.stored": "stored: {preview}", "keys.not_set": "not set yet",
+    "keys.saved": "🔑 Credentials saved", "keys.no_changes": "No changes",
+    "src.ui": "Dashboard",
+    "sys.uptime": "Uptime", "sys.active": "{ago} active", "sys.connected": "connected",
+    "sys.disconnected": "disconnected", "sys.offline_after": "Node offline after",
+    "sys.ai": "AI (Flori)", "sys.ai_model": "AI model", "sys.counts": "Counters",
+    "sys.counts_val": "nodes {nodes} · events {events} · devices {devices}",
+    "sys.unavailable": "System info unavailable: {msg}",
+    "egg.rain": "🌧️ A little rain for you!", "egg.party_on": "🎉 Debug mode: party 🌱",
+    "egg.party_off": "Party's over. The plants keep sleeping.",
+    "egg.konami": "⬆️⬆️⬇️⬇️⬅️➡️⬅️➡️🅱️🅰️ — growth booster activated!",
+    "egg.gg": "🪴 gg — nice tapping!",
+    "hint.help": "Tip: “Help” opens the quick guide 👋",
+    "diary.saved": "📔 Diary settings saved", "diary.written": "📔 Entry written",
+    "diary.error": "Diary: {msg}",
+    "diary.for_prefix": "Applies to", "diary.for_suffix": ".",
+    "flori.shown": "🌱 Flori is back!",
+    "flori.hidden": "Flori hidden — the 🌱 button top right brings him back.",
+    "flori.tip.offline": "😴 <b>{plant}</b> isn't reporting right now. Without fresh readings I won't water automatically — check power/WiFi briefly.",
+    "flori.tip.fault": "🤒 <b>{plant}</b> reports a sensor fault (<b>{fault}</b>). Usually checking the wiring briefly helps.",
+    "flori.tip.thirsty": "💧 <b>{plant}</b> is thirsty ({pct}% soil moisture). Tap Water under Control.",
+    "flori.tip.wet": "🌊 <b>{plant}</b> is well watered ({pct}%). Let it dry out for now.",
+    "flori.tip.warm": "🥵 <b>{plant}</b> is warm ({temp} °C). Shade or airing helps.",
+    "flori.tip.watering": "💦 I'm watering <b>{plant}</b> right now.",
+    "flori.tip.multi": "🌱 You have <b>{n} plants</b>. Switch between them at the top of the header.",
+    "flori.tip.intro": "👋 I'm <b>Flori</b>. Ask me e.g. “How is my plant doing?” or “When should I water?”",
+    "flori.tip.diary": "📝 In the <b>plant diary</b> (Control tab) I record how your plant is developing.",
+    "flori.tip.cal": "🧪 Wobbly soil moisture? Recalibrate once — Control tab → calibration.",
+    "flori.tip.login": "🔔 Signing in at the top right unlocks control, watering and the diary.",
   },
   de: {
     "app.title": "FloraHome",
-    "tab.overview": "ðŸŒ¿ Ãœbersicht", "tab.control": "ðŸŽ›ï¸ Steuern",
-    "tab.graphs": "ðŸ“ˆ Verlauf", "tab.backend": "ðŸ”§ Backend",
-    "conn.connecting": "Verbindeâ€¦", "conn.live": "Live verbunden",
+    "tab.overview": "🌿 Übersicht", "tab.control": "🎛️ Steuern",
+    "tab.graphs": "📈 Verlauf", "tab.backend": "🔧 Backend",
+    "conn.connecting": "Verbinde…", "conn.live": "Live verbunden",
     "conn.lost": "Verbindung unterbrochen", "node.unknown": "Knoten unbekannt",
     "node.none": "Keine Knoten", "node.online": "Knoten online ({ago} her)",
     "node.offline": "Knoten offline ({ago} her)", "node.count": "{n}/{total} Knoten online",
-    "scale.smaller": "Kleiner", "scale.larger": "GrÃ¶ÃŸer",
+    "scale.smaller": "Kleiner", "scale.larger": "Größer",
     "auth.login": "Anmelden", "auth.logout": "Abmelden",
     "flori.toggle": "Flori ein-/ausblenden",
-    "estop.active.title": "ðŸ›‘ NOT-AUS AKTIV",
-    "estop.active.body": "Pumpe und Licht sind aus, die automatische BewÃ¤sserung ist gesperrt â€“ auch nach einem Neustart, bis freigegeben wird.",
-    "estop.resume": "â–¶ï¸ Freigeben",
-    "flori.card.title": "Flori â€” dein Pflanzen-Begleiter",
+    "estop.active.title": "🛑 NOT-AUS AKTIV",
+    "estop.active.body": "Pumpe und Licht sind aus, die automatische Bewässerung ist gesperrt – auch nach einem Neustart, bis freigegeben wird.",
+    "estop.resume": "▶️ Freigeben",
+    "flori.card.title": "Flori — dein Pflanzen-Begleiter",
     "flori.chat.placeholder": "Wie geht es meiner Pflanze?",
     "flori.chat.send": "Fragen", "flori.chat.mic": "Sprechen",
-    "flori.thinking": "Flori denkt nachâ€¦",
+    "flori.thinking": "Flori denkt nach…",
     "alerts.title": "Meldungen",
-    "alerts.none": "âœ… Keine Meldungen. Alles im grÃ¼nen Bereich.",
+    "alerts.none": "✅ Keine Meldungen. Alles im grünen Bereich.",
     "alerts.critical": "Kritisch", "alerts.warning": "Warnung",
     "alerts.since": "seit {ago}",
     "plants.title": "Pflanzen", "plants.edit": "Profil bearbeiten",
-    "plants.new": "ðŸ“· Neue Pflanze", "plants.help": "Hilfe",
-    "control.title": "Steuerung", "control.pick": "Pflanze oben im Kopf wÃ¤hlen ðŸŒ±",
-    "btn.water": "ðŸ’§ BewÃ¤ssern", "btn.light": "ðŸ’¡ Licht an/aus", "btn.buzzer": "ðŸ”Š Buzzer",
-    "btn.voice": "ðŸŽ¤ Sprich mit mir", "btn.stop": "â¹ï¸ Stop", "btn.estop": "ðŸ›‘ NOT-AUS",
-    "btn.estop.armed": "ðŸ›‘ Sicher? Nochmal tippen", "btn.settings": "âš™ï¸ BewÃ¤sserung",
-    "btn.details": "ðŸ”§ Details", "btn.resume.short": "â–¶ï¸ Freigeben",
-    "auth.readonly": "Das Dashboard ist schreibgeschÃ¼tzt. Zum Steuern bitte anmelden.",
-    "auth.signedin": "Angemeldet â€“ Ã„nderungen werden im Protokoll erfasst.",
+    "plants.new": "📷 Neue Pflanze", "plants.help": "Hilfe",
+    "control.title": "Steuerung", "control.pick": "Pflanze oben im Kopf wählen 🌱",
+    "btn.water": "💧 Bewässern", "btn.light": "💡 Licht an/aus", "btn.buzzer": "🔊 Buzzer",
+    "btn.voice": "🎤 Sprich mit mir", "btn.stop": "⏹️ Stop", "btn.estop": "🛑 NOT-AUS",
+    "btn.estop.armed": "🛑 Sicher? Nochmal tippen", "btn.settings": "⚙️ Bewässerung",
+    "btn.details": "🔧 Details", "btn.resume.short": "▶️ Freigeben",
+    "auth.readonly": "Das Dashboard ist schreibgeschützt. Zum Steuern bitte anmelden.",
+    "auth.signedin": "Angemeldet – Änderungen werden im Protokoll erfasst.",
     "cal.title": "Kalibrierung Bodenfeuchte", "cal.raw": "Rohspannung:",
-    "cal.dry": "trocken:", "cal.wet": "nass:", "cal.dry_in": "In Luft (trocken) â€” Volt",
-    "cal.wet_in": "In Wasser (nass) â€” Volt", "cal.apply": "Werte Ã¼bernehmen",
-    "cal.hint": "Pro Pflanze. Messwert <b>Rohspannung</b> abschreiben: Probe in Luft â†’ links, in ein Glas Wasser â†’ rechts.",
+    "cal.dry": "trocken:", "cal.wet": "nass:", "cal.dry_in": "In Luft (trocken) — Volt",
+    "cal.wet_in": "In Wasser (nass) — Volt", "cal.apply": "Werte übernehmen",
+    "cal.hint": "Pro Pflanze. Messwert <b>Rohspannung</b> abschreiben: Probe in Luft → links, in ein Glas Wasser → rechts.",
     "diary.title": "Pflanzentagebuch", "diary.write": "Eintrag jetzt schreiben",
-    "diary.help": "Notizen aus Sicht deiner Pflanze. Flori fasst die Woche automatisch zusammen (Art, Werte, GieÃŸen) â€“ du kannst auch jederzeit selbst einen Eintrag schreiben. EintrÃ¤ge bleiben pro Pflanze gespeichert.",
-    "diary.settings": "âš™ï¸ Tagebuch-Einstellungen", "diary.auto": "Automatische EintrÃ¤ge schreiben",
+    "diary.help": "Notizen aus Sicht deiner Pflanze. Flori fasst die Woche automatisch zusammen (Art, Werte, Gießen) – du kannst auch jederzeit selbst einen Eintrag schreiben. Einträge bleiben pro Pflanze gespeichert.",
+    "diary.settings": "⚙️ Tagebuch-Einstellungen", "diary.auto": "Automatische Einträge schreiben",
     "diary.interval": "Intervall (Tage)", "diary.save": "Einstellungen speichern",
-    "diary.for_plant": "Gilt fÃ¼r {plant}.", "diary.none": "Noch keine EintrÃ¤ge â€“ schreib einen oder warte auf den nÃ¤chsten automatischen Eintrag.",
-    "diary.unavailable": "Tagebuch nicht verfÃ¼gbar.",
+    "diary.for_plant": "Gilt für {plant}.", "diary.none": "Noch keine Einträge – schreib einen oder warte auf den nächsten automatischen Eintrag.",
+    "diary.unavailable": "Tagebuch nicht verfügbar.",
     "graphs.title": "Verlauf & Diagramme", "graphs.range": "Zeitraum",
     "graphs.range.1h": "1 Stunde", "graphs.range.6h": "6 Stunden", "graphs.range.24h": "24 Stunden",
     "graphs.range.7d": "7 Tage", "graphs.range.30d": "30 Tage",
-    "graphs.refresh": "â†» Aktualisieren", "graphs.loading": "Verlauf wird geladenâ€¦",
-    "graphs.none": "Keine Verlaufsdaten im gewÃ¤hlten Zeitraum.",
+    "graphs.refresh": "↻ Aktualisieren", "graphs.loading": "Verlauf wird geladen…",
+    "graphs.none": "Keine Verlaufsdaten im gewählten Zeitraum.",
     "backend.nodes.title": "Knoten & Technik",
-    "backend.nodes.note": "Detaillierte Werte, Firmware, Pins und Rohdaten. â€žDetailsâ€œ je Knoten Ã¶ffnen.",
-    "backend.keys.title": "API-SchlÃ¼ssel & ZugÃ¤nge",
-    "backend.keys.locked": "Anmelden, um SchlÃ¼ssel zu sehen und zu Ã¤ndern.",
-    "backend.keys.save": "SchlÃ¼ssel speichern", "backend.keys.reload": "â†» Neu laden",
-    "backend.keys.note": "Werte werden serverseitig gespeichert und <b>sofort</b> Ã¼bernommen. Leeres Feld = unverÃ¤ndert. â€žZurÃ¼cksetzenâ€œ stellt den .env-Wert wieder her.",
+    "backend.nodes.note": "Detaillierte Werte, Firmware, Pins und Rohdaten. „Details“ je Knoten öffnen.",
+    "backend.keys.title": "API-Schlüssel & Zugänge",
+    "backend.keys.locked": "Anmelden, um Schlüssel zu sehen und zu ändern.",
+    "backend.keys.save": "Schlüssel speichern", "backend.keys.reload": "↻ Neu laden",
+    "backend.keys.note": "Werte werden serverseitig gespeichert und <b>sofort</b> übernommen. Leeres Feld = unverändert. „Zurücksetzen“ stellt den .env-Wert wieder her.",
     "backend.system.title": "System & Status",
-    "login.title": "ðŸ” Anmelden", "login.help": "Anmelden schaltet Steuern, GieÃŸen, Tagebuch und Flashen frei.",
+    "login.title": "🔐 Anmelden", "login.help": "Anmelden schaltet Steuern, Gießen, Tagebuch und Flashen frei.",
     "login.user": "Benutzer", "login.pass": "Passwort", "login.submit": "Anmelden",
-    "common.cancel": "Abbrechen", "common.save": "Speichern", "common.close": "SchlieÃŸen",
-    "common.ok": "Alles klar", "common.reset": "ZurÃ¼cksetzen", "common.set": "gesetzt", "common.unset": "nicht gesetzt",
-    "common.loading": "LÃ¤dtâ€¦", "common.none": "keine", "common.yes": "ja", "common.no": "nein",
-    "toast.cmd_failed": "Befehl fehlgeschlagen: {msg}", "toast.voice_listen": "ðŸŽ¤ Ich hÃ¶re zuâ€¦ (4s)",
-    "toast.voice_think": "ðŸ§  Denke nachâ€¦", "toast.signed_in": "ðŸ”“ Angemeldet",
-    "toast.login_failed": "Anmeldung fehlgeschlagen: {msg}", "toast.buzzer": "ðŸ”Š Buzzer-Test gesendet",
-    "voice.no_mic": "Kein Mikrofon auf diesem GerÃ¤t gefunden.",
+    "common.cancel": "Abbrechen", "common.save": "Speichern", "common.close": "Schließen",
+    "common.ok": "Alles klar", "common.reset": "Zurücksetzen", "common.set": "gesetzt", "common.unset": "nicht gesetzt",
+    "common.loading": "Lädt…", "common.none": "keine", "common.yes": "ja", "common.no": "nein",
+    "toast.cmd_failed": "Befehl fehlgeschlagen: {msg}", "toast.voice_listen": "🎤 Ich höre zu… (4s)",
+    "toast.voice_think": "🧠 Denke nach…", "toast.signed_in": "🔓 Angemeldet",
+    "toast.login_failed": "Anmeldung fehlgeschlagen: {msg}", "toast.buzzer": "🔊 Buzzer-Test gesendet",
+    "voice.no_mic": "Kein Mikrofon auf diesem Gerät gefunden.",
     "voice.denied": "Mikrofon-Zugriff verweigert.",
     "voice.record_failed": "Aufnahme fehlgeschlagen: {msg}",
-    "voice.not_supported": "Dieser Browser kann kein Audio aufnehmen (HTTPS oder localhost nÃ¶tig).",
-    "voice.play_on_pi": "Auch Ã¼ber den Pi-Lautsprecher abspielen",
-    "voice.mode": "Mikrofon", "voice.mode.browser": "Dieses GerÃ¤t",
+    "voice.not_supported": "Dieser Browser kann kein Audio aufnehmen (HTTPS oder localhost nötig).",
+    "voice.play_on_pi": "Auch über den Pi-Lautsprecher abspielen",
+    "voice.mode": "Mikrofon", "voice.mode.browser": "Dieses Gerät",
     "voice.mode.pi": "Der Pi (USB-Mikro)",
     "voice.settings": "🎙️ Voice",
-    "flori.greeting": "ðŸ‘‹ Hallo! Ich bin <b>Flori</b>, dein Pflanzen-Begleiter. Tippe auf mich, wenn du reden willst.",
+    "flori.greeting": "👋 Hallo! Ich bin <b>Flori</b>, dein Pflanzen-Begleiter. Tippe auf mich, wenn du reden willst.",
     "flori.chat.cta": "Mit Flori reden", "flori.next": "Noch ein Tipp", "flori.hide": "Ausblenden",
+    "common.node_config": "Knoten (Config)",
+    "common.unavailable": "Nicht verfügbar: {msg}",
+    "common.save_failed": "Speichern fehlgeschlagen: {msg}",
+    "estop.btn.active": "🛑 NOT-AUS aktiv",
+    "estop.note.on": "NOT-AUS ist gesetzt: Pumpe, Licht und Automatik sind gesperrt.",
+    "estop.note.off": "NOT-AUS sperrt Pumpe, Licht und Automatik dauerhaft, bis freigegeben wird.",
+    "estop.confirm": "NOT-AUS: zum Bestätigen innerhalb von 4 s nochmal tippen",
+    "estop.set": "🛑 NOT-AUS gesetzt",
+    "estop.failed": "NOT-AUS fehlgeschlagen: {msg}",
+    "estop.resume_failed": "Freigabe fehlgeschlagen: {msg}",
+    "mood.sleeping": "schläft", "mood.needs_help": "braucht Hilfe", "mood.thirsty": "durstig",
+    "mood.too_wet": "zu nass", "mood.drinking": "trinkt gerade", "mood.temp": "zu kalt/warm",
+    "mood.happy": "glücklich",
+    "plantstate.watering": "Bewässert 💧", "plantstate.cooldown": "Sperrzeit ⏳", "plantstate.idle": "Bereit",
+    "plant.fault": "⚠️ Fehler: {msg}", "plant.online": "online · {ago}", "plant.offline": "offline",
+    "plant.soil_unit": "% Boden", "plant.pump_today": "{n}× heute", "plant.custom": "— eigene —",
+    "metric.temp": "Temperatur", "metric.humidity": "Luft", "metric.light": "Licht",
+    "metric.moisture": "Bodenfeuchte", "metric.tank": "Wassertank", "metric.soil_v": "Boden Rohspan.",
+    "metric.rssi": "WLAN-Signal",
+    "events.active": "aktiv", "events.resolved": "behoben", "events.none": "Keine Ereignisse",
+    "audit.none": "Nur für angemeldete Nutzer sichtbar",
+    "graphs.no_data_short": "keine Daten",
+    "graphs.threshold": "Schwelle {value}{unit}",
+    "graphs.stats": "min {min} · ø {avg} · max {max} {unit} · {n} Punkte",
+    "graphs.unavailable": "nicht verfügbar", "graphs.no_range_data": "keine Daten im Zeitraum",
+    "graphs.source": "Quelle: {source} · Zeitraum: {hours} h",
+    "graphs.source.memory": "Arbeitsspeicher", "graphs.aria": "{metric} Verlauf",
+    "cal.need_values": "Bitte trockene und nasse Rohspannung eintragen.",
+    "cal.hint.plain": "Pro Pflanze. Messwert Rohspannung abschreiben: Probe in Luft → links, in ein Glas Wasser → rechts.",
+    "settings.saved": "⚙️ Einstellungen für {plant} gespeichert",
+    "settings.title": "⚙️ Bewässerung & Meldungen", "settings.watering": "Bewässerung",
+    "settings.light": "Licht", "settings.pump_auto": "Automatisch bewässern",
+    "settings.pump_threshold": "Bewässern unter (%)", "settings.pump_seconds": "Dauer pro Gabe (s)",
+    "settings.pump_cooldown": "Sperrzeit (min)", "settings.pump_max": "Max. Gaben pro Tag",
+    "settings.alert_dry": "Trocken-Warnung unter (%)", "settings.alert_dry_min": "… für (min)",
+    "settings.alert_silent": "Funkstille nach (min)", "settings.alert_tank": "Tank-Warnung unter (%)",
+    "settings.telegram": "Telegram-Benachrichtigung", "settings.buzzer_allow": "Buzzer erlaubt",
+    "settings.light_auto": "Licht automatisch", "settings.light_below": "Einschalten unter (lx)",
+    "node.no_nodes_opt": "— kein Knoten —",
+    "nd.title": "🔧 Details & Fehlersuche", "nd.state": "Zustand", "nd.online": "Online",
+    "nd.last_seen": "Letztes Signal", "nd.ago": "vor {ago}", "nd.uptime": "Laufzeit",
+    "nd.restarts": "Neustarts", "nd.firmware": "Firmware", "nd.fault": "Fehler", "nd.raw": "Rohwerte",
+    "nd.battery": "Batterie", "nd.pins": "Pins (ESP32)",
+    "nd.pins_source": "Quelle: <code>esphome/smartplanter.yaml</code> substitutions. Bei eigener Verkabelung hier abgleichen.",
+    "nd.network": "Netzwerk", "nd.mqtt_topics": "MQTT-Themen", "nd.hotspot": "Hotspot",
+    "nd.test_cmd": "Befehl testen",
+    "ai.awake": "Flori ist wach (Modell {model}). Frag alles rund um deine Pflanzen.",
+    "ai.nokey": "Flori braucht einen Schlüssel: AI_API_KEY im Backend hinterlegen (Google AI Studio / OpenRouter :free).",
+    "ai.unknown": "KI-Status unbekannt.", "ai.no_reply": "(keine Antwort)", "ai.error": "Fehler: {msg}",
+    "plant.care": "💧 {moist_min}–{moist_max}% · 🌡️ {temp_min}–{temp_max}°C · ☀️ {light_min}–{light_max} lx · alle {days} Tage · {difficulty}",
+    "plant.title": "🪴 Pflanzenprofil", "plant.node": "Knoten", "plant.species": "Art / Pflanze",
+    "plant.nickname": "Spitzname", "plant.displayname": "Anzeigename", "plant.emoji": "Emoji / Avatar",
+    "plant.color": "Farbe", "plant.notes": "Notiz",
+    "newplant.title": "📷 Neue Pflanze aus Foto",
+    "newplant.help": "Mach ein Foto der Pflanze – die KI bestimmt die Art und legt ein Profil an. Danach kannst du einen freien ESP dazu flashen.",
+    "newplant.nofoto": "Noch kein Foto.", "newplant.preview_alt": "Vorschau",
+    "newplant.identifying": "KI bestimmt die Pflanze…",
+    "newplant.identified": "Erkannt: {common} ({scientific})",
+    "newplant.in_catalog": " – im Katalog ✅", "newplant.not_in_catalog": " – nicht im Katalog",
+    "newplant.identify_failed": "Bestimmung fehlgeschlagen: {msg}",
+    "newplant.create": "Profil anlegen", "newplant.created": "🌱 Profil für {node} angelegt",
+    "newplant.create_failed": "Anlegen fehlgeschlagen: {msg}",
+    "manual.title": "📖 Kurzanleitung", "manual.h1": "1 · Pflanze bewässern",
+    "manual.p1": "„💧 Bewässern“ läuft als einmalige Gabe (Standard ~20 s, im Gerät hart auf 45 s begrenzt). Für die Automatik: Einstellungen → Bewässerung.",
+    "manual.h2": "2 · Bodenfeuchte kalibrieren",
+    "manual.p2": "Sonde in Luft → Rohspannung links eintragen; Sonde in ein Glas Wasser → Wert rechts. „Werte übernehmen“ sendet die Kalibrierung ans Gerät (bleibt gespeichert).",
+    "manual.h3": "3 · Pflanze einrichten",
+    "manual.p3": "„Profil bearbeiten“ → Art wählen (Bodenfeuchte-, Temperatur- und Lichtbereich werden übernommen) und Spitzname/Emoji/Farbe festlegen.",
+    "manual.h4": "4 · Neuen Knoten anlegen",
+    "manual.p5": "OTA geht auch aus dem Browser: ESPHome auf :6052. Volle Anleitungen: TUTORIALS.md im Repo.",
+    "backend.devices.title": "Geräte & Flashen", "backend.flash.port": "Port",
+    "backend.flash.run": "⚡ Flashen",
+    "backend.flash.note": "Erstes Flashen per USB. Danach OTA (ESPHome :6052 oder deploy/add-node.sh ota).",
+    "backend.events.title": "Ereignisse", "backend.audit.title": "Protokoll (nur angemeldet)",
+    "backend.keys.note.plain": "Werte werden serverseitig gespeichert und sofort übernommen. Leeres Feld = unverändert. „Zurücksetzen“ stellt den .env-Wert wieder her.",
+    "backend.details": "Details", "backend.none": "Keine Knoten.",
+    "devices.none": "Keine bekannten Geräte",
+    "devices.flasher_unreachable": "Flasher nicht erreichbar – starte: docker compose --profile tools up -d flasher",
+    "devices.summary": "{ports} angeschlossen · {nodes} Knoten-Configs",
+    "devices.unavailable": "Geräte nicht verfügbar: {msg}",
+    "flash.confirm": "„{node}“ jetzt auf {port} flashen? Das Gerät startet neu.",
+    "flash.running": "Flashen läuft… (kann 1–2 min dauern)", "flash.ok": "✅ {node} geflasht",
+    "flash.failed": "❌ Flash fehlgeschlagen", "flash.error": "Fehler beim Flashen.",
+    "flash.exception": "Flash-Fehler: {msg}",
+    "keys.stored": "gespeichert: {preview}", "keys.not_set": "noch nicht gesetzt",
+    "keys.saved": "🔑 Zugänge gespeichert", "keys.no_changes": "Keine Änderungen",
+    "src.ui": "Dashboard",
+    "sys.uptime": "Laufzeit", "sys.active": "{ago} aktiv", "sys.connected": "verbunden",
+    "sys.disconnected": "getrennt", "sys.offline_after": "Knoten offline nach",
+    "sys.ai": "KI (Flori)", "sys.ai_model": "KI-Modell", "sys.counts": "Zähler",
+    "sys.counts_val": "Knoten {nodes} · Ereignisse {events} · Geräte {devices}",
+    "sys.unavailable": "Systeminfo nicht verfügbar: {msg}",
+    "egg.rain": "🌧️ Ein bisschen Regen für dich!", "egg.party_on": "🎉 Debug-Modus: Party 🌱",
+    "egg.party_off": "Party vorbei. Die Pflanzen schlafen weiter.",
+    "egg.konami": "⬆️⬆️⬇️⬇️⬅️➡️⬅️➡️🅱️🅰️ — Wachstumsbooster aktiviert!",
+    "egg.gg": "🪴 gg — nettes Tippen!",
+    "hint.help": "Tipp: „Hilfe“ öffnet die Kurzanleitung 👋",
+    "diary.saved": "📔 Tagebuch-Einstellungen gespeichert", "diary.written": "📔 Eintrag geschrieben",
+    "diary.error": "Tagebuch: {msg}",
+    "diary.for_prefix": "Gilt für", "diary.for_suffix": ".",
+    "flori.shown": "🌱 Flori ist wieder da!",
+    "flori.hidden": "Flori versteckt – der 🌱-Button oben rechts holt ihn zurück.",
+    "flori.tip.offline": "😴 <b>{plant}</b> meldet sich gerade nicht. Ohne frische Werte gieße ich nicht automatisch – kurz Strom/WLAN prüfen.",
+    "flori.tip.fault": "🤒 <b>{plant}</b> meldet einen Sensorfehler (<b>{fault}</b>). Meist hilft die Verkabelung kurz prüfen.",
+    "flori.tip.thirsty": "💧 <b>{plant}</b> ist durstig ({pct} % Bodenfeuchte). Tippe unter „Steuern“ auf Bewässern.",
+    "flori.tip.wet": "🌊 <b>{plant}</b> ist gut gewässert ({pct} %). Erst mal abtrocknen lassen.",
+    "flori.tip.warm": "🥵 <b>{plant}</b> ist warm ({temp} °C). Schatten oder Lüften tut gut.",
+    "flori.tip.watering": "💦 Ich gieße <b>{plant}</b> gerade.",
+    "flori.tip.multi": "🌱 Du hast <b>{n} Pflanzen</b>. Oben im Kopf schaltest du zwischen ihnen um.",
+    "flori.tip.intro": "👋 Ich bin <b>Flori</b>. Frag mich z. B. „Wie geht es meiner Pflanze?“ oder „Wann soll ich gießen?“",
+    "flori.tip.diary": "📝 Im <b>Pflanzentagebuch</b> (Tab „Steuern“) halte ich fest, wie sich deine Pflanze entwickelt.",
+    "flori.tip.cal": "🧪 Wackelige Bodenfeuchte? Einmal neu kalibrieren – Tab „Steuern“ → Kalibrierung.",
+    "flori.tip.login": "🔔 Anmelden oben rechts schaltet Steuern, Gießen und das Tagebuch frei.",
   },
   nl: {
     "app.title": "FloraHome",
-    "tab.overview": "ðŸŒ¿ Overzicht", "tab.control": "ðŸŽ›ï¸ Bediening",
-    "tab.graphs": "ðŸ“ˆ Geschiedenis", "tab.backend": "ðŸ”§ Backend",
-    "conn.connecting": "Verbindenâ€¦", "conn.live": "Live verbonden",
+    "tab.overview": "🌿 Overzicht", "tab.control": "🎛️ Bediening",
+    "tab.graphs": "📈 Geschiedenis", "tab.backend": "🔧 Backend",
+    "conn.connecting": "Verbinden…", "conn.live": "Live verbonden",
     "conn.lost": "Verbinding verbroken", "node.unknown": "Node onbekend",
     "node.none": "Geen nodes", "node.online": "Node online ({ago} geleden)",
     "node.offline": "Node offline ({ago} geleden)", "node.count": "{n}/{total} nodes online",
     "scale.smaller": "Kleiner", "scale.larger": "Groter",
     "auth.login": "Inloggen", "auth.logout": "Uitloggen",
     "flori.toggle": "Flori tonen/verbergen",
-    "estop.active.title": "ðŸ›‘ NOODSTOP ACTIEF",
-    "estop.active.body": "Pomp en licht zijn uit; automatisch water geven is geblokkeerd â€“ ook na een herstart, tot je vrijgeeft.",
-    "estop.resume": "â–¶ï¸ Vrijgeven",
-    "flori.card.title": "Flori â€” je plantenmaatje",
+    "estop.active.title": "🛑 NOODSTOP ACTIEF",
+    "estop.active.body": "Pomp en licht zijn uit; automatisch water geven is geblokkeerd – ook na een herstart, tot je vrijgeeft.",
+    "estop.resume": "▶️ Vrijgeven",
+    "flori.card.title": "Flori — je plantenmaatje",
     "flori.chat.placeholder": "Hoe gaat het met mijn plant?",
     "flori.chat.send": "Vragen", "flori.chat.mic": "Spreken",
-    "flori.thinking": "Flori denkt naâ€¦",
+    "flori.thinking": "Flori denkt na…",
     "alerts.title": "Meldingen",
-    "alerts.none": "âœ… Geen meldingen. Alles ziet er goed uit.",
+    "alerts.none": "✅ Geen meldingen. Alles ziet er goed uit.",
     "alerts.critical": "Kritiek", "alerts.warning": "Waarschuwing",
     "alerts.since": "sinds {ago}",
     "plants.title": "Planten", "plants.edit": "Profiel bewerken",
-    "plants.new": "ðŸ“· Nieuwe plant", "plants.help": "Help",
-    "control.title": "Bediening", "control.pick": "Kies een plant bovenin ðŸŒ±",
-    "btn.water": "ðŸ’§ Water geven", "btn.light": "ðŸ’¡ Licht aan/uit", "btn.buzzer": "ðŸ”Š Zoemer",
-    "btn.voice": "ðŸŽ¤ Praat met me", "btn.stop": "â¹ï¸ Stop", "btn.estop": "ðŸ›‘ NOODSTOP",
-    "btn.estop.armed": "ðŸ›‘ Zeker? Nogmaals tikken", "btn.settings": "âš™ï¸ Water geven",
-    "btn.details": "ðŸ”§ Details", "btn.resume.short": "â–¶ï¸ Vrijgeven",
+    "plants.new": "📷 Nieuwe plant", "plants.help": "Help",
+    "control.title": "Bediening", "control.pick": "Kies een plant bovenin 🌱",
+    "btn.water": "💧 Water geven", "btn.light": "💡 Licht aan/uit", "btn.buzzer": "🔊 Zoemer",
+    "btn.voice": "🎤 Praat met me", "btn.stop": "⏹️ Stop", "btn.estop": "🛑 NOODSTOP",
+    "btn.estop.armed": "🛑 Zeker? Nogmaals tikken", "btn.settings": "⚙️ Water geven",
+    "btn.details": "🔧 Details", "btn.resume.short": "▶️ Vrijgeven",
     "auth.readonly": "Het dashboard is alleen-lezen. Log in om te bedienen.",
-    "auth.signedin": "Ingelogd â€“ wijzigingen worden gelogd.",
+    "auth.signedin": "Ingelogd – wijzigingen worden gelogd.",
     "cal.title": "Kalibratie bodemvocht", "cal.raw": "Ruwe spanning:",
-    "cal.dry": "droog:", "cal.wet": "nat:", "cal.dry_in": "In lucht (droog) â€” volt",
-    "cal.wet_in": "In water (nat) â€” volt", "cal.apply": "Waarden toepassen",
-    "cal.hint": "Per plant. Neem de <b>ruwe spanning</b> over: sonde in lucht â†’ links, in een glas water â†’ rechts.",
+    "cal.dry": "droog:", "cal.wet": "nat:", "cal.dry_in": "In lucht (droog) — volt",
+    "cal.wet_in": "In water (nat) — volt", "cal.apply": "Waarden toepassen",
+    "cal.hint": "Per plant. Neem de <b>ruwe spanning</b> over: sonde in lucht → links, in een glas water → rechts.",
     "diary.title": "Plantendagboek", "diary.write": "Nu een item schrijven",
-    "diary.help": "Notities vanuit het perspectief van je plant. Flori vat de week automatisch samen (soort, waarden, water geven) â€“ je kunt ook zelf altijd een item schrijven. Items worden per plant opgeslagen.",
-    "diary.settings": "âš™ï¸ Dagboek-instellingen", "diary.auto": "Automatisch items schrijven",
+    "diary.help": "Notities vanuit het perspectief van je plant. Flori vat de week automatisch samen (soort, waarden, water geven) – je kunt ook zelf altijd een item schrijven. Items worden per plant opgeslagen.",
+    "diary.settings": "⚙️ Dagboek-instellingen", "diary.auto": "Automatisch items schrijven",
     "diary.interval": "Interval (dagen)", "diary.save": "Instellingen opslaan",
-    "diary.for_plant": "Geldt voor {plant}.", "diary.none": "Nog geen items â€“ schrijf er een of wacht op het volgende automatische item.",
+    "diary.for_plant": "Geldt voor {plant}.", "diary.none": "Nog geen items – schrijf er een of wacht op het volgende automatische item.",
     "diary.unavailable": "Dagboek niet beschikbaar.",
     "graphs.title": "Geschiedenis & grafieken", "graphs.range": "Periode",
     "graphs.range.1h": "1 uur", "graphs.range.6h": "6 uur", "graphs.range.24h": "24 uur",
     "graphs.range.7d": "7 dagen", "graphs.range.30d": "30 dagen",
-    "graphs.refresh": "â†» Vernieuwen", "graphs.loading": "Geschiedenis ladenâ€¦",
+    "graphs.refresh": "↻ Vernieuwen", "graphs.loading": "Geschiedenis laden…",
     "graphs.none": "Geen geschiedenis voor de gekozen periode.",
     "backend.nodes.title": "Nodes & hardware",
-    "backend.nodes.note": "Gedetailleerde waarden, firmware, pinnen en ruwe data. Open â€œDetailsâ€ per node.",
+    "backend.nodes.note": "Gedetailleerde waarden, firmware, pinnen en ruwe data. Open “Details” per node.",
     "backend.keys.title": "API-sleutels & toegang",
     "backend.keys.locked": "Log in om sleutels te bekijken en te wijzigen.",
-    "backend.keys.save": "Sleutels opslaan", "backend.keys.reload": "â†» Herladen",
-    "backend.keys.note": "Waarden worden server-side opgeslagen en <b>direct</b> toegepast. Leeg veld = ongewijzigd. â€œResettenâ€ herstelt de .env-waarde.",
+    "backend.keys.save": "Sleutels opslaan", "backend.keys.reload": "↻ Herladen",
+    "backend.keys.note": "Waarden worden server-side opgeslagen en <b>direct</b> toegepast. Leeg veld = ongewijzigd. “Resetten” herstelt de .env-waarde.",
     "backend.system.title": "Systeem & status",
-    "login.title": "ðŸ” Inloggen", "login.help": "Inloggen ontgrendelt bediening, water geven, het dagboek en flashen.",
+    "login.title": "🔐 Inloggen", "login.help": "Inloggen ontgrendelt bediening, water geven, het dagboek en flashen.",
     "login.user": "Gebruiker", "login.pass": "Wachtwoord", "login.submit": "Inloggen",
     "common.cancel": "Annuleren", "common.save": "Opslaan", "common.close": "Sluiten",
     "common.ok": "Begrepen", "common.reset": "Resetten", "common.set": "ingesteld", "common.unset": "niet ingesteld",
-    "common.loading": "Ladenâ€¦", "common.none": "geen", "common.yes": "ja", "common.no": "nee",
-    "toast.cmd_failed": "Opdracht mislukt: {msg}", "toast.voice_listen": "ðŸŽ¤ Ik luisterâ€¦ (4s)",
-    "toast.voice_think": "ðŸ§  Denkenâ€¦", "toast.signed_in": "ðŸ”“ Ingelogd",
-    "toast.login_failed": "Inloggen mislukt: {msg}", "toast.buzzer": "ðŸ”Š Zoemertest verzonden",
+    "common.loading": "Laden…", "common.none": "geen", "common.yes": "ja", "common.no": "nee",
+    "toast.cmd_failed": "Opdracht mislukt: {msg}", "toast.voice_listen": "🎤 Ik luister… (4s)",
+    "toast.voice_think": "🧠 Denken…", "toast.signed_in": "🔓 Ingelogd",
+    "toast.login_failed": "Inloggen mislukt: {msg}", "toast.buzzer": "🔊 Zoemertest verzonden",
     "voice.no_mic": "Geen microfoon gevonden op dit apparaat.",
     "voice.denied": "Microfoontoegang geweigerd.",
     "voice.record_failed": "Opnemen mislukt: {msg}",
@@ -859,8 +1075,121 @@ const I18N = {
     "voice.mode": "Microfoon", "voice.mode.browser": "Dit apparaat",
     "voice.mode.pi": "De Pi (USB-mic)",
     "voice.settings": "🎙️ Voice",
-    "flori.greeting": "ðŸ‘‹ Hoi! Ik ben <b>Flori</b>, je plantenmaatje. Tik op mij als je wilt praten.",
+    "flori.greeting": "👋 Hoi! Ik ben <b>Flori</b>, je plantenmaatje. Tik op mij als je wilt praten.",
     "flori.chat.cta": "Met Flori praten", "flori.next": "Nog een tip", "flori.hide": "Verbergen",
+    "common.node_config": "Node (config)",
+    "common.unavailable": "Niet beschikbaar: {msg}",
+    "common.save_failed": "Opslaan mislukt: {msg}",
+    "estop.btn.active": "🛑 NOODSTOP actief",
+    "estop.note.on": "Noodstop is actief: pomp, licht en automatisering zijn geblokkeerd.",
+    "estop.note.off": "Noodstop blokkeert pomp, licht en automatisering permanent tot je vrijgeeft.",
+    "estop.confirm": "Noodstop: tik binnen 4 s nogmaals om te bevestigen",
+    "estop.set": "🛑 Noodstop ingesteld",
+    "estop.failed": "Noodstop mislukt: {msg}",
+    "estop.resume_failed": "Vrijgeven mislukt: {msg}",
+    "mood.sleeping": "slaapt", "mood.needs_help": "heeft hulp nodig", "mood.thirsty": "heeft dorst",
+    "mood.too_wet": "te nat", "mood.drinking": "drinkt nu", "mood.temp": "te koud/warm",
+    "mood.happy": "blij",
+    "plantstate.watering": "Water gegeven 💧", "plantstate.cooldown": "Wachttijd ⏳", "plantstate.idle": "Klaar",
+    "plant.fault": "⚠️ Fout: {msg}", "plant.online": "online · {ago}", "plant.offline": "offline",
+    "plant.soil_unit": "% bodem", "plant.pump_today": "{n}× vandaag", "plant.custom": "— eigen —",
+    "metric.temp": "Temperatuur", "metric.humidity": "Lucht", "metric.light": "Licht",
+    "metric.moisture": "Bodemvocht", "metric.tank": "Watertank", "metric.soil_v": "Bodem ruwspan.",
+    "metric.rssi": "Wifi-signaal",
+    "events.active": "actief", "events.resolved": "opgelost", "events.none": "Geen gebeurtenissen",
+    "audit.none": "Alleen zichtbaar voor ingelogde gebruikers",
+    "graphs.no_data_short": "geen gegevens",
+    "graphs.threshold": "Drempel {value}{unit}",
+    "graphs.stats": "min {min} · gem {avg} · max {max} {unit} · {n} punten",
+    "graphs.unavailable": "niet beschikbaar", "graphs.no_range_data": "geen gegevens in periode",
+    "graphs.source": "Bron: {source} · Periode: {hours} u",
+    "graphs.source.memory": "werkgeheugen", "graphs.aria": "{metric} geschiedenis",
+    "cal.need_values": "Vul de droge en natte ruwe spanning in.",
+    "cal.hint.plain": "Per plant. Neem de ruwe spanning over: sonde in lucht → links, in een glas water → rechts.",
+    "settings.saved": "⚙️ Instellingen voor {plant} opgeslagen",
+    "settings.title": "⚙️ Water geven & meldingen", "settings.watering": "Water geven",
+    "settings.light": "Licht", "settings.pump_auto": "Automatisch water geven",
+    "settings.pump_threshold": "Water geven onder (%)", "settings.pump_seconds": "Duur per dosis (s)",
+    "settings.pump_cooldown": "Wachttijd (min)", "settings.pump_max": "Max. doses per dag",
+    "settings.alert_dry": "Droogwaarschuwing onder (%)", "settings.alert_dry_min": "… gedurende (min)",
+    "settings.alert_silent": "Stilte na (min)", "settings.alert_tank": "Tankwaarschuwing onder (%)",
+    "settings.telegram": "Telegram-melding", "settings.buzzer_allow": "Zoemer toegestaan",
+    "settings.light_auto": "Licht automatisch", "settings.light_below": "Inschakelen onder (lx)",
+    "node.no_nodes_opt": "— geen node —",
+    "nd.title": "🔧 Details & probleemoplossing", "nd.state": "Status", "nd.online": "Online",
+    "nd.last_seen": "Laatste signaal", "nd.ago": "{ago} geleden", "nd.uptime": "Uptime",
+    "nd.restarts": "Herstarts", "nd.firmware": "Firmware", "nd.fault": "Fout", "nd.raw": "Ruwe waarden",
+    "nd.battery": "Batterij", "nd.pins": "Pinnen (ESP32)",
+    "nd.pins_source": "Bron: <code>esphome/smartplanter.yaml</code> substitutions. Controleer hier als je zelf bedrading hebt gemaakt.",
+    "nd.network": "Netwerk", "nd.mqtt_topics": "MQTT-onderwerpen", "nd.hotspot": "Hotspot",
+    "nd.test_cmd": "Opdracht testen",
+    "ai.awake": "Flori is wakker (model {model}). Vraag alles over je planten.",
+    "ai.nokey": "Flori heeft een sleutel nodig: stel AI_API_KEY in de backend in (Google AI Studio / OpenRouter :free).",
+    "ai.unknown": "AI-status onbekend.", "ai.no_reply": "(geen antwoord)", "ai.error": "Fout: {msg}",
+    "plant.care": "💧 {moist_min}–{moist_max}% · 🌡️ {temp_min}–{temp_max}°C · ☀️ {light_min}–{light_max} lx · elke {days} dagen · {difficulty}",
+    "plant.title": "🪴 Plantenprofiel", "plant.node": "Node", "plant.species": "Soort / plant",
+    "plant.nickname": "Bijnaam", "plant.displayname": "Weergavenaam", "plant.emoji": "Emoji / avatar",
+    "plant.color": "Kleur", "plant.notes": "Notitie",
+    "newplant.title": "📷 Nieuwe plant vanaf foto",
+    "newplant.help": "Maak een foto van de plant – de AI bepaalt de soort en maakt een profiel. Daarna kun je een vrije ESP flashen.",
+    "newplant.nofoto": "Nog geen foto.", "newplant.preview_alt": "Voorbeeld",
+    "newplant.identifying": "AI bepaalt de plant…",
+    "newplant.identified": "Herkenning: {common} ({scientific})",
+    "newplant.in_catalog": " – in de catalogus ✅", "newplant.not_in_catalog": " – niet in de catalogus",
+    "newplant.identify_failed": "Bepaling mislukt: {msg}",
+    "newplant.create": "Profiel aanmaken", "newplant.created": "🌱 Profiel voor {node} aangemaakt",
+    "newplant.create_failed": "Aanmaken mislukt: {msg}",
+    "manual.title": "📖 Beknopte handleiding", "manual.h1": "1 · Je plant water geven",
+    "manual.p1": "“💧 Water geven” loopt als eenmalige dosis (standaard ~20 s, op het apparaat hard begrensd op 45 s). Voor automatisering: Instellingen → Water geven.",
+    "manual.h2": "2 · Bodemvocht kalibreren",
+    "manual.p2": "Sonde in lucht → vul de ruwe spanning links in; sonde in een glas water → waarde rechts. “Waarden toepassen” stuurt de kalibratie naar het apparaat (blijft opgeslagen).",
+    "manual.h3": "3 · Een plant instellen",
+    "manual.p3": "“Profiel bewerken” → kies de soort (bodemvocht-, temperatuur- en lichtbereik worden overgenomen) en stel bijnaam/emoji/kleur in.",
+    "manual.h4": "4 · Een nieuwe node toevoegen",
+    "manual.p5": "OTA werkt ook vanuit de browser: ESPHome op :6052. Volledige handleidingen: TUTORIALS.md in de repo.",
+    "backend.devices.title": "Apparaten & flashen", "backend.flash.port": "Poort",
+    "backend.flash.run": "⚡ Flashen",
+    "backend.flash.note": "Eerste keer flashen via USB. Daarna OTA (ESPHome :6052 of deploy/add-node.sh ota).",
+    "backend.events.title": "Gebeurtenissen", "backend.audit.title": "Logboek (alleen ingelogd)",
+    "backend.keys.note.plain": "Waarden worden server-side opgeslagen en direct toegepast. Leeg veld = ongewijzigd. “Resetten” herstelt de .env-waarde.",
+    "backend.details": "Details", "backend.none": "Geen nodes.",
+    "devices.none": "Geen bekende apparaten",
+    "devices.flasher_unreachable": "Flasher niet bereikbaar – start: docker compose --profile tools up -d flasher",
+    "devices.summary": "{ports} aangesloten · {nodes} node-configs",
+    "devices.unavailable": "Apparaten niet beschikbaar: {msg}",
+    "flash.confirm": "“{node}” nu naar {port} flashen? Het apparaat start opnieuw.",
+    "flash.running": "Flashen bezig… (kan 1–2 min duren)", "flash.ok": "✅ {node} geflasht",
+    "flash.failed": "❌ Flashen mislukt", "flash.error": "Fout bij het flashen.",
+    "flash.exception": "Flash-fout: {msg}",
+    "keys.stored": "opgeslagen: {preview}", "keys.not_set": "nog niet ingesteld",
+    "keys.saved": "🔑 Toegang opgeslagen", "keys.no_changes": "Geen wijzigingen",
+    "src.ui": "Dashboard",
+    "sys.uptime": "Uptime", "sys.active": "{ago} actief", "sys.connected": "verbonden",
+    "sys.disconnected": "gescheiden", "sys.offline_after": "Node offline na",
+    "sys.ai": "AI (Flori)", "sys.ai_model": "AI-model", "sys.counts": "Tellers",
+    "sys.counts_val": "nodes {nodes} · gebeurtenissen {events} · apparaten {devices}",
+    "sys.unavailable": "Systeeminfo niet beschikbaar: {msg}",
+    "egg.rain": "🌧️ Een beetje regen voor jou!", "egg.party_on": "🎉 Debugmodus: feest 🌱",
+    "egg.party_off": "Feest voorbij. De planten slapen verder.",
+    "egg.konami": "⬆️⬆️⬇️⬇️⬅️➡️⬅️➡️🅱️🅰️ — groeibooster geactiveerd!",
+    "egg.gg": "🪴 gg — lekker getikt!",
+    "hint.help": "Tip: “Help” opent de beknopte handleiding 👋",
+    "diary.saved": "📔 Dagboek-instellingen opgeslagen", "diary.written": "📔 Item geschreven",
+    "diary.error": "Dagboek: {msg}",
+    "diary.for_prefix": "Geldt voor", "diary.for_suffix": ".",
+    "flori.shown": "🌱 Flori is terug!",
+    "flori.hidden": "Flori verborgen – de 🌱-knop rechtsboven haalt hem terug.",
+    "flori.tip.offline": "😴 <b>{plant}</b> meldt zich nu niet. Zonder verse waarden geef ik niet automatisch water – controleer kort stroom/wifi.",
+    "flori.tip.fault": "🤒 <b>{plant}</b> meldt een sensorfout (<b>{fault}</b>). Meestal helpt het om de bedrading kort te controleren.",
+    "flori.tip.thirsty": "💧 <b>{plant}</b> heeft dorst ({pct}% bodemvocht). Tik op Water geven onder Bediening.",
+    "flori.tip.wet": "🌊 <b>{plant}</b> is goed water gegeven ({pct}%). Laat het even opdrogen.",
+    "flori.tip.warm": "🥵 <b>{plant}</b> is warm ({temp} °C). Schaduw of luchten helpt.",
+    "flori.tip.watering": "💦 Ik geef <b>{plant}</b> nu water.",
+    "flori.tip.multi": "🌱 Je hebt <b>{n} planten</b>. Wissel bovenaan tussen ze.",
+    "flori.tip.intro": "👋 Ik ben <b>Flori</b>. Vraag me bijvoorbeeld “Hoe gaat het met mijn plant?” of “Wanneer moet ik water geven?”",
+    "flori.tip.diary": "📝 In het <b>plantendagboek</b> (tab Bediening) houd ik bij hoe je plant zich ontwikkelt.",
+    "flori.tip.cal": "🧪 Wisselend bodemvocht? Kalibreer opnieuw – tab Bediening → kalibratie.",
+    "flori.tip.login": "🔔 Inloggen rechtsboven ontgrendelt bediening, water geven en het dagboek.",
   },
 };
 
@@ -888,7 +1217,7 @@ function applyI18n(root){
     el.title = t(el.dataset.i18nTitle);
   });
   document.documentElement.lang = LANG;
-  document.title = t("app.title") + " â€” Smart Planter";
+  document.title = t("app.title") + " — Smart Planter";
 }
 function setLang(lang, save=true){
   LANG = I18N[lang] ? lang : "en";
@@ -932,23 +1261,23 @@ async function json(url, opts){
 /* ------------------------------------------------------------------- plants */
 function mini(label, icon, value, unit){
   return `<div class="mini" data-metric="${label}"><div class="l"><span>${icon}</span>${label}</div>
-    <div class="v">${value ?? "â€“"}${unit?`<small>${unit}</small>`:""}</div></div>`;
+    <div class="v">${value ?? "–"}${unit?`<small>${unit}</small>`:""}</div></div>`;
 }
 /* `states` is an array so multi-node drops in later; today it holds one node. */
 /* mood text from plant + live readings */
 function mood(s){
   const m = s.metrics || {}, plant = s.plant, care = plant && plant.care;
-  if(!s.online) return ["ðŸ˜´","schlÃ¤ft", "var(--muted)"];
-  if(s.fault && s.fault !== "ok") return ["ðŸ¤’","braucht Hilfe","var(--crit)"];
+  if(!s.online) return ["😴",t("mood.sleeping"), "var(--muted)"];
+  if(s.fault && s.fault !== "ok") return ["🤒",t("mood.needs_help"),"var(--crit)"];
   const mo = m.moisture_pct;
   if(care && typeof mo === "number"){
-    if(mo < care.moisture_min_pct) return ["ðŸ˜Ÿ","durstig","var(--warn)"];
-    if(mo > care.moisture_max_pct) return ["ðŸ˜µ","zu nass","var(--warn)"];
+    if(mo < care.moisture_min_pct) return ["😟",t("mood.thirsty"),"var(--warn)"];
+    if(mo > care.moisture_max_pct) return ["😵",t("mood.too_wet"),"var(--warn)"];
   }
-  if(s.pump === "watering") return ["ðŸ’§","trinkt gerade","var(--accent)"];
+  if(s.pump === "watering") return ["💧",t("mood.drinking"),"var(--accent)"];
   if(care && typeof m.temp_c === "number" && (m.temp_c < care.temp_min_c || m.temp_c > care.temp_max_c))
-    return ["ðŸ¥¶","zu kalt/warm","var(--warn)"];
-  return ["ðŸ˜Š","glÃ¼cklich","var(--ok)"];
+    return ["🥶",t("mood.temp"),"var(--warn)"];
+  return ["😊",t("mood.happy"),"var(--ok)"];
 }
 
 function renderPlants(states){
@@ -958,29 +1287,29 @@ function renderPlants(states){
     const online = !!s.online;
     const plant = s.plant || {};
     const name = plant.nickname || plant.name || s.device || "smartplanter";
-    const emoji = plant.emoji || "ðŸª´";
-    const pump = s.pump === "watering" ? ["watering","BewÃ¤ssert ðŸ’§"]
-               : s.pump === "cooldown" ? ["cooldown","Sperrzeit â³"] : ["idle","Bereit"];
+    const emoji = plant.emoji || "🪴";
+    const pump = s.pump === "watering" ? ["watering",t("plantstate.watering")]
+               : s.pump === "cooldown" ? ["cooldown",t("plantstate.cooldown")] : ["idle",t("plantstate.idle")];
     const fault = (s.fault && s.fault !== "ok")
-      ? `<div class="note fault">âš ï¸ Fault: ${esc(s.fault)}</div>` : "";
+      ? `<div class="note fault">${t("plant.fault",{msg:esc(s.fault)})}</div>` : "";
     const [me, mtext] = mood(s);
     const cfg = (window.MOODBOARD && window.MOODBOARD.plant) || {};
     return `<div class="plant" style="--plant:${plant.color||"#5fd08a"}">
       <div class="top"><span class="dot ${online?"on":""}"></span>
         <span class="name">${emoji} ${esc(name)}</span>
-        <span class="muted" style="font-size:.85rem">${online?`online Â· ${rel(s.last_seen)}`:"offline"}</span></div>
+        <span class="muted" style="font-size:.85rem">${online?t("plant.online",{ago:rel(s.last_seen)}):t("plant.offline")}</span></div>
       <div class="pump-state" style="margin:0 0 8px"><span class="tag" style="border-color:${cfg[6]||"var(--line)"}">${me} ${esc(mtext)}</span>
         <span class="muted" style="font-size:.85rem">${esc(plant.species||"")}</span></div>
       <div class="big-metric">
-        <span class="num">${fmtNum(m.moisture_pct,0) ?? "â€“"}</span><span class="unit">% Boden</span></div>
+        <span class="num">${fmtNum(m.moisture_pct,0) ?? "–"}</span><span class="unit">${t("plant.soil_unit")}</span></div>
       <div class="row-metrics">
-        ${mini("Temperatur","ðŸŒ¡ï¸", fmtNum(m.temp_c,1),"Â°C")}
-        ${mini("Luft","â˜ï¸", fmtNum(m.humidity,0),"%")}
-        ${mini("Licht","â˜€ï¸", fmtNum(m.lux,0),"lx")}
+        ${mini(t("metric.temp"),"🌡️", fmtNum(m.temp_c,1),"°C")}
+        ${mini(t("metric.humidity"),"☁️", fmtNum(m.humidity,0),"%")}
+        ${mini(t("metric.light"),"☀️", fmtNum(m.lux,0),"lx")}
       </div>
-      <div class="pump-state ${pump[0]}"><span class="tag">ðŸš° ${pump[1]}</span>
-        <span class="muted" style="font-size:.85rem">${s.pump_count_today??0}Ã— heute</span></div>
-      ${plant.notes?`<div class="note" style="margin-top:6px">ðŸ’¡ ${esc(plant.notes)}</div>`:""}
+      <div class="pump-state ${pump[0]}"><span class="tag">🚰 ${pump[1]}</span>
+        <span class="muted" style="font-size:.85rem">${t("plant.pump_today",{n:s.pump_count_today??0})}</span></div>
+      ${plant.notes?`<div class="note" style="margin-top:6px">💡 ${esc(plant.notes)}</div>`:""}
       ${fault}
     </div>`;
   }).join("");
@@ -1015,32 +1344,32 @@ async function refresh(){
 function renderAlerts(events){
   const active = events.filter(e => e.active);
   const box = $("alerts");
-  if(!active.length){ box.innerHTML = '<p class="muted">âœ… Keine Meldungen. Alles im grÃ¼nen Bereich.</p>'; return; }
+  if(!active.length){ box.innerHTML = '<p class="muted">'+t("alerts.none")+'</p>'; return; }
   box.innerHTML = active.map(e => `
     <div class="alert ${e.level==="critical"?"critical":""}">
-      <div class="head"><span>${e.level==="critical"?"ðŸš¨":"âš ï¸"}</span>
-        <span class="badge">${e.level==="critical"?"Kritisch":"Warnung"}</span>
+      <div class="head"><span>${e.level==="critical"?"🚨":"⚠️"}</span>
+        <span class="badge">${t(e.level==="critical"?"alerts.critical":"alerts.warning")}</span>
         <span>${esc(e.code)}</span></div>
       <div>${esc(e.message)}</div>
-      <div class="meta">seit ${rel(e.ts)}</div>
+      <div class="meta">${t("alerts.since",{ago:rel(e.ts)})}</div>
     </div>`).join("");
   // Flori reacts to a new critical alert (once per alert code).
   const crit = active.find(e => e.level === "critical");
   if(crit && crit.code !== floriLastAlert){
     floriLastAlert = crit.code;
-    if(floriVisible()) showBubble(`ðŸš¨ ${esc(crit.message)}`, 16000);
+    if(floriVisible()) showBubble(`🚨 ${esc(crit.message)}`, 16000);
   } else if(!crit){ floriLastAlert = null; }
 }
 function renderEvents(events){
   $("events").innerHTML = events.slice(0,12).map(e => {
-    const icon = e.active ? (e.level==="critical"?"ðŸš¨":"âš ï¸") : "âœ…";
-    return `<tr><td>${icon} ${esc(e.code)}</td><td class="muted">${e.active?"aktiv":"behoben"} Â· ${rel(e.ts)}</td></tr>`;
-  }).join("") || '<tr><td class="muted">Keine Ereignisse</td></tr>';
+    const icon = e.active ? (e.level==="critical"?"🚨":"⚠️") : "✅";
+    return `<tr><td>${icon} ${esc(e.code)}</td><td class="muted">${e.active?t("events.active"):t("events.resolved")} · ${rel(e.ts)}</td></tr>`;
+  }).join("") || '<tr><td class="muted">'+t("events.none")+'</td></tr>';
 }
 function renderAudit(rows){
   $("audit").innerHTML = rows.slice(0,12).map(r =>
-    `<tr><td>${esc(r.action)}</td><td class="muted">${esc(r.actor)} Â· ${rel(r.ts)}</td></tr>`
-  ).join("") || '<tr><td class="muted">Nur fÃ¼r angemeldete Nutzer sichtbar</td></tr>';
+    `<tr><td>${esc(r.action)}</td><td class="muted">${esc(r.actor)} · ${rel(r.ts)}</td></tr>`
+  ).join("") || '<tr><td class="muted">'+t("audit.none")+'</td></tr>';
 }
 async function loadTables(){
   try{ const ev = await json("/api/events?limit=50"); renderAlerts(ev); renderEvents(ev); }catch(e){}
@@ -1051,23 +1380,23 @@ async function loadTables(){
  * Every metric gets its own chart, straight from InfluxDB (with an in-memory
  * fallback). No Grafana needed. */
 const METRICS = [
-  {key:"moisture_pct", label:"Bodenfeuchte",   icon:"ðŸ’§", unit:"%",   color:"#5fd08a", d:0, thr:"pump_threshold_pct"},
-  {key:"temp_c",       label:"Temperatur",     icon:"ðŸŒ¡ï¸", unit:"Â°C", color:"#f2b64c", d:1},
-  {key:"humidity",     label:"Luftfeuchte",    icon:"â˜ï¸", unit:"%",   color:"#7cc7ff", d:0},
-  {key:"lux",          label:"Licht",          icon:"â˜€ï¸", unit:"lx",  color:"#ffd76a", d:0},
-  {key:"tank_pct",     label:"Wassertank",     icon:"ðŸ›¢ï¸", unit:"%",   color:"#9b8cff", d:0},
-  {key:"soil_v",       label:"Boden Rohspan.", icon:"ðŸ§ª", unit:"V",   color:"#69e0c8", d:3},
-  {key:"rssi",         label:"WLAN-Signal",    icon:"ðŸ“¶", unit:"dBm", color:"#9db3a5", d:0},
+  {key:"moisture_pct", label:"metric.moisture", icon:"💧", unit:"%",   color:"#5fd08a", d:0, thr:"pump_threshold_pct"},
+  {key:"temp_c",       label:"metric.temp",     icon:"🌡️", unit:"°C", color:"#f2b64c", d:1},
+  {key:"humidity",     label:"metric.humidity", icon:"☁️", unit:"%",   color:"#7cc7ff", d:0},
+  {key:"lux",          label:"metric.light",    icon:"☀️", unit:"lx",  color:"#ffd76a", d:0},
+  {key:"tank_pct",     label:"metric.tank",     icon:"🛢️", unit:"%",   color:"#9b8cff", d:0},
+  {key:"soil_v",       label:"metric.soil_v",   icon:"🧪", unit:"V",   color:"#69e0c8", d:3},
+  {key:"rssi",         label:"metric.rssi",     icon:"📶", unit:"dBm", color:"#9db3a5", d:0},
 ];
 let graphCache = [];
 
 function buildGraphCards(){
   $("graphs").innerHTML = METRICS.map(mt => `
     <div class="gcard" id="gcard-${mt.key}">
-      <div class="gh"><b>${mt.icon} ${mt.label}</b>
-        <span class="gv" id="gv-${mt.key}">â€“<small>${mt.unit}</small></span></div>
-      <canvas id="g-${mt.key}" role="img" aria-label="${mt.label} Verlauf"></canvas>
-      <div class="gstats"><span id="gs-${mt.key}">â€“</span></div>
+      <div class="gh"><b>${mt.icon} ${t(mt.label)}</b>
+        <span class="gv" id="gv-${mt.key}">–<small>${mt.unit}</small></span></div>
+      <canvas id="g-${mt.key}" role="img" aria-label="${t("graphs.aria",{metric:t(mt.label)})}"></canvas>
+      <div class="gstats"><span id="gs-${mt.key}">–</span></div>
     </div>`).join("");
 }
 
@@ -1083,7 +1412,7 @@ function drawSeries(canvas, points, mt, threshold){
   const line = css.getPropertyValue("--line").trim();
   if(!points || points.length < 2){
     ctx.fillStyle = muted; ctx.font = "14px system-ui";
-    ctx.fillText("keine Daten", 12, h/2);
+    ctx.fillText(t("graphs.no_data_short"), 12, h/2);
     return null;
   }
   const pad = {l:44, r:10, t:10, b:22};
@@ -1099,9 +1428,10 @@ function drawSeries(canvas, points, mt, threshold){
     ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke();
     ctx.fillText(v.toFixed(mt.d), 4, y+4); }
   const spanMs = t1 - t0;
+  const LOCALE = LANG==="de"?"de-DE":LANG==="nl"?"nl-NL":"en-GB";
   for(let i=0;i<=2;i++){ const t=t0+spanMs*i/2, dt=new Date(t);
-    const lbl = spanMs > 36*3600e3 ? dt.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})
-                                   : dt.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+    const lbl = spanMs > 36*3600e3 ? dt.toLocaleDateString(LOCALE,{day:"2-digit",month:"2-digit"})
+                                   : dt.toLocaleTimeString(LOCALE,{hour:"2-digit",minute:"2-digit"});
     ctx.fillText(lbl, X(t)-14, h-6); }
   ctx.beginPath(); ctx.moveTo(X(t0),Y(points[0].v));
   points.forEach(p => ctx.lineTo(X(new Date(p.t).getTime()), Y(p.v)));
@@ -1114,7 +1444,7 @@ function drawSeries(canvas, points, mt, threshold){
      && threshold >= min && threshold <= max){
     ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle = muted; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(pad.l,Y(threshold)); ctx.lineTo(w-pad.r,Y(threshold)); ctx.stroke(); ctx.restore();
-    ctx.fillStyle = muted; ctx.fillText(`Schwelle ${threshold}${mt.unit}`, pad.l+6, Y(threshold)-4);
+    ctx.fillStyle = muted; ctx.fillText(t("graphs.threshold",{value:threshold,unit:mt.unit}), pad.l+6, Y(threshold)-4);
   }
   const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
   return {min:Math.min(...vals), max:Math.max(...vals), avg};
@@ -1145,19 +1475,19 @@ async function loadGraphs(){
   for(const res of results){
     const cur = res.points.length ? res.points[res.points.length-1].v : null;
     const el = $(`gv-${res.mt.key}`);
-    if(el) el.innerHTML = (cur==null?"â€“":fmtNum(cur,res.mt.d)) + `<small>${res.mt.unit}</small>`;
+    if(el) el.innerHTML = (cur==null?"–":fmtNum(cur,res.mt.d)) + `<small>${res.mt.unit}</small>`;
     const threshold = res.mt.thr ? Number(cfgCache[res.mt.thr]) : undefined;
     const stats = drawSeries($(`g-${res.mt.key}`), res.points, res.mt, threshold);
     const sEl = $(`gs-${res.mt.key}`);
     if(sEl) sEl.textContent = stats
-      ? `min ${fmtNum(stats.min,res.mt.d)} Â· Ã¸ ${fmtNum(stats.avg,res.mt.d)} Â· max ${fmtNum(stats.max,res.mt.d)} ${res.mt.unit} Â· ${res.points.length} Punkte`
-      : (res.err ? "nicht verfÃ¼gbar" : "keine Daten im Zeitraum");
+      ? t("graphs.stats",{min:fmtNum(stats.min,res.mt.d),avg:fmtNum(stats.avg,res.mt.d),max:fmtNum(stats.max,res.mt.d),unit:res.mt.unit,n:res.points.length})
+      : (res.err ? t("graphs.unavailable") : t("graphs.no_range_data"));
     if(res.points.length) latest = res;
     if(res.source) source = res.source;
   }
   $("graphNote").textContent = latest
-    ? `Quelle: ${source==="influxdb"?"InfluxDB":source==="memory"?"Arbeitsspeicher":"â€“"} Â· Zeitraum: ${hours} h`
-    : "Keine Verlaufsdaten im gewÃ¤hlten Zeitraum.";
+    ? t("graphs.source",{source: source==="influxdb"?"InfluxDB":source==="memory"?t("graphs.source.memory"):"–", hours:hours})
+    : t("graphs.none");
 }
 
 /* ---------------------------------------------------------------- live stream */
@@ -1173,7 +1503,9 @@ function connect(){
 }
 function setConn(ok){
   $("conn").className = "pill " + (ok?"on":"off");
-  $("connText").textContent = ok ? t("conn.live") : t("conn.lost");
+  const k = ok ? "conn.live" : "conn.lost";
+  $("connText").dataset.i18n = k;
+  $("connText").textContent = t(k);
 }
 
 /* ---------------------------------------------------------------------- auth */
@@ -1181,10 +1513,12 @@ const WRITE_BTNS = ["btnWater","btnLight","btnBuzz","btnVoice","btnStop","btnEst
 function setAuthed(v){
   authed = v;
   WRITE_BTNS.forEach(id => { const el=$(id); if(el) el.disabled = !v; });
-  $("authBtn").textContent = v ? "Abmelden" : "Anmelden";
+  $("authBtn").dataset.i18n = v ? "auth.logout" : "auth.login";
+  $("authBtn").textContent = t(v ? "auth.logout" : "auth.login");
+  $("authNote").dataset.i18n = v ? "auth.signedin" : "auth.readonly";
   $("authNote").textContent = v
-    ? "Angemeldet â€“ Ã„nderungen werden im Protokoll erfasst."
-    : "Das Dashboard ist schreibgeschÃ¼tzt. Zum Steuern bitte anmelden.";
+    ? t("auth.signedin")
+    : t("auth.readonly");
   const fb = $("btnFlash"); if(fb) fb.disabled = !v;
   const ep = $("btnEditPlant"); if(ep) ep.disabled = !v;
   const npl = $("btnNewPlant"); if(npl) npl.disabled = !v;
@@ -1196,7 +1530,7 @@ function setAuthed(v){
 async function checkMe(){ try{ setAuthed((await json("/api/me")).authenticated); }catch(e){ setAuthed(false); } }
 $("authBtn").onclick = async () => {
   if(authed){ await json("/api/logout",{method:"POST"}); setAuthed(false); return; }
-  // A real dialog, not window.prompt â€” the kiosk panel has no hardware keyboard.
+  // A real dialog, not window.prompt — the kiosk panel has no hardware keyboard.
   $("login-user").value = ""; $("login-pass").value = "";
   $("loginDlg").showModal();
   setTimeout(() => { try{ $("login-user").focus(); }catch(e){} }, 120);
@@ -1206,8 +1540,8 @@ $("loginDlg").addEventListener("close", async () => {
   try{
     await json("/api/login",{method:"POST",
       body: JSON.stringify({ username: $("login-user").value, password: $("login-pass").value })});
-    setAuthed(true); toast("ðŸ”“ Angemeldet");
-  }catch(e){ alert("Anmeldung fehlgeschlagen: " + e.message); }
+    setAuthed(true); toast(t("toast.signed_in"));
+  }catch(e){ alert(t("toast.login_failed",{msg:e.message})); }
 });
 ["login-user","login-pass"].forEach(id =>
   $(id).addEventListener("keydown", e => {
@@ -1221,7 +1555,7 @@ async function send(body){
   const node = body.node || selectedNode() || primaryNode();
   if(node) payload.node = node;
   try{ await json("/api/command",{method:"POST",body:JSON.stringify(payload)}); loadTables(); refresh(); }
-  catch(e){ alert("Befehl fehlgeschlagen: "+e.message); throw e; }
+  catch(e){ alert(t("toast.cmd_failed",{msg:e.message})); throw e; }
 }
 $("btnWater").onclick = () => send({action:"pump", seconds: cfgCache.pump_seconds || 15});
 $("btnLight").onclick = () => send({action:"light", state:"toggle"});
@@ -1229,7 +1563,7 @@ $("btnBuzz").onclick  = () => send({action:"buzzer", seconds:3});
 $("btnStop").onclick  = () => send({action:"stop"});
 $("btnCal").onclick = () => {
   const dry = parseFloat($("cal-dry-in").value), wet = parseFloat($("cal-wet-in").value);
-  if(!(dry>0) || !(wet>0)){ alert("Bitte trockene und nasse Rohspannung eintragen."); return; }
+  if(!(dry>0) || !(wet>0)){ alert(t("cal.need_values")); return; }
   send({action:"cal", soil_dry_v:dry, soil_wet_v:wet});
 };
 
@@ -1240,13 +1574,13 @@ async function refreshHalted(){
     const nodes = Object.values(st.nodes || {});
     const on = nodes.some(n => n.halted);
     $("estopBanner").hidden = !on;
-    $("btnEstop").textContent = on ? "ðŸ›‘ NOT-AUS aktiv" : "ðŸ›‘ NOT-AUS";
+    $("btnEstop").textContent = on ? t("estop.btn.active") : t("btn.estop");
     $("estopNote").textContent = on
-      ? "NOT-AUS ist gesetzt: Pumpe, Licht und Automatik sind gesperrt."
-      : "NOT-AUS sperrt Pumpe, Licht und Automatik dauerhaft, bis freigegeben wird.";
+      ? t("estop.note.on")
+      : t("estop.note.off");
   }catch(e){}
 }
-/* Two-step arm/confirm instead of window.confirm â€” a native modal is awkward on
+/* Two-step arm/confirm instead of window.confirm — a native modal is awkward on
    a resistive panel, and this makes an accidental NOT-AUS much less likely. */
 let estopArmed = 0;
 $("btnEstop").onclick = async () => {
@@ -1254,24 +1588,24 @@ $("btnEstop").onclick = async () => {
   if(now - estopArmed > 4000){
     estopArmed = now;
     $("btnEstop").classList.add("armed");
-    $("btnEstop").textContent = "ðŸ›‘ Sicher? Nochmal tippen";
-    toast("NOT-AUS: zum BestÃ¤tigen innerhalb von 4 s nochmal tippen");
+    $("btnEstop").textContent = t("btn.estop.armed");
+    toast(t("estop.confirm"));
     setTimeout(() => {
       if(Date.now() - estopArmed >= 4000){
         $("btnEstop").classList.remove("armed");
-        $("btnEstop").textContent = "ðŸ›‘ NOT-AUS";
+        $("btnEstop").textContent = t("btn.estop");
       }
     }, 4300);
     return;
   }
   estopArmed = 0;
   $("btnEstop").classList.remove("armed");
-  try{ await json("/api/estop",{method:"POST"}); toast("ðŸ›‘ NOT-AUS gesetzt"); refreshHalted(); loadTables(); }
-  catch(e){ alert("NOT-AUS fehlgeschlagen: "+e.message); }
+  try{ await json("/api/estop",{method:"POST"}); toast(t("estop.set")); refreshHalted(); loadTables(); }
+  catch(e){ alert(t("estop.failed",{msg:e.message})); }
 };
 $("btnResume").onclick = async () => {
   try{ await json("/api/resume",{method:"POST"}); refreshHalted(); loadTables(); }
-  catch(e){ alert("Freigabe fehlgeschlagen: "+e.message); }
+  catch(e){ alert(t("estop.resume_failed",{msg:e.message})); }
 };
 
 /* ------------------------------------------------------------------ settings */
@@ -1298,13 +1632,13 @@ $("settingsDlg").addEventListener("close", async () => {
   try{
     await json(`/api/config/node/${encodeURIComponent(cfgEditNode)}`,
                {method:"PUT", body: JSON.stringify(updates)});
-    toast("âš™ï¸ Einstellungen fÃ¼r " + nodeLabel(cfgEditNode) + " gespeichert");
+    toast(t("settings.saved",{plant:nodeLabel(cfgEditNode)}));
     loadTables();
     if($("graphs").children.length) loadGraphs();
-  }catch(e){ alert("Speichern fehlgeschlagen: "+e.message); }
+  }catch(e){ alert(t("common.save_failed",{msg:e.message})); }
 });
 
-/* Node details / troubleshooting â€” pins, firmware, model, live raw values. */
+/* Node details / troubleshooting — pins, firmware, model, live raw values. */
 const PIN_MAP = {
   soil_adc: 34, soil_power: 25, dht: 27, ldr: 35,
   relay_pump: 26, relay_light: 13, buzzer: 14, button: 4, batt_adc: 32,
@@ -1316,35 +1650,35 @@ function openNodeDetails(n){
   const p = nv.plant || {};
   $("nd-node").textContent = nodeLabel(n);
   $("nd-body").innerHTML = `
-    <fieldset><legend>Zustand</legend>
-      <div class="field"><label>Online</label><b>${nv.online ? "ja" : "nein"}</b></div>
-      <div class="field"><label>Letztes Signal</label><b>${rel(nv.last_seen)} her</b></div>
-      <div class="field"><label>Uptime</label><b>${nv.on_s != null ? nv.on_s + " s" : "â€“"}</b></div>
-      <div class="field"><label>Neustarts</label><b>${nv.restarts ?? 0}</b></div>
-      <div class="field"><label>Firmware</label><b>${esc(m.fw || p.fw || "â€“")}</b></div>
-      <div class="field"><label>Fault</label><b>${esc(nv.fault || "ok")}</b></div>
+    <fieldset><legend>${t("nd.state")}</legend>
+      <div class="field"><label>${t("nd.online")}</label><b>${nv.online ? t("common.yes") : t("common.no")}</b></div>
+      <div class="field"><label>${t("nd.last_seen")}</label><b>${t("nd.ago",{ago:rel(nv.last_seen)})}</b></div>
+      <div class="field"><label>${t("nd.uptime")}</label><b>${nv.on_s != null ? nv.on_s + " s" : "–"}</b></div>
+      <div class="field"><label>${t("nd.restarts")}</label><b>${nv.restarts ?? 0}</b></div>
+      <div class="field"><label>${t("nd.firmware")}</label><b>${esc(m.fw || p.fw || "–")}</b></div>
+      <div class="field"><label>${t("nd.fault")}</label><b>${esc(nv.fault || "ok")}</b></div>
     </fieldset>
-    <fieldset><legend>Rohwerte</legend>
-      <div class="field"><label>soil_v</label><b>${m.soil_v ?? "â€“"} V</b></div>
-      <div class="field"><label>ldr_v</label><b>${m.ldr_v ?? "â€“"} V</b></div>
-      <div class="field"><label>cal_dry / wet</label><b>${m.cal_dry ?? "â€“"} / ${m.cal_wet ?? "â€“"}</b></div>
-      <div class="field"><label>RSSI</label><b>${m.rssi ?? "â€“"} dBm</b></div>
-      <div class="field"><label>Batterie</label><b>${m.battery_pct != null ? m.battery_pct + " %" : "â€“"}</b></div>
+    <fieldset><legend>${t("nd.raw")}</legend>
+      <div class="field"><label>soil_v</label><b>${m.soil_v ?? "–"} V</b></div>
+      <div class="field"><label>ldr_v</label><b>${m.ldr_v ?? "–"} V</b></div>
+      <div class="field"><label>cal_dry / wet</label><b>${m.cal_dry ?? "–"} / ${m.cal_wet ?? "–"}</b></div>
+      <div class="field"><label>RSSI</label><b>${m.rssi ?? "–"} dBm</b></div>
+      <div class="field"><label>${t("nd.battery")}</label><b>${m.battery_pct != null ? m.battery_pct + " %" : "–"}</b></div>
     </fieldset>
-    <fieldset><legend>Pins (ESP32)</legend>
+    <fieldset><legend>${t("nd.pins")}</legend>
       ${Object.entries(PIN_MAP).map(([k,v]) => `<div class="field"><label>${k}</label><b>GPIO ${v}</b></div>`).join("")}
-      <p class="note">Quelle: <code>esphome/smartplanter.yaml</code> substitutions. Bei eigener Verkabelung hier abgleichen.</p>
+      <p class="note">${t("nd.pins_source")}</p>
     </fieldset>
-    <fieldset><legend>Netzwerk</legend>
-      <div class="field"><label>MQTT Topics</label><b>planter/${n}/â€¦</b></div>
-      <div class="field"><label>Hotspot</label><b>FloraHome (10.42.0.x)</b></div>
-      <div class="field"><label>Befehl testen</label>
+    <fieldset><legend>${t("nd.network")}</legend>
+      <div class="field"><label>${t("nd.mqtt_topics")}</label><b>planter/${n}/…</b></div>
+      <div class="field"><label>${t("nd.hotspot")}</label><b>FloraHome (10.42.0.x)</b></div>
+      <div class="field"><label>${t("nd.test_cmd")}</label>
         <code>mosquitto_pub -t planter/${n}/cmd -m '{"action":"pump","seconds":5}'</code></div>
     </fieldset>`;
   $("nodeDlg").showModal();
 };
 
-/* Voice: record on whatever device you're using (browser mic) â€” phones, laptops
+/* Voice: record on whatever device you're using (browser mic) — phones, laptops
    and tablets all have one, unlike the Pi. The recording is sent to the API for
    transcription + a grounded reply; the spoken answer plays on this device and
    optionally on the Pi speaker. A Pi-mic mode is kept as a fallback. */
@@ -1396,7 +1730,7 @@ async function voiceTurn(button){
   const n = selectedNode(); if(!n || voiceBusy) return;
   voiceBusy = true;
   const micIcon = button && button.textContent;
-  if(button){ button.disabled = true; button.textContent = "ðŸ”´"; }
+  if(button){ button.disabled = true; button.textContent = "🔴"; }
   const mode = ($("voiceMode") && $("voiceMode").value) || "browser";
   const playPi = !!($("voicePlayPi") && $("voicePlayPi").checked);
   try{
@@ -1419,8 +1753,8 @@ async function voiceTurn(button){
     toast(t("toast.voice_think"));
     const r = await json("/api/voice/ask", {method:"POST",
       body: JSON.stringify({node:n, audio:audioB64, speak:true, play:playPi, lang:LANG})});
-    if(r.question) chatLog("me", "ðŸŽ¤ " + r.question);
-    chatLog("plant", r.reply || "â€¦");
+    if(r.question) chatLog("me", "🎤 " + r.question);
+    chatLog("plant", r.reply || "…");
     if(r.audio && !playPi) playWavB64(r.audio);   // play locally unless the Pi was asked to
     if(r.speak_error && playPi) toast(r.speak_error);
   }catch(e){ toast(t("voice.record_failed", {msg:e.message})); }
@@ -1445,13 +1779,13 @@ let SPECIES = [];
 async function loadSpecies(){
   try{ SPECIES = (await json("/api/plants")).plants || []; }catch(e){ SPECIES = []; }
   const sel = $("pl-species");
-  sel.innerHTML = '<option value="">â€” eigene â€”</option>' + SPECIES.map(p =>
+  sel.innerHTML = '<option value="">'+t("plant.custom")+'</option>' + SPECIES.map(p =>
     `<option value="${p.id}">${p.emoji} ${esc(p.common_de||p.common)} (${esc(p.scientific)})</option>`).join("");
 }
 function showCare(pid){
   const p = SPECIES.find(x => x.id === pid);
   $("pl-care").textContent = p
-    ? `ðŸ’§ ${p.care.moisture_min_pct}â€“${p.care.moisture_max_pct}% Â· ðŸŒ¡ï¸ ${p.care.temp_min_c}â€“${p.care.temp_max_c}Â°C Â· â˜€ï¸ ${p.care.light_min_lux}â€“${p.care.light_max_lux} lx Â· alle ${p.care.watering_interval_days} Tage Â· ${p.care.difficulty}`
+    ? t("plant.care",{moist_min:p.care.moisture_min_pct,moist_max:p.care.moisture_max_pct,temp_min:p.care.temp_min_c,temp_max:p.care.temp_max_c,light_min:p.care.light_min_lux,light_max:p.care.light_max_lux,days:p.care.watering_interval_days,difficulty:p.care.difficulty})
     : "";
 }
 $("pl-species").onchange = () => showCare($("pl-species").value);
@@ -1464,7 +1798,7 @@ $("btnEditPlant").onclick = async () => {
   $("pl-species").value = cur.species_id || "";
   $("pl-nickname").value = cur.nickname || "";
   $("pl-name").value = cur.name || "";
-  $("pl-emoji").value = cur.emoji || "ðŸª´";
+  $("pl-emoji").value = cur.emoji || "🪴";
   $("pl-color").value = cur.color || "#5fd08a";
   $("pl-notes").value = cur.notes || "";
   showCare(cur.species_id || "");
@@ -1477,12 +1811,12 @@ $("plantDlg").addEventListener("close", async () => {
     species_id: $("pl-species").value || null,
     nickname: $("pl-nickname").value || null,
     name: $("pl-name").value || null,
-    emoji: $("pl-emoji").value || "ðŸª´",
+    emoji: $("pl-emoji").value || "🪴",
     color: $("pl-color").value,
     notes: $("pl-notes").value || null,
   };
   try{ await json(`/api/plant/${encodeURIComponent(node)}`, {method:"PUT", body: JSON.stringify(body)}); refresh(); }
-  catch(e){ alert("Speichern fehlgeschlagen: "+e.message); }
+  catch(e){ alert(t("common.save_failed",{msg:e.message})); }
 });
 
 /* ----------------------------------------------------------------- feedback */
@@ -1497,28 +1831,28 @@ function notify(msg){ if("Notification" in window && Notification.permission ===
   try{ new Notification("FloraHome", {body: msg}); }catch(e){} } }
 
 /* -------------------------------------------------------------- easter eggs */
-const EGG_EMOJI = ["ðŸŒ»","ðŸŒ·","ðŸŒ¼","ðŸª·","ðŸ„","ðŸ","ðŸ¦‹","ðŸŒ","ðŸŒˆ","âœ¨"];
+const EGG_EMOJI = ["🌻","🌷","🌼","🪷","🍄","🐝","🦋","🐌","🌈","✨"];
 let clickCount = 0, clickTimer = 0, konami = [], gg = 0, plantClicks = 0;
 document.querySelector(".brand .logo").addEventListener("click", () => {
   clearTimeout(clickTimer); clickCount += 1;
   clickTimer = setTimeout(() => clickCount = 0, 900);
-  if(clickCount >= 3){ clickCount = 0; plantRain(3); toast("ðŸŒ§ï¸ Ein bisschen Regen fÃ¼r dich!"); }
+  if(clickCount >= 3){ clickCount = 0; plantRain(3); toast(t("egg.rain")); }
 });
 document.querySelector(".brand h1").addEventListener("click", () => {
   plantClicks += 1;
   if(plantClicks >= 7){
     plantClicks = 0; document.body.classList.toggle("party");
     toast(document.body.classList.contains("party")
-      ? "ðŸŽ‰ Debug-Modus: Party ðŸŒ±" : "Party vorbei. Die Pflanzen schlafen weiter.");
+      ? t("egg.party_on") : t("egg.party_off"));
   }
 });
 window.addEventListener("keydown", e => {
   konami.push(e.key); konami = konami.slice(-10);
   if(["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"].every((k,i)=>konami[i]===k)){
     document.body.classList.toggle("party");
-    toast("â¬†ï¸â¬†ï¸â¬‡ï¸â¬‡ï¸â¬…ï¸âž¡ï¸â¬…ï¸âž¡ï¸ðŸ…±ï¸ðŸ…°ï¸ â€” Wachstumsbooster aktiviert!");
+    toast(t("egg.konami"));
   }
-  if(e.key === "g"){ gg += 1; if(gg === 2){ gg = 0; document.body.classList.toggle("gg"); toast("ðŸª´ gg â€” nettes Tippen!"); } }
+  if(e.key === "g"){ gg += 1; if(gg === 2){ gg = 0; document.body.classList.toggle("gg"); toast(t("egg.gg")); } }
   else gg = 0;
 });
 function plantRain(n){
@@ -1547,7 +1881,7 @@ function renderNodeSelect(){
   const names = Object.keys(lastPayload.nodes || {});
   const want = selectedNode() || names[0];
   const html = names.map(n => `<option value="${n}"${n===want?" selected":""}>${esc(nodeLabel(n))}</option>`).join("");
-  const s = $("nodeSelect"); if(s) s.innerHTML = html || '<option value="">â€” kein Knoten â€”</option>';
+  const s = $("nodeSelect"); if(s) s.innerHTML = html || '<option value="">'+t("node.no_nodes_opt")+'</option>';
   renderBackendNodes(names);
   selNode = want || null;
 }
@@ -1565,18 +1899,18 @@ function renderBackendNodes(names){
     return `<div class="plant">
       <div class="top"><span class="dot ${nv.online?'on':''}"></span>
         <span class="name">${esc(nodeLabel(n))}</span>
-        <button class="ghost" data-detail="${n}">Details</button></div>
+        <button class="ghost" data-detail="${n}">${t("backend.details")}</button></div>
       <div class="row-metrics">
-        ${mini("soil_v","ðŸ§ª", fmtNum(m.soil_v,3),"V")}
-        ${mini("ldr_v","â˜€ï¸", fmtNum(m.ldr_v,3),"V")}
-        ${mini("RSSI","ðŸ“¶", fmtNum(m.rssi,0),"dBm")}
-        ${mini("uptime","â±ï¸", nv.on_s ?? "â€“","s")}
-        ${mini("restarts","â™»ï¸", nv.restarts ?? 0,"")}
-        ${mini("fault","ðŸ©º", esc(nv.fault || "ok"),"")}
+        ${mini("soil_v","🧪", fmtNum(m.soil_v,3),"V")}
+        ${mini("ldr_v","☀️", fmtNum(m.ldr_v,3),"V")}
+        ${mini("RSSI","📶", fmtNum(m.rssi,0),"dBm")}
+        ${mini("uptime","⏱️", nv.on_s ?? "–","s")}
+        ${mini("restarts","♻️", nv.restarts ?? 0,"")}
+        ${mini("fault","🩺", esc(nv.fault || "ok"),"")}
       </div>
-      <div class="note">Pins: soil=${PIN_MAP.soil_adc} Â· dht=${PIN_MAP.dht} Â· ldr=${PIN_MAP.ldr} Â· pump=${PIN_MAP.relay_pump} Â· light=${PIN_MAP.relay_light} Â· buzzer=${PIN_MAP.buzzer}</div>
+      <div class="note">Pins: soil=${PIN_MAP.soil_adc} · dht=${PIN_MAP.dht} · ldr=${PIN_MAP.ldr} · pump=${PIN_MAP.relay_pump} · light=${PIN_MAP.relay_light} · buzzer=${PIN_MAP.buzzer}</div>
     </div>`;
-  }).join("") || '<p class="muted">Keine Knoten.</p>';
+  }).join("") || '<p class="muted">'+t("backend.none")+'</p>';
   box.querySelectorAll("[data-detail]").forEach(b => b.onclick = () => openNodeDetails(b.dataset.detail));
 }
 
@@ -1584,9 +1918,9 @@ function refreshCal(){
   const n = selectedNode(); if(!n || !lastPayload.nodes[n]) return;
   const m = lastPayload.nodes[n].metrics || {};
   $("calNode").textContent = nodeLabel(n);
-  $("cal-soil").textContent = fmtNum(m.soil_v ?? m.soil_raw_v, 3) ?? "â€“";
-  $("cal-dry").textContent  = fmtNum(m.cal_dry, 3) ?? "â€“";
-  $("cal-wet").textContent  = fmtNum(m.cal_wet, 3) ?? "â€“";
+  $("cal-soil").textContent = fmtNum(m.soil_v ?? m.soil_raw_v, 3) ?? "–";
+  $("cal-dry").textContent  = fmtNum(m.cal_dry, 3) ?? "–";
+  $("cal-wet").textContent  = fmtNum(m.cal_wet, 3) ?? "–";
   if(document.activeElement !== $("cal-dry-in") && m.cal_dry != null) $("cal-dry-in").placeholder = m.cal_dry;
   if(document.activeElement !== $("cal-wet-in") && m.cal_wet != null) $("cal-wet-in").placeholder = m.cal_wet;
 }
@@ -1597,9 +1931,9 @@ async function refreshDiary(){
   try{
     const d = await json(`/api/diary/${encodeURIComponent(n)}?limit=8`);
     $("diary").innerHTML = (d.entries || []).map(e =>
-      `<div class="diary-entry"><div class="muted" style="font-size:.82rem">${new Date(e.ts*1000).toLocaleString("de-DE")}</div>${esc(e.text)}</div>`
-    ).join("") || '<p class="muted">Noch keine EintrÃ¤ge â€“ schreib einen oder warte auf den nÃ¤chsten automatischen Eintrag.</p>';
-  }catch(e){ $("diary").innerHTML = '<p class="muted">Tagebuch nicht verfÃ¼gbar.</p>'; }
+      `<div class="diary-entry"><div class="muted" style="font-size:.82rem">${new Date(e.ts*1000).toLocaleString(LANG==="de"?"de-DE":LANG==="nl"?"nl-NL":"en-GB")}</div>${esc(e.text)}</div>`
+    ).join("") || '<p class="muted">'+t("diary.none")+'</p>';
+  }catch(e){ $("diary").innerHTML = '<p class="muted">'+t("diary.unavailable")+'</p>'; }
 }
 async function loadDiarySettings(){
   const n = selectedNode(); if(!n) return;
@@ -1620,14 +1954,14 @@ $("btnDiarySettings").onclick = async () => {
   try{
     await json(`/api/config/node/${encodeURIComponent(n)}`,
                {method:"PUT", body: JSON.stringify(updates)});
-    toast("ðŸ“” Tagebuch-Einstellungen gespeichert");
-  }catch(e){ alert("Speichern fehlgeschlagen: " + e.message); }
+    toast(t("diary.saved"));
+  }catch(e){ alert(t("common.save_failed",{msg:e.message})); }
 };
 $("btnDiaryWrite").onclick = async () => {
   const n = selectedNode(); if(!n) return;
   $("btnDiaryWrite").disabled = true;
-  try{ await json(`/api/diary/${encodeURIComponent(n)}`, {method:"POST"}); toast("ðŸ“” Eintrag geschrieben"); refreshDiary(); }
-  catch(e){ alert("Tagebuch: " + e.message); }
+  try{ await json(`/api/diary/${encodeURIComponent(n)}`, {method:"POST"}); toast(t("diary.written")); refreshDiary(); }
+  catch(e){ alert(t("diary.error",{msg:e.message})); }
   finally{ $("btnDiaryWrite").disabled = !authed; }
 };
 
@@ -1650,21 +1984,21 @@ async function loadAI(){
   try{
     const st = await json("/api/ai/status");
     $("aiNote").textContent = st.configured
-      ? `Flori ist wach (Modell ${st.model}). Frag alles rund um deine Pflanzen.`
-      : "Flori braucht einen SchlÃ¼ssel: AI_API_KEY im Backend hinterlegen (Google AI Studio / OpenRouter :free).";
+      ? t("ai.awake",{model:st.model})
+      : t("ai.nokey");
     return st.configured;
-  }catch(e){ $("aiNote").textContent = "KI-Status unbekannt."; return false; }
+  }catch(e){ $("aiNote").textContent = t("ai.unknown"); return false; }
 }
 async function sendChat(){
   const q = $("chatInput").value.trim(); if(!q) return;
   chatLog("me", q); $("chatInput").value = "";
-  const holder = chatLog("plant", "Flori denkt nachâ€¦", true);
+  const holder = chatLog("plant", t("flori.thinking"), true);
   floriEl.classList.add("talking");
   try{
     const r = await json("/api/ai/chat", {method:"POST", body: JSON.stringify({message:q, node: selectedNode() || primaryNode()})});
     holder.classList.remove("thinking");
-    holder.textContent = r.reply || "(keine Antwort)";
-  }catch(e){ holder.classList.remove("thinking"); holder.textContent = "Fehler: " + e.message; }
+    holder.textContent = r.reply || t("ai.no_reply");
+  }catch(e){ holder.classList.remove("thinking"); holder.textContent = t("ai.error",{msg:e.message}); }
   finally{ floriEl.classList.remove("talking"); }
 }
 $("btnChat").onclick = sendChat;
@@ -1676,7 +2010,7 @@ async function openNewPlant(){
   await loadSpecies();
   const nodes = (await json("/api/nodes/available")).nodes || [];
   $("np-node").innerHTML = nodes.map(n => `<option value="${n}">${n}</option>`).join("");
-  $("npPreview").innerHTML = ""; $("npResult").textContent = "Noch kein Foto.";
+  $("npPreview").innerHTML = ""; $("npResult").textContent = t("newplant.nofoto");
   $("np-confirm").disabled = true; npGuess = null;
   $("newPlantDlg").showModal();
 }
@@ -1686,18 +2020,18 @@ $("npFile").addEventListener("change", async e => {
   const reader = new FileReader();
   reader.onload = async () => {
     const dataUrl = reader.result;
-    $("npPreview").innerHTML = `<img alt="Vorschau" style="max-width:100%;border-radius:12px" src="${dataUrl}">`;
-    $("npResult").textContent = "KI bestimmt die Pflanzeâ€¦";
+    $("npPreview").innerHTML = `<img alt="${t("newplant.preview_alt")}" style="max-width:100%;border-radius:12px" src="${dataUrl}">`;
+    $("npResult").textContent = t("newplant.identifying");
     try{
       const r = await json("/api/ai/identify", {method:"POST", body: JSON.stringify({image: dataUrl})});
       npGuess = r;
       const g = r.guess || {};
-      $("npResult").textContent = `Erkannt: ${g.common || "?"} (${g.scientific || "?"})` +
-        (r.species_id ? " â€“ im Katalog âœ…" : " â€“ nicht im Katalog") +
-        (g.care_hint ? ` Â· ${g.care_hint}` : "");
+      $("npResult").textContent = t("newplant.identified",{common:g.common || "?",scientific:g.scientific || "?"}) +
+        (r.species_id ? t("newplant.in_catalog") : t("newplant.not_in_catalog")) +
+        (g.care_hint ? ` · ${g.care_hint}` : "");
       $("np-confirm").disabled = false;
     }catch(err){
-      $("npResult").textContent = "Bestimmung fehlgeschlagen: " + err.message;
+      $("npResult").textContent = t("newplant.identify_failed",{msg:err.message});
     }
   };
   reader.readAsDataURL(f);
@@ -1710,9 +2044,9 @@ $("np-confirm").onclick = async () => {
                        (npGuess && npGuess.guess && npGuess.guess.common) || null };
   try{
     await json(`/api/plant/${encodeURIComponent(node)}`, {method:"PUT", body: JSON.stringify(body)});
-    toast(`ðŸŒ± Profil fÃ¼r ${node} angelegt`);
+    toast(t("newplant.created",{node:node}));
     $("newPlantDlg").close(); refresh();
-  }catch(e){ alert("Anlegen fehlgeschlagen: " + e.message); }
+  }catch(e){ alert(t("newplant.create_failed",{msg:e.message})); }
 };
 
 /* ------------------------------------------------------------------- devices */
@@ -1725,40 +2059,40 @@ async function loadDevices(){
     $("flash-port").innerHTML = (ports.length ? ports : [{port:"/dev/ttyUSB0"}])
       .map(p => `<option value="${p.port}">${p.port}${p.mac?" ("+p.mac+")":""}</option>`).join("");
     $("devices").innerHTML = (dev.known || []).map(d =>
-      `<tr><td>ðŸ”Œ ${esc(d.name||d.id)}</td><td class="muted">${esc(d.kind||"")} ${esc(d.mac||"")} ${esc(d.port||"")}</td></tr>`
-    ).join("") || '<tr><td class="muted">Keine bekannten GerÃ¤te</td></tr>';
+      `<tr><td>🔌 ${esc(d.name||d.id)}</td><td class="muted">${esc(d.kind||"")} ${esc(d.mac||"")} ${esc(d.port||"")}</td></tr>`
+    ).join("") || '<tr><td class="muted">'+t("devices.none")+'</td></tr>';
     $("flashNote").textContent = avail.error
-      ? "Flasher nicht erreichbar â€“ starte: docker compose --profile tools up -d flasher"
-      : `${ports.length} angeschlossen Â· ${nodes.length} Knoten-Configs`;
-  }catch(e){ $("flashNote").textContent = "GerÃ¤te nicht verfÃ¼gbar: " + e.message; }
+      ? t("devices.flasher_unreachable")
+      : t("devices.summary",{ports:ports.length,nodes:nodes.length});
+  }catch(e){ $("flashNote").textContent = t("devices.unavailable",{msg:e.message}); }
 }
 $("btnRefreshDevices").onclick = loadDevices;
 $("btnFlash").onclick = async () => {
   const node = $("flash-node").value, port = $("flash-port").value;
   if(!node || !port) return;
-  if(!confirm(`"${node}" jetzt auf ${port} flashen? Das GerÃ¤t startet neu.`)) return;
-  $("btnFlash").disabled = true; $("flashNote").textContent = "Flashen lÃ¤uftâ€¦ (kann 1â€“2 min dauern)";
+  if(!confirm(t("flash.confirm",{node:node,port:port}))) return;
+  $("btnFlash").disabled = true; $("flashNote").textContent = t("flash.running");
   try{
     const r = await json("/api/flash", {method:"POST", body: JSON.stringify({node, port})});
-    toast(r.ok ? `âœ… ${node} geflasht` : "âŒ Flash fehlgeschlagen");
-    $("flashNote").textContent = r.ok ? `âœ… ${node} geflasht.` : (r.tail || "Fehler beim Flashen.");
-  }catch(e){ toast("Flash-Fehler: "+e.message); }
+    toast(r.ok ? t("flash.ok",{node:node}) : t("flash.failed"));
+    $("flashNote").textContent = r.ok ? t("flash.ok",{node:node})+"." : (r.tail || t("flash.error"));
+  }catch(e){ toast(t("flash.exception",{msg:e.message})); }
   finally{ $("btnFlash").disabled = !authed; loadDevices(); }
 };
 
 /* --------------------------------------------------- backend: keys + system */
-const SRC_LABEL = { ui:"Dashboard", env:".env", unset:"nicht gesetzt" };
+const SRC_LABEL = { ui:"src.ui", env:".env", unset:"common.unset" };
 function renderKeys(d){
   $("keysBox").innerHTML = (d.keys||[]).map(k => `
     <div class="keyrow" data-key="${k.name}">
       <div class="klabel">${esc(k.label)}
-        <span class="badge">${SRC_LABEL[k.source]||k.source}</span>
-        ${k.configured?'<span class="badge ok">gesetzt</span>':''}
+        <span class="badge">${t(SRC_LABEL[k.source]||k.source)}</span>
+        ${k.configured?'<span class="badge ok">'+t("common.set")+'</span>':''}
         ${k.hint?`<span class="khint">${esc(k.hint)}</span>`:""}</div>
       <div class="keyform">
         <input data-k="${k.name}" type="${k.secret?"password":"text"}" autocomplete="off"
-               placeholder="${k.configured?("gespeichert: "+esc(k.preview)):"noch nicht gesetzt"}">
-        <button class="ghost" type="button" data-reset="${k.name}" ${k.source==="ui"?"":"disabled"}>ZurÃ¼cksetzen</button>
+               placeholder="${k.configured?t("keys.stored",{preview:esc(k.preview)}):t("keys.not_set")}">
+        <button class="ghost" type="button" data-reset="${k.name}" ${k.source==="ui"?"":"disabled"}>${t("common.reset")}</button>
       </div>
     </div>`).join("");
   $("keysBox").querySelectorAll("[data-reset]").forEach(b =>
@@ -1766,23 +2100,23 @@ function renderKeys(d){
 }
 async function loadKeys(){
   if(!authed){
-    $("keysBox").innerHTML = '<p class="muted">Anmelden, um SchlÃ¼ssel zu sehen und zu Ã¤ndern.</p>';
+    $("keysBox").innerHTML = '<p class="muted">'+t("backend.keys.locked")+'</p>';
     $("keysSave").disabled = true; return;
   }
   try{ renderKeys(await json("/api/settings/keys")); $("keysSave").disabled = false; }
-  catch(e){ $("keysBox").innerHTML = '<p class="muted">Nicht verfÃ¼gbar: ' + esc(e.message) + '</p>'; }
+  catch(e){ $("keysBox").innerHTML = '<p class="muted">'+t("common.unavailable",{msg:esc(e.message)})+'</p>'; }
 }
 async function saveKeys(updates){
   try{
     await json("/api/settings/keys", {method:"PUT", body: JSON.stringify(updates)});
-    toast("ðŸ”‘ ZugÃ¤nge gespeichert"); loadKeys(); loadAI();
-  }catch(e){ alert("Speichern fehlgeschlagen: " + e.message); }
+    toast(t("keys.saved")); loadKeys(); loadAI();
+  }catch(e){ alert(t("common.save_failed",{msg:e.message})); }
 }
 $("keysSave").onclick = () => {
   const updates = {};
   document.querySelectorAll("#keysBox input[data-k]").forEach(i => {
     if(i.value.trim() !== "") updates[i.dataset.k] = i.value.trim(); });
-  if(!Object.keys(updates).length){ toast("Keine Ã„nderungen"); return; }
+  if(!Object.keys(updates).length){ toast(t("keys.no_changes")); return; }
   saveKeys(updates);
 };
 $("keysReload").onclick = loadKeys;
@@ -1793,22 +2127,22 @@ function sysRow(label, value){
 async function loadSystem(){
   try{
     const s = await json("/api/system");
-    const yn = v => v ? '<b class="ok">ja</b>' : '<b class="no">nein</b>';
+    const yn = v => v ? '<b class="ok">'+t("common.yes")+'</b>' : '<b class="no">'+t("common.no")+'</b>';
     $("systemBox").innerHTML = `<div class="sysgrid">
-      ${sysRow("API-Version", esc(s.api_version||"â€“"))}
-      ${sysRow("Laufzeit", rel(s.started_at) + " aktiv")}
-      ${sysRow("MQTT", s.mqtt_connected?'<b class="ok">verbunden</b>':'<b class="no">getrennt</b>')}
-      ${sysRow("Knoten offline nach", esc(String(s.node_offline_sec)) + " s")}
-      ${sysRow("KI (Flori)", yn(s.ai_configured))}
-      ${sysRow("KI-Modell", esc(s.ai_model||"â€“"))}
+      ${sysRow("API-Version", esc(s.api_version||"–"))}
+      ${sysRow(t("sys.uptime"), t("sys.active",{ago:rel(s.started_at)}))}
+      ${sysRow("MQTT", s.mqtt_connected?'<b class="ok">'+t("sys.connected")+'</b>':'<b class="no">'+t("sys.disconnected")+'</b>')}
+      ${sysRow(t("sys.offline_after"), esc(String(s.node_offline_sec)) + " s")}
+      ${sysRow(t("sys.ai"), yn(s.ai_configured))}
+      ${sysRow(t("sys.ai_model"), esc(s.ai_model||"–"))}
       ${sysRow("InfluxDB", yn(s.influx_configured))}
       ${sysRow("Telegram", yn(s.telegram_configured))}
-      ${sysRow("Python", esc(s.python||"â€“"))}
-      ${sysRow("ZÃ¤hler", `Knoten ${s.counts?.nodes??0} Â· Ereignisse ${s.counts?.events??0} Â· GerÃ¤te ${s.counts?.devices??0}`)}
-      ${sysRow("DB", esc(s.db_path||"â€“"))}
-      ${sysRow("MQTT-Root", esc((s.topics&&s.topics.root)||"â€“"))}
+      ${sysRow("Python", esc(s.python||"–"))}
+      ${sysRow(t("sys.counts"), t("sys.counts_val",{nodes:s.counts?.nodes??0,events:s.counts?.events??0,devices:s.counts?.devices??0}))}
+      ${sysRow("DB", esc(s.db_path||"–"))}
+      ${sysRow("MQTT-Root", esc((s.topics&&s.topics.root)||"–"))}
     </div>`;
-  }catch(e){ $("systemBox").innerHTML = '<p class="muted">Systeminfo nicht verfÃ¼gbar: ' + esc(e.message) + '</p>'; }
+  }catch(e){ $("systemBox").innerHTML = '<p class="muted">'+t("sys.unavailable",{msg:esc(e.message)})+'</p>'; }
 }
 
 /* ------------------------------------------------------------------------- */
@@ -1829,9 +2163,9 @@ showPage(localStorage.getItem("fhPage") || "overview");
 
 /* touch on empty space: no selection; help card first-run hint */
 if(!localStorage.getItem("fhHint")){
-  setTimeout(() => { toast("Tipp: â€žHilfeâ€œ Ã¶ffnet die Kurzanleitung ðŸ‘‹"); localStorage.setItem("fhHint","1"); }, 4000);
+  setTimeout(() => { toast(t("hint.help")); localStorage.setItem("fhHint","1"); }, 4000);
 }
-/* Notifications are requested on demand (e.g. after login), not on boot â€” an
+/* Notifications are requested on demand (e.g. after login), not on boot — an
    auto-prompt on a kiosk with a fresh profile is just noise. */
 
 /* ------------------------------------------- drag-to-scroll for touch panels
@@ -1938,7 +2272,7 @@ if(!localStorage.getItem("fhHint")){
 /* ------------------------------------------------------------------- Flori
  * The floating companion. He bobs around, greets you with contextual plant tips
  * (Clippy-style), can be dragged anywhere, and taps open the chat at the top of
- * Ãœbersicht. Hidden state + position are remembered. */
+ * Übersicht. Hidden state + position are remembered. */
 const floriEl = $("flori");
 const floriBubble = $("floriBubble");
 const floriText = $("floriText");
@@ -1977,7 +2311,7 @@ function setFloriVisible(v, announce = false){
   localStorage.setItem(FLORI_KEY, v ? "1" : "0");
   floriEl.classList.toggle("hidden", !v);
   if(!v) hideBubble();
-  if(announce) toast(v ? "ðŸŒ± Flori ist wieder da!" : "Flori versteckt â€“ der ðŸŒ±-Button oben rechts holt ihn zurÃ¼ck.");
+  if(announce) toast(v ? t("flori.shown") : t("flori.hidden"));
 }
 function floriTips(){
   const nodes = Object.values(lastPayload.nodes || {});
@@ -1991,25 +2325,25 @@ function floriTips(){
     const care = (n.plant && n.plant.care) || {};
     const mo = m.moisture_pct;
     if(!n.online)
-      tips.push(`ðŸ˜´ <b>${esc(label)}</b> meldet sich gerade nicht. Ohne frische Werte gieÃŸe ich nicht automatisch â€“ kurz Strom/WLAN prÃ¼fen.`);
+      tips.push(t("flori.tip.offline",{plant:esc(label)}));
     else if(n.fault && n.fault !== "ok")
-      tips.push(`ðŸ¤’ <b>${esc(label)}</b> meldet einen Sensorfehler (<b>${esc(n.fault)}</b>). Meist hilft die Verkabelung kurz prÃ¼fen.`);
+      tips.push(t("flori.tip.fault",{plant:esc(label),fault:esc(n.fault)}));
     if(typeof mo === "number"){
       if(mo < (care.moisture_min_pct ?? 30))
-        tips.push(`ðŸ’§ <b>${esc(label)}</b> ist durstig (${mo.toFixed(0)} % Bodenfeuchte). Tippe unter â€žSteuernâ€œ auf BewÃ¤ssern.`);
+        tips.push(t("flori.tip.thirsty",{plant:esc(label),pct:mo.toFixed(0)}));
       else if(mo > (care.moisture_max_pct ?? 70))
-        tips.push(`ðŸŒŠ <b>${esc(label)}</b> ist gut gewÃ¤ssert (${mo.toFixed(0)} %). Erst mal abtrocknen lassen.`);
+        tips.push(t("flori.tip.wet",{plant:esc(label),pct:mo.toFixed(0)}));
     }
     if(typeof m.temp_c === "number" && care.temp_max_c && m.temp_c > care.temp_max_c)
-      tips.push(`ðŸ¥µ <b>${esc(label)}</b> ist warm (${m.temp_c.toFixed(0)} Â°C). Schatten oder LÃ¼ften tut gut.`);
-    if(n.pump === "watering") tips.push(`ðŸ’¦ Ich gieÃŸe <b>${esc(label)}</b> gerade.`);
+      tips.push(t("flori.tip.warm",{plant:esc(label),temp:m.temp_c.toFixed(0)}));
+    if(n.pump === "watering") tips.push(t("flori.tip.watering",{plant:esc(label)}));
   }
   if(names.length > 1)
-    tips.push(`ðŸŒ± Du hast <b>${names.length} Pflanzen</b>. Oben im Kopf schaltest du zwischen ihnen um.`);
-  tips.push(`ðŸ‘‹ Ich bin <b>Flori</b>. Frag mich z. B. â€žWie geht es meiner Pflanze?â€œ oder â€žWann soll ich gieÃŸen?â€œ`);
-  tips.push(`ðŸ“” Im <b>Pflanzentagebuch</b> (Tab â€žSteuernâ€œ) halte ich fest, wie sich deine Pflanze entwickelt.`);
-  tips.push(`ðŸ§ª Wackelige Bodenfeuchte? Einmal neu kalibrieren â€“ Tab â€žSteuernâ€œ â†’ Kalibrierung.`);
-  tips.push(`ðŸ”” Anmelden oben rechts schaltet Steuern, GieÃŸen und das Tagebuch frei.`);
+    tips.push(t("flori.tip.multi",{n:names.length}));
+  tips.push(t("flori.tip.intro"));
+  tips.push(t("flori.tip.diary"));
+  tips.push(t("flori.tip.cal"));
+  tips.push(t("flori.tip.login"));
   return tips;
 }
 function nextTip(){
@@ -2089,7 +2423,7 @@ let floriDragging = false;
   if(floriVisible()){
     setTimeout(() => {
       if(floriBubble.classList.contains("hidden"))
-        showBubble("ðŸ‘‹ Hallo! Ich bin <b>Flori</b>, dein Pflanzen-Begleiter. Tippe auf mich, wenn du reden willst.", 15000);
+        showBubble(t("flori.greeting"), 15000);
     }, 3500);
   }
   setInterval(() => {
