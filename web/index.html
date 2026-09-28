@@ -310,10 +310,14 @@ function renderPlants(states){
   });
 }
 
-function render(s){
-  lastState = s;
-  renderPlants([{...s, device: s.device || "smartplanter"}]);
-  const m = s.metrics || {};
+let lastPayload = {nodes:{}, primary:null};
+
+function render(payload){
+  lastPayload = payload || {nodes:{}, primary:null};
+  const nodes = Object.values(lastPayload.nodes || {});
+  renderPlants(nodes);
+  const p = lastPayload.primary || nodes[0] || {};
+  const m = p.metrics || {};
   $("cal-soil").textContent = fmtNum(m.soil_v ?? m.soil_raw_v, 3) ?? "–";
   $("cal-dry").textContent  = fmtNum(m.cal_dry, 3) ?? "–";
   $("cal-wet").textContent  = fmtNum(m.cal_wet, 3) ?? "–";
@@ -321,8 +325,12 @@ function render(s){
   if(document.activeElement !== $("cal-dry-in") && !$("cal-dry-in").value && m.cal_dry != null) $("cal-dry-in").value = m.cal_dry;
   if(document.activeElement !== $("cal-wet-in") && !$("cal-wet-in").value && m.cal_wet != null) $("cal-wet-in").value = m.cal_wet;
 
-  $("nodeState").className = "pill " + (s.online ? "on":"off");
-  $("nodeText").textContent = s.online ? `Knoten online (${rel(s.last_seen)} her)` : `Knoten offline (${rel(s.last_seen)} her)`;
+  const n = nodes.length, online = nodes.filter(x => x.online).length;
+  $("nodeState").className = "pill " + (online ? "on" : "off");
+  $("nodeText").textContent = n === 0 ? "Keine Knoten"
+    : n === 1 ? (nodes[0].online ? `Knoten online (${rel(nodes[0].last_seen)} her)`
+                                  : `Knoten offline (${rel(nodes[0].last_seen)} her)`)
+              : `${online}/${n} Knoten online`;
 }
 
 async function refresh(){
@@ -405,7 +413,8 @@ async function loadChart(){
   const f=$("chartField").value, hours=Number($("chartRange").value);
   const every = hours<=1?"10s":(hours<=6?"1m":"5m");
   try{
-    const r = await json(`/api/history?field=${f}&hours=${hours}&every=${every}`);
+    const nq = primaryNode() ? `&node=${encodeURIComponent(primaryNode())}` : "";
+    const r = await json(`/api/history?field=${f}&hours=${hours}&every=${every}${nq}`);
     chartData = r.points || [];
     $("chartNote").textContent = chartData.length
       ? `${chartData.length} Messpunkte · Quelle: ${r.source==="influxdb"?"InfluxDB":"Arbeitsspeicher"}`
@@ -451,8 +460,12 @@ $("authBtn").onclick = async () => {
 };
 
 /* ------------------------------------------------------------------ commands */
+function primaryNode(){ return (lastPayload.primary && lastPayload.primary.node) || undefined; }
 async function send(body){
-  try{ await json("/api/command",{method:"POST",body:JSON.stringify(body)}); loadTables(); refresh(); }
+  const payload = { ...body };
+  const node = body.node || primaryNode();
+  if(node) payload.node = node;
+  try{ await json("/api/command",{method:"POST",body:JSON.stringify(payload)}); loadTables(); refresh(); }
   catch(e){ alert("Befehl fehlgeschlagen: "+e.message); throw e; }
 }
 $("btnWater").onclick = () => send({action:"pump", seconds: cfgCache.pump_seconds || 15});
@@ -468,7 +481,9 @@ $("btnCal").onclick = () => {
 /* ------------------------------------------------------------------ estop */
 async function refreshHalted(){
   try{
-    const st = await json("/api/state"); const on = !!st.halted;
+    const st = await json("/api/state");
+    const nodes = Object.values(st.nodes || {});
+    const on = nodes.some(n => n.halted);
     $("estopBanner").hidden = !on;
     $("btnEstop").textContent = on ? "🛑 NOT-AUS aktiv" : "🛑 NOT-AUS";
     $("estopNote").textContent = on

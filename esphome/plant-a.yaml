@@ -22,8 +22,8 @@
 # ============================================================================
 
 substitutions:
-  device_name: smartplanter
-  friendly_name: "Smart Planter"
+  device_name: plant-a
+  friendly_name: "Pflanze A"
   fw_version: "1.2.0"
 
   # --- MQTT broker ---------------------------------------------------------
@@ -74,7 +74,7 @@ globals:
 
 esphome:
   name: ${device_name}
-  friendly_name: ${friendly_name}
+  friendly_name: "Pflanze A"
   min_version: "2025.8.0"
   on_boot:
     priority: 800
