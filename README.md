@@ -135,7 +135,7 @@ Telemetry payload:
 Failure mode of a crashed Pi: *the plant goes thirsty*, never *the plant drowns*.
 
 Guards: per-node cooldown, daily cap, tank-low block, dry-soil alert that
-re-raises until moisture rises. Rules and tuning: [`docs/ALERTS.md`](docs/ALERTS.md).
+re-raises until moisture rises. Rules and tuning: [`docs/ALERTS.md`](docs/ALERTS.md) · AI: [`docs/AI.md`](docs/AI.md) · battery: [`docs/BATTERY.md`](docs/BATTERY.md).
 
 ---
 
