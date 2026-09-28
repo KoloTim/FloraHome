@@ -1,66 +1,56 @@
 # Status — live build log
 
-_Last updated: 2026-09-28 (evening)._
+_Last updated: 2026-09-28 (night)._
 
 ## Done
 
-- **Pi** (`Tim`, `192.168.91.68`): full stack running on a **32 GB card** (cloned
-  from the 15 GB card). Dashboard `:8098`, API `:8097`, Grafana `:3030`,
-  InfluxDB `:8086`, Mosquitto healthy.
-- **Repo published:** https://github.com/KoloTim/FloraHome
-- **Node #1** (ESP32 `5c:01:3b:be:98:f4`): flashed **firmware 1.2.0** — DHT11,
-  LDR on GPIO35, HW-390 soil, no tank sensor.
-- **OTA is enabled.** Node #1 now joins the **Pi's own 2.4 GHz hotspot
-  `FloraHome`** (`10.42.0.10`), so its web UI (`:80`) and OTA (`:3232`) are
-  reachable again. `esphome upload smartplanter.yaml --device 10.42.0.10`
-  succeeds over Wi-Fi (~21 s, no USB).
-- **ESPHome web dashboard** running at `http://192.168.91.68:6052`
-  (compose profile `tools`) for browser-based OTA.
-- **Pi display kiosk**: Chromium full-screen on the 800×480 HDMI panel,
-  auto-started via `~/.config/autostart/planter-kiosk.desktop` +
-  `deploy/kiosk.sh`; verified after a reboot.
-- Fixed API alias bug (`api/app.py`): relay field `light` no longer clobbers
-  numeric `lux`.
+- **Pi** (`Tim`, `192.168.91.68`): full stack; dashboard `:8098`, API `:8097`,
+  Grafana `:3030`, InfluxDB `:8086`, Mosquitto healthy.
+- **Multi-node**: `plant-a` (`10.42.0.10`, Monstera "Moni") and `plant-b`
+  (`10.42.0.11`, Sansevieria "Sanse") on their own MQTT namespaces and Home
+  Assistant devices. OTA works (Pi hotspot `FloraHome`).
+- **Per-node settings**: watering/alert thresholds are now **per plant**
+  (`/api/config/node/<node>`); choosing a species applies **smart defaults**
+  derived from its care range.
+- **AI** (Google `gemini-3.8-flash`, auto-fallback): grounded chat, photo →
+  species → plant profile, and a **weekly plant diary** (per node, stored).
+- **Touch**: absolute-mouse panel bridged to a real touchscreen (uinput);
+  visible scrollbar, A−/A+ scale, tap ripple, 48px targets; kiosk autostarts.
+- **Devices & flashing** from the dashboard via the host helper; hotspot edits
+  apply for real now.
+- **Battery** node template (deep sleep + battery ADC), `docs/BATTERY.md`.
+- **Voice** scaffolding: 🎤 talk-to-plants button (mic → STT → AI → speaker),
+  `docs/VOICE.md` (mic/speaker placement).
 
-## Current sensor state (firmware 1.2.0)
+## Current sensor state
 
-| Reading | Value | Verdict |
+| Node | Reading | Verdict |
 |---|---|---|
-| `lux` (LDR, GPIO35) | ~4000 | ✅ working |
-| `temp_c` / `humidity` (DHT11, GPIO27) | ~22 °C / ~73 % | ✅ working |
-| `moisture_pct` (HW-390, GPIO34) | 0–100 | ⚠️ uncalibrated (`soil_v ≈ 2.6 V`) |
-| `rssi` | ~−40 | ✅ |
-| `fault` | `ok` | ✅ |
+| plant-a | moisture 100 %, 20–22 °C, ~78 %, ~4000 lx, `fault: ok` | ✅ sensors wired, **needs soil calibration** |
+| plant-b | only lux, `fault: dht11,ldr` | ⚠️ sensors not wired yet |
 
 ## Next actions
 
-1. **Calibrate the HW-390** — `bash deploy/calibrate.sh soil`, or send
-   `{"action":"cal","soil_dry_v":X,"soil_wet_v":Y}` on `planter/cmd`. Runtime
-   calibration persists on the node; no reflash.
-2. **Wire the buzzer + relay/pump** — see `WIRING_FOR_DUMMIES.md` (Actuators).
-3. Then Phase C bench safety checks (bucket of water) and Phase E polish.
+1. **Calibrate plant-a** (dashboard → Kalibrierung, per plant).
+2. **Wire plant-b's sensors** (DHT11 → GPIO27, LDR divider → GPIO35, soil).
+3. Plug a **USB mic + speaker** into the Pi for voice (`docs/VOICE.md`).
+4. Optional: battery node end-to-end; weekly diary cron is automatic.
 
 ## Open issues
 
-- **Pi touch panel** — connected, but it enumerates as an **absolute mouse**
-  (`8888:6666`, `ABS_X/ABS_Y` + mouse buttons, **no `BTN_TOUCH`**), so the kernel
-  treats it as a mouse: taps click, but drags select text and never scroll.
-  Mitigation shipped in the dashboard: `user-select:none` + drag-to-scroll
-  (`web/index.html`). Native multitouch scrolling would need a `uinput`
-  touchscreen bridge (not done yet).
-- **Node #2** (ESP32 `e0:8c:fe:e5:82:f4`) **not flashed** — needs the
-  multi-node rework first (absolute `planter/cmd` would water both plants).
-- No JSN-SR04T → tank feature intentionally absent.
+- `plant-b:sensor_fault` (`dht11,ldr`) is expected — no sensors wired.
+- Touch panel is single-touch (hardware); bridged for native scroll, no pinch.
+- Voice needs a USB mic (the Pi has no built-in input).
 
-## Operations (on the Pi)
+## Operations
 
 ```bash
-# OTA from the Pi CLI (no USB):
-cd ~/smartplanter/esphome && esphome upload smartplanter.yaml --device 10.42.0.10
-
-# OTA from a browser on the LAN:
-#   http://192.168.91.68:6052   (login: ADMIN_USER / ADMIN_PASSWORD from .env)
-
-# kiosk:
-sudo systemctl restart lightdm        # or just reboot; kiosk comes up by itself
+cd ~/smartplanter
+# per-node config
+curl -s localhost:8097/api/config/node/plant-a | python3 -m json.tool
+# flash a node from the Pi
+deploy/add-node.sh discover && deploy/add-node.sh compile plant-c
+deploy/add-node.sh flash plant-c /dev/ttyUSB0
+# write a diary entry now
+curl -s -b cookie.txt -X POST localhost:8097/api/diary/plant-a
 ```

@@ -128,6 +128,11 @@
   .brand .logo,.brand h1{cursor:pointer}
   .plant{box-shadow:inset 0 3px 0 var(--plant,transparent)}
 
+  /* diary */
+  .diary{display:flex;flex-direction:column;gap:10px}
+  .diary-entry{background:var(--card2);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;line-height:1.5}
+
   /* UI scale control */
   .scalebar{display:inline-flex;gap:6px}
   .scalebar button{min-width:56px}
@@ -212,21 +217,26 @@
   </section>
 
   <section class="card">
-    <h2><span class="icon">🎛️</span> Steuerung</h2>
+    <h2><span class="icon">🎛️</span> Steuerung
+      <span class="muted" style="font-size:.85rem;margin-left:auto">Pflanze wählen:</span>
+      <select id="nodeSelect" style="font:inherit;padding:8px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select>
+    </h2>
     <div class="controls">
       <button id="btnWater" class="primary" type="button" disabled>💧 Bewässern</button>
       <button id="btnLight" type="button" disabled>💡 Licht an/aus</button>
       <button id="btnBuzz" type="button" disabled>🔊 Buzzer</button>
+      <button id="btnVoice" type="button" disabled>🎤 Sprich mit mir</button>
       <button id="btnStop" class="danger" type="button" disabled>⏹️ Stop</button>
       <button id="btnEstop" class="danger" type="button" disabled>🛑 NOT-AUS</button>
-      <button id="btnSettings" type="button" disabled>⚙️ Einstellungen</button>
+      <button id="btnSettings" type="button" disabled>⚙️ Bewässerung</button>
+      <button id="btnNodeSettings" type="button" disabled>🔧 Details</button>
     </div>
     <p class="note" id="estopNote"></p>
     <p class="note" id="authNote">Das Dashboard ist schreibgeschützt. Zum Steuern bitte anmelden.</p>
   </section>
 
   <section class="card">
-    <h2><span class="icon">🧪</span> Kalibrierung Bodenfeuchte</h2>
+    <h2><span class="icon">🧪</span> Kalibrierung Bodenfeuchte — <span id="calNode" class="muted"></span></h2>
     <div class="cal-readout">
       <span class="muted">Rohspannung: <b id="cal-soil">–</b> V</span>
       <span class="muted">trocken: <b id="cal-dry">–</b> V</span>
@@ -239,7 +249,14 @@
         <input id="cal-wet-in" type="number" step="0.01" min="0" max="3.6" inputmode="decimal"></label>
       <button id="btnCal" class="primary" type="button" disabled>Werte übernehmen</button>
     </div>
-    <p class="note">Messwert <b>Rohspannung</b> aus der Pflanze abschreiben: Probe in Luft → links, in ein Glas Wasser → rechts.</p>
+    <p class="note">Pro Pflanze. Messwert <b>Rohspannung</b> abschreiben: Probe in Luft → links, in ein Glas Wasser → rechts.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="icon">📔</span> Pflanzentagebuch — <span id="diaryNode" class="muted"></span>
+      <button id="btnDiaryWrite" class="ghost" style="margin-left:auto" type="button" disabled>Eintrag jetzt schreiben</button>
+    </h2>
+    <div id="diary" class="diary"></div>
   </section>
 
   <section class="card">
@@ -290,6 +307,15 @@
     </div>
   </details>
 </main>
+
+<dialog id="nodeDlg" aria-labelledby="nodeH">
+  <form method="dialog" class="dlg-body">
+    <h2 id="nodeH">🔧 Details &amp; Troubleshooting — <span id="nd-node"></span></h2>
+    <div id="nd-body"></div>
+    <div class="controls" style="grid-template-columns:1fr">
+      <button class="primary" value="ok" type="submit">Schließen</button></div>
+  </form>
+</dialog>
 
 <dialog id="newPlantDlg" aria-labelledby="newPlantH">
   <form method="dialog" class="dlg-body">
@@ -360,7 +386,7 @@ deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
 
 <dialog id="settingsDlg" aria-labelledby="settingsH">
   <form method="dialog" class="dlg-body">
-    <h2 id="settingsH">⚙️ Einstellungen</h2>
+    <h2 id="settingsH">⚙️ Bewässerung &amp; Meldungen — <span id="settingsHNode" class="muted"></span></h2>
     <fieldset><legend>Bewässerung</legend>
       <div class="sw"><label for="cfg-pump_auto">Automatisch bewässern</label><input id="cfg-pump_auto" type="checkbox"></div>
       <div class="field"><label for="cfg-pump_threshold_pct">Bewässern unter (%)</label><input id="cfg-pump_threshold_pct" type="number" min="0" max="100"></div>
@@ -479,14 +505,8 @@ function render(payload){
   lastPayload = payload || {nodes:{}, primary:null};
   const nodes = Object.values(lastPayload.nodes || {});
   renderPlants(nodes);
-  const p = lastPayload.primary || nodes[0] || {};
-  const m = p.metrics || {};
-  $("cal-soil").textContent = fmtNum(m.soil_v ?? m.soil_raw_v, 3) ?? "–";
-  $("cal-dry").textContent  = fmtNum(m.cal_dry, 3) ?? "–";
-  $("cal-wet").textContent  = fmtNum(m.cal_wet, 3) ?? "–";
-  // prefill inputs once from the node's current calibration
-  if(document.activeElement !== $("cal-dry-in") && !$("cal-dry-in").value && m.cal_dry != null) $("cal-dry-in").value = m.cal_dry;
-  if(document.activeElement !== $("cal-wet-in") && !$("cal-wet-in").value && m.cal_wet != null) $("cal-wet-in").value = m.cal_wet;
+  renderNodeSelect();
+  refreshCal();
 
   const n = nodes.length, online = nodes.filter(x => x.online).length;
   $("nodeState").className = "pill " + (online ? "on" : "off");
@@ -603,7 +623,7 @@ function setConn(ok){
 }
 
 /* ---------------------------------------------------------------------- auth */
-const WRITE_BTNS = ["btnWater","btnLight","btnBuzz","btnStop","btnEstop","btnSettings","btnResume","btnCal"];
+const WRITE_BTNS = ["btnWater","btnLight","btnBuzz","btnVoice","btnStop","btnEstop","btnSettings","btnNodeSettings","btnResume","btnCal","btnDiaryWrite"];
 function setAuthed(v){
   authed = v;
   WRITE_BTNS.forEach(id => { const el=$(id); if(el) el.disabled = !v; });
@@ -670,8 +690,15 @@ $("btnResume").onclick = async () => {
 };
 
 /* ------------------------------------------------------------------ settings */
+/* Per-node watering settings. Falls back to the global config as the base, then
+   writes the overrides for THIS plant. */
+let cfgEditNode = null;
 $("btnSettings").onclick = async () => {
-  cfgCache = await json("/api/config");
+  const n = selectedNode(); if(!n) return;
+  cfgEditNode = n;
+  const r = await json(`/api/config/node/${encodeURIComponent(n)}`);
+  cfgCache = r.config;
+  $("settingsHNode").textContent = nodeLabel(n);
   Object.entries(cfgCache).forEach(([k,v]) => {
     const el = $("cfg-"+k); if(!el) return;
     if(el.type==="checkbox") el.checked = !!v; else el.value = v;
@@ -679,13 +706,70 @@ $("btnSettings").onclick = async () => {
   $("settingsDlg").showModal();
 };
 $("settingsDlg").addEventListener("close", async () => {
-  if($("settingsDlg").returnValue !== "save") return;
+  if($("settingsDlg").returnValue !== "save" || !cfgEditNode) return;
   const updates = {};
   Object.keys(cfgCache).forEach(k => { const b=$("cfg-"+k); if(!b) return;
     updates[k] = b.type==="checkbox" ? b.checked : Number(b.value); });
-  try{ await json("/api/config",{method:"PUT",body:JSON.stringify(updates)}); loadTables(); loadChart(); }
-  catch(e){ alert("Speichern fehlgeschlagen: "+e.message); }
+  try{
+    await json(`/api/config/node/${encodeURIComponent(cfgEditNode)}`,
+               {method:"PUT", body: JSON.stringify(updates)});
+    toast("⚙️ Einstellungen für " + nodeLabel(cfgEditNode) + " gespeichert");
+    loadTables(); loadChart();
+  }catch(e){ alert("Speichern fehlgeschlagen: "+e.message); }
 });
+
+/* Node details / troubleshooting — pins, firmware, model, live raw values. */
+const PIN_MAP = {
+  soil_adc: 34, soil_power: 25, dht: 27, ldr: 35,
+  relay_pump: 26, relay_light: 13, buzzer: 14, button: 4, batt_adc: 32,
+};
+$("btnNodeSettings").onclick = async () => {
+  const n = selectedNode(); if(!n) return;
+  const nv = lastPayload.nodes[n] || {};
+  const m = nv.metrics || {};
+  const p = nv.plant || {};
+  $("nd-node").textContent = nodeLabel(n);
+  $("nd-body").innerHTML = `
+    <fieldset><legend>Zustand</legend>
+      <div class="field"><label>Online</label><b>${nv.online ? "ja" : "nein"}</b></div>
+      <div class="field"><label>Letztes Signal</label><b>${rel(nv.last_seen)} her</b></div>
+      <div class="field"><label>Uptime</label><b>${nv.on_s != null ? nv.on_s + " s" : "–"}</b></div>
+      <div class="field"><label>Neustarts</label><b>${nv.restarts ?? 0}</b></div>
+      <div class="field"><label>Firmware</label><b>${esc(m.fw || p.fw || "–")}</b></div>
+      <div class="field"><label>Fault</label><b>${esc(nv.fault || "ok")}</b></div>
+    </fieldset>
+    <fieldset><legend>Rohwerte</legend>
+      <div class="field"><label>soil_v</label><b>${m.soil_v ?? "–"} V</b></div>
+      <div class="field"><label>ldr_v</label><b>${m.ldr_v ?? "–"} V</b></div>
+      <div class="field"><label>cal_dry / wet</label><b>${m.cal_dry ?? "–"} / ${m.cal_wet ?? "–"}</b></div>
+      <div class="field"><label>RSSI</label><b>${m.rssi ?? "–"} dBm</b></div>
+      <div class="field"><label>Batterie</label><b>${m.battery_pct != null ? m.battery_pct + " %" : "–"}</b></div>
+    </fieldset>
+    <fieldset><legend>Pins (ESP32)</legend>
+      ${Object.entries(PIN_MAP).map(([k,v]) => `<div class="field"><label>${k}</label><b>GPIO ${v}</b></div>`).join("")}
+      <p class="note">Quelle: <code>esphome/smartplanter.yaml</code> substitutions. Bei eigener Verkabelung hier abgleichen.</p>
+    </fieldset>
+    <fieldset><legend>Netzwerk</legend>
+      <div class="field"><label>MQTT Topics</label><b>planter/${n}/…</b></div>
+      <div class="field"><label>Hotspot</label><b>FloraHome (10.42.0.x)</b></div>
+      <div class="field"><label>Befehl testen</label>
+        <code>mosquitto_pub -t planter/${n}/cmd -m '{"action":"pump","seconds":5}'</code></div>
+    </fieldset>`;
+  $("nodeDlg").showModal();
+};
+
+/* Voice: talk to the plant on the Pi speaker + mic. */
+$("btnVoice").onclick = async () => {
+  const n = selectedNode(); if(!n) return;
+  try{
+    toast("🎤 Ich höre zu…");
+    const rec = await json("/api/voice/record", {method:"POST", body: JSON.stringify({seconds:4, node:n})});
+    if(!rec.audio) throw new Error(rec.error || "keine Aufnahme");
+    toast("🧠 Denke nach…");
+    const r = await json("/api/voice/ask", {method:"POST", body: JSON.stringify({node:n, audio:rec.audio, speak:true})});
+    chatLog("me", r.question); chatLog("plant", r.reply);
+  }catch(e){ toast("Voice: " + e.message); }
+};
 $("chartField").onchange = loadChart;
 $("chartRange").onchange = loadChart;
 window.addEventListener("resize", drawChart);
@@ -794,6 +878,56 @@ async function greetChanges(){
   }catch(e){}
 }
 const greeted = {};
+
+/* ------------------------------------------------------- selected-node state */
+let selNode = null;
+function selectedNode(){
+  if(selNode && lastPayload.nodes[selNode]) return selNode;
+  return primaryNode();
+}
+function nodeLabel(n){
+  const p = (lastPayload.nodes[n]||{}).plant || {};
+  return (p.nickname || p.name ? `${p.nickname||p.name} (${n})` : n);
+}
+function renderNodeSelect(){
+  const sel = $("nodeSelect");
+  const names = Object.keys(lastPayload.nodes || {});
+  if(!names.length){ sel.innerHTML = ""; return; }
+  const want = selectedNode() || names[0];
+  sel.innerHTML = names.map(n => `<option value="${n}"${n===want?" selected":""}>${esc(nodeLabel(n))}</option>`).join("");
+  selNode = want;
+}
+$("nodeSelect").onchange = () => { selNode = $("nodeSelect").value; refreshCal(); refreshDiary(); };
+
+function refreshCal(){
+  const n = selectedNode(); if(!n || !lastPayload.nodes[n]) return;
+  const m = lastPayload.nodes[n].metrics || {};
+  $("calNode").textContent = nodeLabel(n);
+  $("cal-soil").textContent = fmtNum(m.soil_v ?? m.soil_raw_v, 3) ?? "–";
+  $("cal-dry").textContent  = fmtNum(m.cal_dry, 3) ?? "–";
+  $("cal-wet").textContent  = fmtNum(m.cal_wet, 3) ?? "–";
+  if(document.activeElement !== $("cal-dry-in") && m.cal_dry != null) $("cal-dry-in").placeholder = m.cal_dry;
+  if(document.activeElement !== $("cal-wet-in") && m.cal_wet != null) $("cal-wet-in").placeholder = m.cal_wet;
+}
+async function refreshDiary(){
+  const n = selectedNode(); if(!n) return;
+  $("diaryNode").textContent = nodeLabel(n);
+  try{
+    const d = await json(`/api/diary/${encodeURIComponent(n)}?limit=8`);
+    $("diary").innerHTML = (d.entries || []).map(e =>
+      `<div class="diary-entry"><div class="muted" style="font-size:.82rem">${new Date(e.ts*1000).toLocaleString("de-DE")}</div>${esc(e.text)}</div>`
+    ).join("") || '<p class="muted">Noch keine Einträge – schreib einen oder warte auf den Wochen-Eintrag.</p>';
+  }catch(e){ $("diary").innerHTML = '<p class="muted">Tagebuch nicht verfügbar.</p>'; }
+}
+$("btnDiaryWrite").onclick = async () => {
+  const n = selectedNode(); if(!n) return;
+  $("btnDiaryWrite").disabled = true;
+  try{ await json(`/api/diary/${encodeURIComponent(n)}`, {method:"POST"}); toast("📔 Eintrag geschrieben"); refreshDiary(); }
+  catch(e){ alert("Tagebuch: " + e.message); }
+  finally{ $("btnDiaryWrite").disabled = !authed; }
+};
+
+/* --------------------------------------------------- UI scaling (A-/A+) lives above */
 
 /* ------------------------------------------------------------------------ AI */
 const chatLog = (who, text) => {
@@ -1005,6 +1139,7 @@ if(!localStorage.getItem("fhHint")){
   await loadChart();
   await loadDevices();
   await loadAI();
+  await refreshDiary();
   connect();
   setInterval(async()=>{ await refresh(); await refreshHalted(); }, 15000);
   setInterval(loadTables, 20000);

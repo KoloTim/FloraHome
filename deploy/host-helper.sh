@@ -61,6 +61,10 @@ class H(BaseHTTPRequestHandler):
                 if parts:
                     devs.append({"port": parts[0], "mac": parts[1] if len(parts) > 1 else None})
             return self._json(200, {"devices": devs})
+        if self.path.startswith("/audio"):
+            rc, out = run(["bash", "-lc", "aplay -l 2>/dev/null | grep '^card'; "
+                           "echo '--cap--'; arecord -l 2>/dev/null | grep '^card'"], timeout=20)
+            return self._json(200, {"raw": out.strip()})
         self._json(404, {"error": "not found"})
 
     def do_POST(self):
@@ -90,6 +94,31 @@ class H(BaseHTTPRequestHandler):
             results.append({"cmd": "up Hotspot", "rc": rc, "out": out.strip()[:200]})
             return self._json(200, {"ok": all(r["rc"] == 0 for r in results), "results": results})
 
+        if self.path.startswith("/audio/play"):
+            import base64 as _b64
+            data = body.get("data")
+            if not data:
+                return self._json(400, {"error": "data (base64 wav/mp3) required"})
+            raw = _b64.b64decode(data)
+            path = "/tmp/florahome_say.wav"
+            with open(path, "wb") as fh:
+                fh.write(raw)
+            rc, out = run(["bash", "-lc",
+                           "aplay -q /tmp/florahome_say.wav 2>/dev/null || "
+                           "ffplay -nodisp -autoexit -loglevel quiet /tmp/florahome_say.wav"],
+                          timeout=60)
+            return self._json(200, {"ok": rc == 0, "rc": rc, "out": out.strip()[:200]})
+        if self.path.startswith("/audio/record"):
+            secs = int(body.get("seconds", 4))
+            rc, out = run(["bash", "-lc",
+                           f"arecord -q -f S16_LE -r 16000 -c 1 -d {secs} /tmp/florahome_rec.wav"],
+                          timeout=secs + 10)
+            if rc != 0:
+                return self._json(500, {"error": "arecord failed (no mic?)", "out": out[:200]})
+            with open("/tmp/florahome_rec.wav", "rb") as fh:
+                wav = fh.read()
+            import base64 as _b64
+            return self._json(200, {"ok": True, "audio": _b64.b64encode(wav).decode()})
         if self.path.startswith("/flash"):
             node = body.get("node"); port = body.get("port", "/dev/ttyUSB0")
             cfg = f"{ESP_HOME}/{node}.yaml"

@@ -148,6 +148,12 @@ def init_db() -> None:
         c = db()
         c.executescript(
             """
+            CREATE TABLE IF NOT EXISTS node_config (
+                node TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,
+                updated_at REAL NOT NULL, PRIMARY KEY (node, key)
+            );
+            """
+            """
             CREATE TABLE IF NOT EXISTS config (
                 key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at REAL NOT NULL
             );
@@ -175,6 +181,10 @@ def init_db() -> None:
                 care TEXT,
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS diary (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                node TEXT NOT NULL, ts REAL NOT NULL, text TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS devices (
                 id TEXT PRIMARY KEY,
@@ -237,6 +247,46 @@ def set_config(updates: dict[str, Any]) -> dict[str, Any]:
                     (k, json.dumps(v), time.time()),
                 )
             c.commit()
+    return clean
+
+
+def get_config_for(node_name: str) -> dict[str, Any]:
+    """Effective config for one node = global defaults overridden by this node."""
+    cfg = dict(get_config())
+    with _db_lock:
+        rows = db().execute("SELECT key,value FROM node_config WHERE node=?", (node_name,)).fetchall()
+    for r in rows:
+        try:
+            cfg[r["key"]] = json.loads(r["value"])
+        except json.JSONDecodeError:
+            pass
+    return cfg
+
+
+def set_config_for(node_name: str, updates: dict[str, Any]) -> dict[str, Any]:
+    """Per-node override. Keys not in DEFAULTS are ignored. A value of None
+    removes the override (falls back to the global value)."""
+    clean: dict[str, Any] = {}
+    with _db_lock:
+        c = db()
+        for k, v in updates.items():
+            if k not in DEFAULTS:
+                continue
+            if v is None:
+                c.execute("DELETE FROM node_config WHERE node=? AND key=?", (node_name, k))
+                clean[k] = None
+                continue
+            if k in NUMERIC_KEYS:
+                v = max(0.0, float(v))
+            elif k in BOOL_KEYS:
+                v = bool(v)
+            c.execute(
+                "INSERT INTO node_config(node,key,value,updated_at) VALUES(?,?,?,?) "
+                "ON CONFLICT(node,key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
+                (node_name, k, json.dumps(v), time.time()),
+            )
+            clean[k] = v
+        c.commit()
     return clean
 
 
@@ -782,7 +832,7 @@ def is_fresh() -> bool:
 
 
 async def _rules_for_node(node_name: str, n: dict[str, Any]) -> None:
-    cfg = get_config()
+    cfg = get_config_for(node_name)
     now = time.time()
     last_seen = n["last_seen"]
     age = now - last_seen if last_seen else 1e9
@@ -1063,10 +1113,12 @@ async def lifespan(app: FastAPI):
     threading.Thread(target=start_mqtt, daemon=True).start()
     t1 = asyncio.create_task(_loop_task(rules_tick, 5))
     t2 = asyncio.create_task(_loop_task(state_tick, 5))
-    log.info("Smart Planter API up")
+    t3 = asyncio.create_task(diary_tick())
+    log.info("FloraHome API up (%d AI models configured)", 1 if AI_API_KEY else 0)
     yield
     t1.cancel()
     t2.cancel()
+    t3.cancel()
 
 
 async def _loop_task(fn, interval: float) -> None:
@@ -1141,6 +1193,29 @@ async def api_get_plant(node: str) -> dict[str, Any]:
     return {"node": node, "plant": get_plant(node)}
 
 
+def _smart_overrides(care: dict[str, Any]) -> dict[str, Any]:
+    """Derive per-node settings from a species' care range, so picking a plant
+    makes it behave individually without the user tuning numbers."""
+    if not care:
+        return {}
+    lo = float(care.get("moisture_min_pct", 30))
+    hi = float(care.get("moisture_max_pct", 65))
+    interval = float(care.get("watering_interval_days", 7))
+    over: dict[str, Any] = {
+        # water when we drop a little below the species' lower bound
+        "pump_threshold_pct": max(5.0, lo - 5.0),
+        # alert if still below the midpoint for a while
+        "alert_dry_pct": max(5.0, (lo + hi) / 2 - 5.0),
+        # water less often, in a dose matched to a species that dislikes wet feet
+        "pump_cooldown_min": max(60.0, interval * 24 * 60 / 3.0),
+        "pump_max_per_day": max(1.0, round(3.0 / max(1.0, interval / 2.0), 1)),
+    }
+    if "light_min_lux" in care:
+        over["light_on_below_lux"] = float(care["light_min_lux"])
+        over["light_auto"] = True
+    return over
+
+
 @app.put("/api/plant/{node}")
 async def api_put_plant(
     node: str,
@@ -1150,8 +1225,15 @@ async def api_put_plant(
 ) -> dict[str, Any]:
     user = require_user(request, planter_session)
     plant = upsert_plant(node, data)
+    applied: dict[str, Any] = {}
+    # Smart defaults: when a species is chosen, set this node's watering values
+    # from its care range (unless the caller explicitly disabled it).
+    if plant.get("care") and data.get("smart_defaults", True):
+        over = _smart_overrides(plant["care"])
+        if over:
+            applied = set_config_for(node, over)
     audit(user, "plant_profile_saved", f"{node}: {plant.get('name')}", client_ip(request))
-    return {"ok": True, "plant": plant}
+    return {"ok": True, "plant": plant, "applied_config": applied}
 
 
 @app.get("/api/plants/assigned/all")
@@ -1239,6 +1321,148 @@ async def api_flash(
     return result
 
 
+# ---- Voice: talk to the plants (Pi speaker + mic) --------------------------- #
+# The heavy lifting (speech-to-text, text-to-speech) is done by the configured
+# AI provider. Audio capture/playback happens on the Pi (arecord / aplay) via
+# the host helper, so the browser never needs mic permission on the kiosk.
+
+@app.get("/api/voice/devices")
+async def api_voice_devices() -> dict[str, Any]:
+    return await _helper("GET", "/audio")
+
+
+@app.post("/api/voice/record")
+async def api_voice_record(body: dict[str, Any], request: Request,
+                           planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    """Record a few seconds from the Pi's microphone (via the host helper)."""
+    require_user(request, planter_session)
+    secs = int(max(1, min(int(body.get("seconds", 4)), 15)))
+    return await _helper("POST", "/audio/record", {"seconds": secs}, timeout=secs + 20)
+
+
+@app.post("/api/voice/tts")
+async def api_voice_tts(body: dict[str, Any], request: Request,
+                        planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    """Speak text on the Pi's speaker. Returns the wav (base64) and plays it via
+    the host helper if asked."""
+    require_user(request, planter_session)
+    text = str(body.get("text", ""))[:1500]
+    fmt = str(body.get("format", "wav"))
+    if not text:
+        raise HTTPException(status_code=400, detail="text required")
+    wav = await _ai_tts(text, fmt)
+    play = bool(body.get("play", True))
+    played = False
+    if play and wav:
+        played = (await _helper("POST", "/audio/play", {"data": base64.b64encode(wav).decode()},
+                                timeout=60)).get("ok", False)
+    return {"ok": True, "played": played, "bytes": len(wav or b""),
+            "audio": base64.b64encode(wav).decode() if body.get("return_audio") else None}
+
+
+@app.post("/api/voice/ask")
+async def api_voice_ask(body: dict[str, Any], request: Request,
+                        planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    """Full voice turn: (optional) recorded audio -> text -> grounded reply -> speech.
+    `audio` is base64 wav from the panel; `text` can be given instead (typed)."""
+    require_user(request, planter_session)
+    node_name = str(body.get("node") or _primary_name())
+    question = str(body.get("text", "")).strip()
+    if not question and body.get("audio"):
+        try:
+            question = await _ai_stt(base64.b64decode(body["audio"]))
+        except HTTPException as exc:
+            raise HTTPException(status_code=502, detail=f"transcription failed: {exc.detail}")
+    if not question:
+        raise HTTPException(status_code=400, detail="no text and no audio")
+
+    system = (
+        "You are FloraHome's plant companion, speaking out loud. Reply in German, "
+        "warm, short and clear (1-3 sentences, no emojis, no markdown) using ONLY the "
+        "data given.\n\n" + _plant_context(node_name)
+    )
+    reply = await _ai_chat([{"role": "system", "content": system},
+                            {"role": "user", "content": question}], max_tokens=250)
+    played = False
+    if body.get("speak", True):
+        wav = await _ai_tts(reply, "wav")
+        if wav:
+            played = (await _helper("POST", "/audio/play", {"data": base64.b64encode(wav).decode()},
+                                    timeout=60)).get("ok", False)
+    audit("system", "voice_ask", f"{node_name}: {question[:60]}", client_ip(request))
+    return {"node": node_name, "question": question, "reply": reply, "played": played}
+
+
+# ---- AI plant diary --------------------------------------------------------- #
+
+DIARY_INTERVAL_H = envf("DIARY_INTERVAL_H", 168)   # weekly
+DIARY_DAYS = envf("DIARY_DAYS", 7)
+
+
+def _diary_points(node_name: str) -> dict[str, Any]:
+    """Coarse stats about the last week from the in-memory fallback history."""
+    hist = list(node_history(node_name))
+    cutoff = time.time() - DIARY_DAYS * 86400
+    recent = [h for h in hist if h.get("ts", 0) >= cutoff]
+
+    def stats(key: str) -> dict[str, Any]:
+        vals = [float(h[key]) for h in recent if isinstance(h.get(key), (int, float))]
+        if not vals:
+            return {}
+        return {"min": round(min(vals), 1), "max": round(max(vals), 1),
+                "avg": round(sum(vals) / len(vals), 1), "n": len(vals)}
+    return {"moisture": stats("moisture_pct"), "temp": stats("temp_c"),
+            "humidity": stats("humidity"), "lux": stats("lux"), "samples": len(recent)}
+
+
+def add_diary(node_name: str, text: str) -> None:
+    with _db_lock:
+        db().execute("INSERT INTO diary(node,ts,text) VALUES(?,?,?)",
+                     (node_name, time.time(), text))
+        db().commit()
+
+
+def diary_for(node_name: str, limit: int = 12) -> list[dict[str, Any]]:
+    with _db_lock:
+        rows = db().execute("SELECT * FROM diary WHERE node=? ORDER BY ts DESC LIMIT ?",
+                            (node_name, max(1, min(limit, 100)))).fetchall()
+    return [dict(r) for r in rows]
+
+
+async def _write_diary(node_name: str) -> str | None:
+    n = node(node_name)
+    if not AI_API_KEY or not node_fresh(n):
+        return None
+    plant = get_plant(node_name) or {}
+    stats = _diary_points(node_name)
+    prompt = (
+        f"Schreibe einen kurzen, warmen Tagebuch-Eintrag (3-5 Sätze, Deutsch) aus Sicht "
+        f"der Pflanze '{plant.get('nickname') or plant.get('name') or node_name}' "
+        f"({plant.get('species') or 'unbekannte Art'}). Nutze diese Woche: {stats}. "
+        f"Zustand jetzt: Bodenfeuchte {n['metrics'].get('moisture_pct')}%, "
+        f"{n['metrics'].get('temp_c')}C, Licht {n['metrics'].get('lux')}lx, "
+        f"Pumpe {n['pump']} ({n['pump_count_today']}x heute), fault={n.get('fault')}. "
+        f"Sei ermutigend und konkret; wenn etwas nicht ideal war, sag es sanft."
+    )
+    try:
+        text = await _ai_chat([{"role": "user", "content": prompt}], max_tokens=350)
+    except HTTPException as exc:
+        log.warning("diary failed for %s: %s", node_name, exc.detail)
+        return None
+    add_diary(node_name, text)
+    audit("system", "ai_diary", node_name)
+    broadcast({"type": "diary", "node": node_name, "text": text})
+    return text
+
+
+async def diary_tick() -> None:
+    """Every `DIARY_INTERVAL_H`, write one diary entry per fresh node."""
+    while True:
+        await asyncio.sleep(DIARY_INTERVAL_H * 3600)
+        for name in node_names():
+            await _write_diary(name)
+
+
 # ---- AI (plant chat + photo identification) --------------------------------- #
 # Provider-agnostic OpenAI-compatible endpoint. Set AI_BASE_URL + AI_API_KEY +
 # AI_MODEL in .env. Works with a free Gemini key, OpenRouter :free models, Groq,
@@ -1252,6 +1476,44 @@ AI_VISION_MODEL = env("AI_VISION_MODEL", AI_MODEL)
 AI_FALLBACKS = [m.strip() for m in env(
     "AI_FALLBACKS", "gemini-3.8-flash,gemini-flash-latest,gemini-3.6-flash,gemini-2.5-flash,gemma-4-31b-it"
 ).split(",") if m.strip()]
+
+
+async def _ai_stt(audio_bytes: bytes) -> str:
+    """Speech-to-text: post the wav as base64 to the OpenAI-compatible
+    /audio/transcriptions endpoint (Gemini and others expose this)."""
+    if not AI_API_KEY:
+        raise HTTPException(status_code=503, detail="AI not configured")
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            f"{AI_BASE_URL.rstrip('/')}/audio/transcriptions",
+            headers={"Authorization": f"Bearer {AI_API_KEY}"},
+            files={"file": ("speech.wav", audio_bytes, "audio/wav")},
+            data={"model": env("AI_STT_MODEL", "gemini-3.8-flash")},
+        )
+    if r.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"{r.status_code}: {r.text[:160]}")
+    return (r.json().get("text") or "").strip()
+
+
+async def _ai_tts(text: str, fmt: str = "wav") -> bytes:
+    """Text-to-speech: ask the provider for audio, fall back to local espeak."""
+    if AI_API_KEY:
+        for model in [env("AI_TTS_MODEL", "gemini-3.8-flash-tts"), "gemini-2.5-flash-preview-tts"]:
+            try:
+                async with httpx.AsyncClient(timeout=60) as client:
+                    r = await client.post(
+                        f"{AI_BASE_URL.rstrip('/')}/audio/speech",
+                        headers={"Authorization": f"Bearer {AI_API_KEY}",
+                                 "Content-Type": "application/json"},
+                        json={"model": model, "input": text, "voice": env("AI_TTS_VOICE", "Kore"),
+                              "response_format": fmt},
+                    )
+                if r.status_code < 400 and r.content:
+                    return r.content
+            except Exception:  # noqa: BLE001
+                continue
+    # local fallback (if espeak-ng is installed on the host, the helper does it)
+    return b""
 
 
 async def _ai_chat(messages: list[dict[str, Any]], model: str | None = None,
@@ -1297,6 +1559,21 @@ def _plant_context(node_name: str) -> str:
         f"pump={n['pump']}, fault={n.get('fault')}, online={node_fresh(n)}.\n"
         f"Species care ranges: {care}."
     )
+
+
+@app.get("/api/diary/{node}")
+async def api_diary(node: str, limit: int = 12) -> dict[str, Any]:
+    return {"node": node, "entries": diary_for(node, limit)}
+
+
+@app.post("/api/diary/{node}")
+async def api_diary_write(node: str, request: Request,
+                          planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    require_user(request, planter_session)
+    text = await _write_diary(node)
+    if text is None:
+        raise HTTPException(status_code=503, detail="AI not configured or node offline")
+    return {"ok": True, "node": node, "text": text}
 
 
 @app.get("/api/ai/status")
@@ -1410,8 +1687,37 @@ async def api_hotspot_put(
 
 
 @app.get("/api/config")
-async def api_get_config() -> dict[str, Any]:
+async def api_get_config(node: str | None = None) -> dict[str, Any]:
+    """Global config, or the effective per-node config when `?node=` is given."""
+    if node:
+        return {"node": node, "config": get_config_for(node), "global": get_config()}
     return get_config()
+
+
+@app.put("/api/config/node/{node}")
+async def api_put_config_node(
+    node: str,
+    updates: dict[str, Any],
+    request: Request,
+    planter_session: str | None = Cookie(default=None),
+) -> dict[str, Any]:
+    """Set per-node overrides (e.g. this plant's watering threshold, cooldown,
+    pump seconds). A null value clears the override."""
+    user = require_user(request, planter_session)
+    if len(updates) > 30:
+        raise HTTPException(status_code=400, detail="too many keys")
+    before = get_config_for(node)
+    applied = set_config_for(node, updates)
+    changes = {k: {"from": before.get(k), "to": v} for k, v in applied.items() if before.get(k) != v}
+    if changes:
+        audit(user, "config_changed_node", f"{node}: " + json.dumps(changes, ensure_ascii=False),
+              client_ip(request))
+    return {"ok": True, "node": node, "applied": changes, "config": get_config_for(node)}
+
+
+@app.get("/api/config/node/{node}")
+async def api_get_config_node(node: str) -> dict[str, Any]:
+    return {"node": node, "config": get_config_for(node), "global": get_config()}
 
 
 @app.put("/api/config")
