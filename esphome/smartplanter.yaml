@@ -24,7 +24,7 @@
 substitutions:
   device_name: smartplanter
   friendly_name: "Smart Planter"
-  fw_version: "1.1.0"
+  fw_version: "1.2.0"
 
   # --- MQTT broker ---------------------------------------------------------
   mqtt_broker: "192.168.91.68"        # the demo Pi
@@ -59,6 +59,16 @@ globals:
     type: bool
     restore_value: no
     initial_value: "false"
+  # Soil calibration, runtime-adjustable over MQTT and persisted across reboots.
+  # Send: {"action":"cal","soil_dry_v":X,"soil_wet_v":Y} to planter/cmd
+  - id: soil_dry
+    type: float
+    restore_value: yes
+    initial_value: "${soil_dry_v}"
+  - id: soil_wet
+    type: float
+    restore_value: yes
+    initial_value: "${soil_wet_v}"
 
 esphome:
   name: ${device_name}
@@ -145,6 +155,12 @@ mqtt:
             } else if (action == "buzzer") {
               int secs = x["seconds"] | 3;
               id(beep)->execute(secs);
+            } else if (action == "cal") {
+              float dv = x["soil_dry_v"] | NAN;
+              float wv = x["soil_wet_v"] | NAN;
+              if (!isnan(dv)) id(soil_dry) = dv;
+              if (!isnan(wv)) id(soil_wet) = wv;
+              ESP_LOGI("planter", "cal set: dry=%.3f wet=%.3f", id(soil_dry), id(soil_wet));
             } else {
               ESP_LOGW("planter", "unknown action: %s", action.c_str());
             }
@@ -189,8 +205,9 @@ sensor:
     update_interval: ${moisture_cycle}
     lambda: |-
       if (isnan(id(soil_adc).state)) return NAN;
-      float dry = ${soil_dry_v};
-      float wet = ${soil_wet_v};
+      float dry = id(soil_dry);      // runtime-calibratable (see "cal" cmd)
+      float wet = id(soil_wet);
+      if (dry == wet) return NAN;
       float pct = (dry - id(soil_adc).state) / (dry - wet) * 100.0f;
       if (pct < 0.0f)   pct = 0.0f;
       if (pct > 100.0f) pct = 100.0f;
@@ -359,6 +376,11 @@ interval:
             if (!isnan(id(humidity).state))     root["humidity"]    = roundf(id(humidity).state);
             if (!isnan(id(lux).state))          root["lux"]         = roundf(id(lux).state);
             if (!isnan(id(rssi).state))         root["rssi"]        = roundf(id(rssi).state);
+            // raw ADC voltages for calibration / diagnostics
+            if (!isnan(id(soil_adc).state))     root["soil_v"]      = roundf(id(soil_adc).state * 1000) / 1000.0f;
+            if (!isnan(id(lux_adc).state))      root["ldr_v"]       = roundf(id(lux_adc).state * 1000) / 1000.0f;
+            root["cal_dry"] = roundf(id(soil_dry) * 1000) / 1000.0f;
+            root["cal_wet"] = roundf(id(soil_wet) * 1000) / 1000.0f;
 
             root["pump"]  = id(pump_relay).state ? "watering" : "idle";
             root["light"] = id(light_relay).state ? "on" : "off";
