@@ -1,4 +1,4 @@
-# 🌱 Smart Planter — Euregio Smart Garden Hackathon
+# 🌱 FloraHome — Euregio Smart Garden Hackathon
 
 Self-watering planter with live dashboard, history, alerts and an audit log.
 Runs entirely on your own hardware — no cloud, no vendor account.
