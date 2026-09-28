@@ -504,6 +504,21 @@ deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
   </form>
 </dialog>
 
+<dialog id="loginDlg" aria-labelledby="loginH">
+  <form method="dialog" class="dlg-body">
+    <h2 id="loginH">🔐 Anmelden</h2>
+    <p class="note">Anmelden schaltet Steuern, Gießen, Tagebuch und Flashen frei.</p>
+    <div class="field"><label for="login-user">Benutzer</label>
+      <input id="login-user" type="text" autocomplete="username" inputmode="text"></div>
+    <div class="field"><label for="login-pass">Passwort</label>
+      <input id="login-pass" type="password" autocomplete="current-password"></div>
+    <div class="controls" style="grid-template-columns:1fr 1fr">
+      <button value="cancel" type="submit">Abbrechen</button>
+      <button id="loginSubmit" class="primary" value="login" type="submit">Anmelden</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="settingsDlg" aria-labelledby="settingsH">
   <form method="dialog" class="dlg-body">
     <h2 id="settingsH">⚙️ Bewässerung &amp; Meldungen — <span id="settingsHNode" class="muted"></span></h2>
@@ -861,11 +876,23 @@ function setAuthed(v){
 async function checkMe(){ try{ setAuthed((await json("/api/me")).authenticated); }catch(e){ setAuthed(false); } }
 $("authBtn").onclick = async () => {
   if(authed){ await json("/api/logout",{method:"POST"}); setAuthed(false); return; }
-  const u = prompt("Benutzername:"); if(u===null) return;
-  const p = prompt("Passwort:"); if(p===null) return;
-  try{ await json("/api/login",{method:"POST",body:JSON.stringify({username:u,password:p})}); setAuthed(true); }
-  catch(e){ alert("Anmeldung fehlgeschlagen: "+e.message); }
+  // A real dialog, not window.prompt — the kiosk panel has no hardware keyboard.
+  $("login-user").value = ""; $("login-pass").value = "";
+  $("loginDlg").showModal();
+  setTimeout(() => { try{ $("login-user").focus(); }catch(e){} }, 120);
 };
+$("loginDlg").addEventListener("close", async () => {
+  if($("loginDlg").returnValue !== "login") return;
+  try{
+    await json("/api/login",{method:"POST",
+      body: JSON.stringify({ username: $("login-user").value, password: $("login-pass").value })});
+    setAuthed(true); toast("🔓 Angemeldet");
+  }catch(e){ alert("Anmeldung fehlgeschlagen: " + e.message); }
+});
+["login-user","login-pass"].forEach(id =>
+  $(id).addEventListener("keydown", e => {
+    if(e.key === "Enter"){ e.preventDefault(); $("loginDlg").close("login"); }
+  }));
 
 /* ------------------------------------------------------------------ commands */
 function primaryNode(){ return (lastPayload.primary && lastPayload.primary.node) || undefined; }
@@ -899,9 +926,27 @@ async function refreshHalted(){
       : "NOT-AUS sperrt Pumpe, Licht und Automatik dauerhaft, bis freigegeben wird.";
   }catch(e){}
 }
+/* Two-step arm/confirm instead of window.confirm — a native modal is awkward on
+   a resistive panel, and this makes an accidental NOT-AUS much less likely. */
+let estopArmed = 0;
 $("btnEstop").onclick = async () => {
-  if(!confirm("NOT-AUS wirklich setzen? Pumpe, Licht und Automatik werden gesperrt.")) return;
-  try{ await json("/api/estop",{method:"POST"}); refreshHalted(); loadTables(); }
+  const now = Date.now();
+  if(now - estopArmed > 4000){
+    estopArmed = now;
+    $("btnEstop").classList.add("armed");
+    $("btnEstop").textContent = "🛑 Sicher? Nochmal tippen";
+    toast("NOT-AUS: zum Bestätigen innerhalb von 4 s nochmal tippen");
+    setTimeout(() => {
+      if(Date.now() - estopArmed >= 4000){
+        $("btnEstop").classList.remove("armed");
+        $("btnEstop").textContent = "🛑 NOT-AUS";
+      }
+    }, 4300);
+    return;
+  }
+  estopArmed = 0;
+  $("btnEstop").classList.remove("armed");
+  try{ await json("/api/estop",{method:"POST"}); toast("🛑 NOT-AUS gesetzt"); refreshHalted(); loadTables(); }
   catch(e){ alert("NOT-AUS fehlgeschlagen: "+e.message); }
 };
 $("btnResume").onclick = async () => {
@@ -1365,7 +1410,7 @@ if(!localStorage.getItem("fhHint")){
     if(!active) return;
     const now = performance.now();
     const dy = e.clientY - startY;
-    if(!moved && Math.abs(dy) < 10) return;         // dead-zone: this is a tap
+    if(!moved && Math.abs(dy) < 20) return;         // dead-zone: resistive drift = tap
     moved = true;
     scroller.scrollTop = startTop - dy;
     const dt = Math.max(1, now - lastT);
@@ -1385,24 +1430,44 @@ if(!localStorage.getItem("fhHint")){
   }, true);
 })();
 
-/* ---------------------------------------------------- fat-finger tap safety
- * Single touch panels hit small controls poorly. Any button under 48px gets a
- * minimum hit area, and we expand the tap target of the header pills. */
-(function fatFinger(){
+/* ---------------------------------------------------- resistive touch polish
+ * The 5" panel reacts to pressure, not capacitance: a press drifts a little,
+ * taps can double-fire, and there is no hover. Bigger hit areas, an obvious
+ * press state, a phantom-click filter and chunkier scrollbars make it usable. */
+(function touchPolish(){
   const s = document.createElement("style");
-  s.textContent = `button{min-height:48px}
-    .pill{min-height:40px}
-    header .ghost{min-width:80px}`;
+  s.textContent = `button{min-height:52px}
+    nav#tabs .tab{min-height:52px}
+    .pill{min-height:44px}
+    header .ghost{min-width:84px}
+    input[type=number],input[type=text],input[type=password],select{min-height:52px}
+    .pressed{filter:brightness(1.2)}
+    ::-webkit-scrollbar{width:26px;height:26px}
+    ::-webkit-scrollbar-thumb{border-width:5px}`;
   document.head.appendChild(s);
 
-  // visible ripple on every tap, so a single-touch panel feels responsive
+  // ripple + press state on every touch, so a resistive panel feels responsive
   document.addEventListener("pointerdown", e => {
     const r = document.createElement("span");
     r.className = "tapfx";
     r.style.left = e.clientX + "px"; r.style.top = e.clientY + "px";
     document.body.appendChild(r);
     setTimeout(() => r.remove(), 420);
+    const t = e.target.closest && e.target.closest("button,.tab,summary");
+    if(t) t.classList.add("pressed");
   }, {passive:true});
+  ["pointerup","pointercancel"].forEach(ev =>
+    document.addEventListener(ev, () =>
+      document.querySelectorAll(".pressed").forEach(x => x.classList.remove("pressed"))));
+
+  // Resistive panels often emit a ghost second click. Swallow near-instant
+  // repeats on the same element, but keep deliberate fast taps working.
+  let lastT = 0, lastEl = null;
+  document.addEventListener("click", e => {
+    const now = performance.now();
+    if(e.target === lastEl && now - lastT < 180){ e.preventDefault(); e.stopPropagation(); }
+    lastT = now; lastEl = e.target;
+  }, true);
 })();
 
 /* --------------------------------------------------------------- UI scaling
