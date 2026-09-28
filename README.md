@@ -9,6 +9,8 @@ Runs entirely on your own hardware — no cloud, no vendor account.
 > real Pi (`192.168.91.68`) + ESP32 deployment, the exact commands, and every trap
 > we hit (NATed Wi-Fi, `data/` ownership, esptool stub, SD-card cloning).
 > For the on-Pi overview screen see [`docs/PI_DISPLAY.md`](docs/PI_DISPLAY.md).
+> Hands-on breadboard wiring, one sensor at a time:
+> [`docs/WIRING_FOR_DUMMIES.md`](docs/WIRING_FOR_DUMMIES.md).
 
 ---
 
