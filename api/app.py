@@ -1475,78 +1475,104 @@ async def api_flash(
 # AI provider. Audio capture/playback happens on the Pi (arecord / aplay) via
 # the host helper, so the browser never needs mic permission on the kiosk.
 
+@app.post("/api/voice/stt")
+async def api_voice_stt(body: dict[str, Any], request: Request,
+                        planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    """Transcribe browser-recorded audio (base64). Keeps STT server-side so the
+    API key never reaches the client; recording happens on whatever device has a
+    microphone (phone, laptop, tablet)."""
+    require_user(request, planter_session)
+    audio = body.get("audio")
+    if not audio:
+        raise HTTPException(status_code=400, detail="audio (base64) required")
+    try:
+        text = await _ai_stt(base64.b64decode(audio))
+    except HTTPException as exc:
+        raise HTTPException(status_code=502, detail=f"transcription failed: {exc.detail}")
+    return {"ok": True, "text": text}
+
+
 @app.get("/api/voice/devices")
 async def api_voice_devices() -> dict[str, Any]:
+    """Audio devices on the Pi (for the optional 'play on Pi' mode)."""
     return await _helper("GET", "/audio")
 
 
 @app.post("/api/voice/record")
 async def api_voice_record(body: dict[str, Any], request: Request,
                            planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
-    """Record a few seconds from the Pi's microphone (via the host helper)."""
+    """Record a few seconds from the Pi's microphone (via the host helper).
+
+    Note: the Pi has no built-in mic — this only works with a USB microphone.
+    The browser mic (used by the dashboard) is the recommended path."""
     require_user(request, planter_session)
     secs = int(max(1, min(int(body.get("seconds", 4)), 15)))
-    return await _helper("POST", "/audio/record", {"seconds": secs}, timeout=secs + 20)
+    res = await _helper("POST", "/audio/record", {"seconds": secs}, timeout=secs + 20)
+    if not res.get("ok") and "error" not in res:
+        res["error"] = "arecord failed – the Pi has no built-in mic (plug a USB mic, or use the browser mic)"
+    return res
 
 
 @app.post("/api/voice/tts")
 async def api_voice_tts(body: dict[str, Any], request: Request,
                         planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
-    """Speak text on the Pi's speaker. Returns the wav (base64) and plays it via
-    the host helper if asked."""
-    require_user(request, planter_session)
+    """Text-to-speech. Returns a base64 wav so the *browser* can play it, or (if
+    `play` is set) also plays it on the Pi via the host helper."""
+    user = require_user(request, planter_session)
     text = str(body.get("text", ""))[:1500]
     fmt = str(body.get("format", "wav"))
+    lang = _norm_lang(body.get("lang"))
     if not text:
         raise HTTPException(status_code=400, detail="text required")
-    wav = await _ai_tts(text, fmt)
-    play = bool(body.get("play", True))
+    wav = await _ai_tts(text, fmt, lang=lang)
     played = False
-    if play and wav:
+    if body.get("play") and wav:
         played = (await _helper("POST", "/audio/play", {"data": base64.b64encode(wav).decode()},
                                 timeout=60)).get("ok", False)
     return {"ok": True, "played": played, "bytes": len(wav or b""),
-            "audio": base64.b64encode(wav).decode() if body.get("return_audio") else None}
+            "audio": base64.b64encode(wav).decode() if wav else None}
 
 
 @app.post("/api/voice/ask")
 async def api_voice_ask(body: dict[str, Any], request: Request,
                         planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
-    """Full voice turn: (optional) recorded audio -> text -> grounded reply -> speech.
-    `audio` is base64 wav from the panel; `text` can be given instead (typed)."""
-    require_user(request, planter_session)
+    """Full voice turn: audio (base64 wav) or text -> grounded reply -> speech.
+    Returns the spoken audio as base64 so the requesting device plays it; if
+    `play` is set, it is also played on the Pi speaker."""
+    user = require_user(request, planter_session)
     node_name = str(body.get("node") or _primary_name())
+    lang = _norm_lang(body.get("lang"))
     question = str(body.get("text", "")).strip()
     if not question and body.get("audio"):
         try:
-            question = await _ai_stt(base64.b64decode(body["audio"]))
+            question = await _ai_stt(base64.b64decode(body["audio"]), lang=lang)
         except HTTPException as exc:
             raise HTTPException(status_code=502, detail=f"transcription failed: {exc.detail}")
     if not question:
         raise HTTPException(status_code=400, detail="no text and no audio")
 
     system = (
-        "You are FloraHome's plant companion, speaking out loud. Reply in German, "
-        "warm, short and clear (1-3 sentences, no emojis, no markdown) using ONLY the "
-        "data given.\n\n" + _plant_context(node_name)
+        _t("voice.system", lang) + "\n\n" + _plant_context(node_name, lang)
     )
     reply = await _ai_chat([{"role": "system", "content": system},
                             {"role": "user", "content": question}], max_tokens=600)
     played = False
     speak_error = None
+    audio_b64 = None
     if body.get("speak", True):
-        wav = await _ai_tts(reply, "wav")
+        wav = await _ai_tts(reply, "wav", lang=lang)
         if not wav:
-            speak_error = "keine Sprachausgabe vom KI-Anbieter"
+            speak_error = _t("voice.tts_failed", lang)
         else:
-            res = await _helper("POST", "/audio/play",
-                                {"data": base64.b64encode(wav).decode()}, timeout=90)
-            played = bool(res.get("ok"))
-            if not played:
-                speak_error = res.get("error") or res.get("out") or "Wiedergabe fehlgeschlagen"
+            audio_b64 = base64.b64encode(wav).decode()
+            if body.get("play"):
+                res = await _helper("POST", "/audio/play", {"data": audio_b64}, timeout=90)
+                played = bool(res.get("ok"))
+                if not played:
+                    speak_error = res.get("error") or res.get("out") or "playback failed"
     audit("system", "voice_ask", f"{node_name}: {question[:60]}", client_ip(request))
     return {"node": node_name, "question": question, "reply": reply,
-            "played": played, "speak_error": speak_error}
+            "played": played, "speak_error": speak_error, "audio": audio_b64}
 
 
 # ---- AI plant diary --------------------------------------------------------- #
@@ -1584,20 +1610,23 @@ def diary_for(node_name: str, limit: int = 12) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
-async def _write_diary(node_name: str) -> str | None:
+async def _write_diary(node_name: str, lang: str = "en") -> str | None:
     n = node(node_name)
     if not AI_API_KEY or not node_fresh(n):
         return None
     plant = get_plant(node_name) or {}
     stats = _diary_points(node_name)
-    prompt = (
-        f"Schreibe einen kurzen, warmen Tagebuch-Eintrag (3-5 Sätze, Deutsch) aus Sicht "
-        f"der Pflanze '{plant.get('nickname') or plant.get('name') or node_name}' "
-        f"({plant.get('species') or 'unbekannte Art'}). Nutze diese Woche: {stats}. "
-        f"Zustand jetzt: Bodenfeuchte {n['metrics'].get('moisture_pct')}%, "
-        f"{n['metrics'].get('temp_c')}C, Licht {n['metrics'].get('lux')}lx, "
-        f"Pumpe {n['pump']} ({n['pump_count_today']}x heute), fault={n.get('fault')}. "
-        f"Sei ermutigend und konkret; wenn etwas nicht ideal war, sag es sanft."
+    prompt = _t(
+        "diary.prompt", lang,
+        name=plant.get("nickname") or plant.get("name") or node_name,
+        species=plant.get("species") or "unknown",
+        stats=stats,
+        moist=n["metrics"].get("moisture_pct"),
+        temp=n["metrics"].get("temp_c"),
+        lux=n["metrics"].get("lux"),
+        pump=n["pump"],
+        count=n["pump_count_today"],
+        fault=n.get("fault"),
     )
     try:
         text = await _ai_chat([{"role": "user", "content": prompt}], max_tokens=350)
@@ -1643,6 +1672,108 @@ async def diary_tick() -> None:
 # AI_MODEL in .env. Works with a free Gemini key, OpenRouter :free models, Groq,
 # ModelScope, etc. If unset, the feature is simply reported as unavailable.
 
+# ---- i18n (EN default, DE, NL) --------------------------------------------- #
+# The dashboard sends its UI language on every request; server-generated strings
+# (alerts, AI prompts, voice) follow suit. English is the fallback.
+LANGS = ("en", "de", "nl")
+LANG_NAMES = {"en": "English", "de": "Deutsch", "nl": "Nederlands"}
+
+STRINGS: dict[str, dict[str, str]] = {
+    # voice + AI
+    "voice.system": {
+        "en": "You are Flori, FloraHome's warm plant companion, speaking out loud. "
+              "Reply in English, short and clear (1-3 sentences, no emojis, no markdown), "
+              "using ONLY the data given.",
+        "de": "Du bist Flori, der warme Pflanzen-Begleiter von FloraHome, und sprichst laut. "
+              "Antworte auf Deutsch, kurz und klar (1-3 Sätze, keine Emojis, kein Markdown), "
+              "NUR mit den gegebenen Daten.",
+        "nl": "Je bent Flori, de warme plantenmaatje van FloraHome, en je spreekt hardop. "
+              "Antwoord in het Nederlands, kort en duidelijk (1-3 zinnen, geen emoji's, "
+              "geen markdown), gebruik ALLEEN de gegeven gegevens.",
+    },
+    "voice.tts_failed": {
+        "en": "no speech output from the AI provider",
+        "de": "keine Sprachausgabe vom KI-Anbieter",
+        "nl": "geen spraakuitvoer van de AI-provider",
+    },
+    "voice.stt_prompt": {
+        "en": "Transcribe the spoken words. Reply with ONLY the text.",
+        "de": "Transkribiere die gesprochenen Worte. Antworte NUR mit dem Text.",
+        "nl": "Transcribeer de gesproken woorden. Antwoord ALLEEN met de tekst.",
+    },
+    "chat.system": {
+        "en": "You are Flori, FloraHome's friendly plant companion, speaking as the plant "
+              "itself (first person). Reply in English, warm and concrete, using ONLY the "
+              "given data. If the plant is unwell, explain what the readings mean and what "
+              "the human should do. Always write complete sentences. Reply in 2-4 sentences.",
+        "de": "Du bist Flori, der freundliche Pflanzen-Begleiter von FloraHome und sprichst "
+              "als die Pflanze selbst (ich-Form). Antworte auf Deutsch, warm und konkret, "
+              "NUR mit den gegebenen Daten. Wenn es der Pflanze nicht gut geht, sag was die "
+              "Werte bedeuten und was der Mensch tun soll. Schreibe immer vollständige Sätze. "
+              "Antworte in 2-4 Sätzen.",
+        "nl": "Je bent Flori, het vriendelijke plantenmaatje van FloraHome, en je spreekt als "
+              "de plant zelf (ik-vorm). Antwoord in het Nederlands, warm en concreet, gebruik "
+              "ALLEEN de gegeven gegevens. Als het niet goed gaat met de plant, leg uit wat de "
+              "waarden betekenen en wat de mens moet doen. Schrijf altijd volledige zinnen. "
+              "Antwoord in 2-4 zinnen.",
+    },
+    "identify.system": {
+        "en": "You are a plant identifier. Reply ONLY with JSON: "
+              '{"common":"...","scientific":"...","confidence":0-1,"care_hint":"..."}. ',
+        "de": "Du bist ein Pflanzenbestimmer. Antworte NUR mit JSON: "
+              '{"common":"...","scientific":"...","confidence":0-1,"care_hint":"..."}. ',
+        "nl": "Je bent een plantenherkenner. Antwoord ALLEEN met JSON: "
+              '{"common":"...","scientific":"...","confidence":0-1,"care_hint":"..."}. ',
+    },
+    "identify.prefer": {
+        "en": "Prefer these species if they fit: ",
+        "de": "Bevorzuge diese Arten, wenn sie passen: ",
+        "nl": "Geef deze soorten voorrang als ze passen: ",
+    },
+    "diary.prompt": {
+        "en": "Write a short, warm diary entry (3-5 sentences, English) from the perspective "
+              "of the plant '{name}' ({species}). Use this week: {stats}. Now: soil moisture "
+              "{moist}%, {temp}C, light {lux}lx, pump {pump} ({count}x today), fault={fault}. "
+              "Be encouraging and concrete; if something was not ideal, say it gently.",
+        "de": "Schreibe einen kurzen, warmen Tagebuch-Eintrag (3-5 Sätze, Deutsch) aus Sicht "
+              "der Pflanze '{name}' ({species}). Nutze diese Woche: {stats}. Zustand jetzt: "
+              "Bodenfeuchte {moist}%, {temp}C, Licht {lux}lx, Pumpe {pump} ({count}x heute), "
+              "fault={fault}. Sei ermutigend und konkret; wenn etwas nicht ideal war, sag es sanft.",
+        "nl": "Schrijf een korte, warme dagboekbijdrage (3-5 zinnen, Nederlands) vanuit het "
+              "perspectief van de plant '{name}' ({species}). Gebruik deze week: {stats}. Nu: "
+              "bodenvochtigheid {moist}%, {temp}C, licht {lux}lx, pomp {pump} ({count}x vandaag), "
+              "fault={fault}. Wees bemoedigend en concreet; als iets niet ideaal was, zeg het zacht.",
+    },
+}
+
+
+def _norm_lang(value: Any) -> str:
+    """Map anything ('de-DE', 'nl', None…) onto a supported language code."""
+    if not value:
+        return "en"
+    v = str(value).strip().lower().replace("_", "-")
+    base = v.split("-")[0]
+    return base if base in LANGS else "en"
+
+
+def _t(key: str, lang: str = "en", **kw: Any) -> str:
+    """Look up a localized string, fill placeholders, fall back to English."""
+    lang = _norm_lang(lang)
+    entry = STRINGS.get(key, {})
+    text = entry.get(lang) or entry.get("en") or key
+    if kw:
+        try:
+            text = text.format(**kw)
+        except (KeyError, IndexError):
+            pass
+    return text
+
+
+# ---- AI (plant chat + photo identification) --------------------------------- #
+# Provider-agnostic OpenAI-compatible endpoint. Set AI_BASE_URL + AI_API_KEY +
+# AI_MODEL in .env. Works with a free Gemini key, OpenRouter :free models, Groq,
+# ModelScope, etc. If unset, the feature is simply reported as unavailable.
+
 AI_BASE_URL = env("AI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
 AI_API_KEY = env("AI_API_KEY", "")
 AI_MODEL = env("AI_MODEL", "gemini-3.8-flash")
@@ -1657,14 +1788,14 @@ AI_FALLBACKS = [m.strip() for m in env(
 AI_NATIVE_BASE = env("AI_NATIVE_BASE", "https://generativelanguage.googleapis.com/v1beta")
 
 
-async def _ai_stt(audio_bytes: bytes) -> str:
+async def _ai_stt(audio_bytes: bytes, lang: str = "en") -> str:
     """Speech-to-text via the native generateContent endpoint: send the wav as
     inline data and ask for a transcript."""
     if not AI_API_KEY:
         raise HTTPException(status_code=503, detail="AI not configured")
     payload = {
         "contents": [{"parts": [
-            {"text": "Transkribiere die gesprochenen Worte. Antworte NUR mit dem Text."},
+            {"text": _t("voice.stt_prompt", lang)},
             {"inlineData": {"mimeType": "audio/wav",
                             "data": base64.b64encode(audio_bytes).decode()}},
         ]}],
@@ -1683,11 +1814,12 @@ async def _ai_stt(audio_bytes: bytes) -> str:
         return ""
 
 
-async def _ai_tts(text: str, fmt: str = "wav") -> bytes:
+async def _ai_tts(text: str, fmt: str = "wav", lang: str = "en") -> bytes:
     """Text-to-speech via the native generateContent endpoint (returns wav).
     Falls back to the OpenAI-compat path for other providers."""
     if not AI_API_KEY:
         return b""
+    spoken = text if _norm_lang(lang) == "en" else f"[{LANG_NAMES[_norm_lang(lang)]}] {text}"
     native_models = [env("AI_TTS_MODEL", "gemini-3.8-flash-tts"),
                      "gemini-2.5-flash-preview-tts"]
     voice = env("AI_TTS_VOICE", "Kore")
@@ -1698,7 +1830,7 @@ async def _ai_tts(text: str, fmt: str = "wav") -> bytes:
                     f"{AI_NATIVE_BASE}/models/{m}:generateContent",
                     params={"key": AI_API_KEY},
                     json={
-                        "contents": [{"parts": [{"text": text}]}],
+                        "contents": [{"parts": [{"text": spoken}]}],
                         "generationConfig": {
                             "responseModalities": ["AUDIO"],
                             "speechConfig": {"voiceConfig": {
@@ -1719,7 +1851,8 @@ async def _ai_tts(text: str, fmt: str = "wav") -> bytes:
                 r = await client.post(
                     f"{AI_BASE_URL.rstrip('/')}/audio/speech",
                     headers={"Authorization": f"Bearer {AI_API_KEY}"},
-                    json={"model": m, "input": text, "voice": voice, "response_format": fmt},
+                    json={"model": m, "input": text, "voice": voice, "response_format": fmt,
+                          "language": _norm_lang(lang)},
                 )
                 if r.status_code < 400 and r.content:
                     return r.content
@@ -1764,7 +1897,7 @@ async def _ai_chat(messages: list[dict[str, Any]], model: str | None = None,
     raise HTTPException(status_code=502, detail=f"AI unavailable (tried {', '.join(tried)}): {last}")
 
 
-def _plant_context(node_name: str) -> str:
+def _plant_context(node_name: str, lang: str = "en") -> str:
     n = node(node_name)
     plant = get_plant(node_name) or {}
     care = plant.get("care") or {}
@@ -1775,7 +1908,8 @@ def _plant_context(node_name: str) -> str:
         f"Current readings: moisture={m.get('moisture_pct')}%, temperature={m.get('temp_c')}C, "
         f"humidity={m.get('humidity')}%, light={m.get('lux')}lx, tank={m.get('tank_pct')}%, "
         f"pump={n['pump']}, fault={n.get('fault')}, online={node_fresh(n)}.\n"
-        f"Species care ranges: {care}."
+        f"Species care ranges: {care}.\n"
+        f"Answer in {LANG_NAMES[_norm_lang(lang)]}."
     )
 
 
@@ -1786,9 +1920,11 @@ async def api_diary(node: str, limit: int = 12) -> dict[str, Any]:
 
 @app.post("/api/diary/{node}")
 async def api_diary_write(node: str, request: Request,
+                          body: dict[str, Any] | None = None,
                           planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
     require_user(request, planter_session)
-    text = await _write_diary(node)
+    lang = _norm_lang((body or {}).get("lang"))
+    text = await _write_diary(node, lang)
     if text is None:
         raise HTTPException(status_code=503, detail="AI not configured or node offline")
     return {"ok": True, "node": node, "text": text}
@@ -1807,15 +1943,9 @@ async def api_ai_chat(body: dict[str, Any], request: Request,
     the answer is about *this* plant, not generic."""
     require_user(request, planter_session)
     node_name = str(body.get("node") or _primary_name())
+    lang = _norm_lang(body.get("lang"))
     question = str(body.get("message", ""))[:1000]
-    system = (
-        "Du bist der freundliche Pflanzen-Begleiter von FloraHome und sprichst als die "
-        "Pflanze selbst (ich-Form). Antworte auf Deutsch, warm und konkret, NUR mit den "
-        "gegebenen Daten. Wenn es der Pflanze nicht gut geht, sag was die Werte bedeuten "
-        "und was der Mensch tun soll. Schreibe immer vollständige Sätze und beende den "
-        "letzten Satz. Antworte in 2-4 Sätzen.\n\n"
-        + _plant_context(node_name)
-    )
+    system = _t("chat.system", lang) + "\n\n" + _plant_context(node_name, lang)
     reply = await _ai_chat([{"role": "system", "content": system},
                             {"role": "user", "content": question}], max_tokens=900)
     audit("system", "ai_chat", f"{node_name}: {question[:80]}", client_ip(request))
@@ -1827,17 +1957,14 @@ async def api_ai_identify(body: dict[str, Any], request: Request,
                           planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
     """Photo -> species guess + profile draft. `image` is a base64 data URL."""
     require_user(request, planter_session)
+    lang = _norm_lang(body.get("lang"))
     image = str(body.get("image", ""))
     if not image.startswith("data:image"):
         raise HTTPException(status_code=400, detail="image must be a base64 data URL")
     species_list = ", ".join(p["common_de"] for p in load_plant_db().values())
-    system = (
-        "Du bist ein Pflanzenbestimmer. Antworte NUR mit JSON: "
-        '{"common":"...","scientific":"...","confidence":0-1,"care_hint":"..."}. '
-        f"Bevorzuge diese Arten, wenn sie passen: {species_list}."
-    )
+    system = _t("identify.system", lang) + _t("identify.prefer", lang) + species_list + "."
     content = [
-        {"type": "text", "text": "Bestimme die Pflanze auf dem Foto."},
+        {"type": "text", "text": "Identify the plant in the photo."},
         {"type": "image_url", "image_url": {"url": image}},
     ]
     reply = await _ai_chat([{"role": "system", "content": system},
