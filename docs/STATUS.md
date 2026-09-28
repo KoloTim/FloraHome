@@ -42,11 +42,12 @@ _Last updated: 2026-09-28 (evening)._
 
 ## Open issues
 
-- **Pi touchscreen not detected** — `lsusb` shows only a hub + the CP210x
-  (ESP32); there is no HID touch device and nothing on I²C. The display's USB
-  **touch cable must be connected** before touch can work. Then Chromium needs
-  `--touch-events=enabled` and, if the axes are rotated, a libinput calibration
-  matrix.
+- **Pi touch panel** — connected, but it enumerates as an **absolute mouse**
+  (`8888:6666`, `ABS_X/ABS_Y` + mouse buttons, **no `BTN_TOUCH`**), so the kernel
+  treats it as a mouse: taps click, but drags select text and never scroll.
+  Mitigation shipped in the dashboard: `user-select:none` + drag-to-scroll
+  (`web/index.html`). Native multitouch scrolling would need a `uinput`
+  touchscreen bridge (not done yet).
 - **Node #2** (ESP32 `e0:8c:fe:e5:82:f4`) **not flashed** — needs the
   multi-node rework first (absolute `planter/cmd` would water both plants).
 - No JSN-SR04T → tank feature intentionally absent.

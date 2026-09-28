@@ -43,11 +43,20 @@ factor makes the whole overview fit the 800×480 panel.
 
 ### Touch
 
-The kiosk is touch-ready, but the panel's **USB touch cable must be connected**
-to the Pi — a 5" HDMI panel carries video only over HDMI. Verify with `lsusb`
-(a HID touchscreen should appear) and `libinput list-devices`. Add
-`--touch-events=enabled` to the Chromium flags if taps are not registering, and
-a libinput calibration/rotation matrix if the axes are rotated.
+Our 5" panel's controller is an **absolute mouse**, not a touchscreen: `lsusb`
+shows `8888:6666` and the evdev node has `ABS_X/ABS_Y` + mouse buttons but **no
+`BTN_TOUCH`**, so `libinput list-devices` reports *Capabilities: pointer*.
+Effect: taps click (fine), but a drag selects text and does **not** scroll.
+
+What we do about it:
+
+- `deploy/kiosk.sh` passes `--touch-events=enabled`.
+- `web/index.html` sets `user-select:none` and adds a **drag-to-scroll** handler
+  (press-and-drag on empty space scrolls; taps on controls are untouched).
+
+For true multitouch (native inertial scroll, pinch) you'd bridge the device
+through a `uinput` **touchscreen** (add `BTN_TOUCH`/`ABS_MT_*`), which is not
+implemented here.
 
 ### Turn on desktop autologin
 
