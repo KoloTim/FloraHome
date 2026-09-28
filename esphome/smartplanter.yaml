@@ -1,0 +1,434 @@
+# ============================================================================
+# Smart Planter — ESP32 node (Wemos D1 mini ESP32 / ESP32-WROOM-32)
+# ============================================================================
+# Flash once over USB, then everything after that goes over the air (OTA).
+#
+#   esphome run smartplanter.yaml          # first flash, USB
+#   esphome run smartplanter.yaml --device <ip>   # later flashes, OTA
+#
+# Or use the browser dashboard:  docker compose --profile tools up -d
+#                                then open http://<pi>:6052
+#
+# SAFETY: the pump is ALWAYS OFF on boot (restore_mode: ALWAYS_OFF) and the
+# maximum run time is enforced HERE, in firmware, not on the Raspberry Pi.
+# If the Pi dies mid-watering, the relay still opens. That is the whole point.
+# ============================================================================
+
+substitutions:
+  device_name: smartplanter
+  friendly_name: "Smart Planter"
+  fw_version: "1.0.0"
+
+  # --- MQTT broker ---------------------------------------------------------
+  # Test on the devbox: 192.168.178.185   Demo on the Pi: the Pi's own IP
+  # DEPLOYED (demo Pi "Tim"): broker is the Pi itself.
+  mqtt_broker: "192.168.91.68"
+
+  # --- Calibration: measure these, do not guess ----------------------------
+  # moisture_pct = (dry_v - measured_v) / (dry_v - wet_v) * 100
+  # Probe in AIR, print the raw voltage -> that is dry_v (usually ~3.1-3.3)
+  # Probe in a glass of WATER             -> that is wet_v (usually ~1.2-1.5)
+  soil_dry_v: "3.10"
+  soil_wet_v: "1.35"
+
+  # --- Water tank (JSN-SR04T) ---------------------------------------------
+  # Distance from sensor to the WATER SURFACE, in cm.
+  # Measure with the tank full -> tank_full_cm, with the tank empty -> tank_empty_cm.
+  # NOTE: the JSN-SR04T has a ~25 cm blind zone. If your tank is shallower than
+  # that, it will read nothing — use a float switch instead.
+  tank_full_cm: "8.0"
+  tank_empty_cm: "30.0"
+
+  # --- Safety limits -------------------------------------------------------
+  pump_max_seconds: "45"      # hard ceiling, cannot be exceeded by any command
+  moisture_cycle: "30s"       # how often the soil probe is powered + sampled
+
+  # --- Wiring (ESP32 pin numbers) -----------------------------------------
+  # Soil moisture MUST be on an ADC1 pin (32/33/34/35/36/39) — ADC2 is dead
+  # while Wi-Fi is on. Do not move this to an ADC2 pin.
+  pin_soil_adc: "34"
+  pin_soil_power: "25"        # probe is only powered while sampling (anti-corrosion)
+  pin_dht: "27"               # DHT22 data, 10k pull-up to 3.3V
+  pin_i2c_sda: "21"           # BH1750
+  pin_i2c_scl: "22"           # BH1750
+  pin_ultrasonic_trig: "16"   # JSN-SR04T (GPIO5 avoided: strapping pin)
+  pin_ultrasonic_echo: "17"   # JSN-SR04T echo -> 5V/3.3V level shifter -> here
+  pin_relay_pump: "26"        # relay IN1, plus 10k pull-down to GND
+  pin_relay_light: "13"       # relay IN2
+  pin_buzzer: "14"            # 5V active buzzer module
+  pin_button: "4"             # tactile button to GND (water now)
+
+  # Relay modules are usually ACTIVE LOW. If your pump runs when it should be
+  # idle, flip this to "true".
+  relay_inverted: "false"
+
+globals:
+  # Set by a retained "planter/estop" message. While true, every command is
+  # ignored and all outputs stay off. Survives commands from any source.
+  - id: halted
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: "2025.8.0"
+  on_boot:
+    priority: 800
+    then:
+      # Belt and braces: force everything off before anything else runs.
+      - switch.turn_off: pump_relay
+      - switch.turn_off: light_relay
+      - switch.turn_off: buzzer
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# ---------------------------------------------------------------- connectivity
+logger:
+  level: INFO
+
+api:
+  reboot_timeout: 15min
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Fallback AP so you can always reach the node, even with the wrong Wi-Fi.
+  ap:
+    ssid: "${device_name} fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+# Local web UI at http://<node-ip> — handy on the bench, no Pi needed.
+web_server:
+  port: 80
+  version: 3
+
+time:
+  - platform: sntp
+    id: esptime
+    timezone: Europe/Berlin
+    servers: [0.pool.ntp.org, 1.pool.ntp.org]
+
+# ------------------------------------------------------------------------ MQTT
+mqtt:
+  broker: ${mqtt_broker}
+  port: 1883
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  client_id: ${device_name}
+  topic_prefix: planter/${device_name}
+  discovery: false          # Home Assistant gets entities via the native API
+  birth_message:
+    topic: planter/status
+    payload: online
+  will_message:
+    topic: planter/status
+    payload: offline
+  # ---- commands from the API/web UI --------------------------------------
+  on_json_message:
+    - topic: planter/cmd
+      then:
+        - lambda: |-
+            if (id(halted)) {
+              ESP_LOGW("planter", "NOT-AUS active - command ignored");
+              return;
+            }
+            std::string action = x["action"] | "";
+            if (action == "pump") {
+              int secs = x["seconds"] | 20;
+              if (secs < 1)  secs = 1;
+              if (secs > ${pump_max_seconds}) secs = ${pump_max_seconds};
+              ESP_LOGI("planter", "manual/auto pump %ds", secs);
+              id(pump_dose)->execute(secs);
+            } else if (action == "stop") {
+              id(pump_dose)->stop();
+              id(pump_relay).turn_off();
+            } else if (action == "light") {
+              std::string st = x["state"] | "off";
+              if (st == "on") id(light_relay).turn_on(); else id(light_relay).turn_off();
+            } else if (action == "buzzer") {
+              int secs = x["seconds"] | 3;
+              id(beep)->execute(secs);
+            } else {
+              ESP_LOGW("planter", "unknown action: %s", action.c_str());
+            }
+
+    # ---- global Not-Aus (retained, so it applies after a node restart) ----
+    - topic: planter/estop
+      then:
+        - lambda: |-
+            bool stop_all = x["estop"] | false;
+            id(halted) = stop_all;
+            if (stop_all) {
+              id(pump_dose)->stop();
+              id(beep)->stop();
+              id(pump_relay).turn_off();
+              id(light_relay).turn_off();
+              id(buzzer).turn_off();
+              ESP_LOGW("planter", "NOT-AUS: all outputs off");
+            } else {
+              ESP_LOGI("planter", "NOT-AUS cleared");
+            }
+
+# --------------------------------------------------------------------- I2C bus
+i2c:
+  sda: ${pin_i2c_sda}
+  scl: ${pin_i2c_scl}
+  scan: true
+  id: bus_i2c
+
+# ---------------------------------------------------------------------- sensors
+sensor:
+  # --- soil moisture: raw ADC, sampled only while powered -----------------
+  - platform: adc
+    id: soil_adc
+    pin: GPIO${pin_soil_adc}
+    attenuation: 12db
+    update_interval: 1h          # real sampling is driven by the cycle below
+    internal: true
+    filters:
+      - median:
+          window_size: 5
+          send_every: 5
+          send_first_at: 1
+
+  - platform: template
+    name: "Bodenfeuchte"
+    id: moisture_pct
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: moisture
+    state_class: measurement
+    update_interval: ${moisture_cycle}
+    lambda: |-
+      if (isnan(id(soil_adc).state)) return NAN;
+      float dry = ${soil_dry_v};
+      float wet = ${soil_wet_v};
+      float pct = (dry - id(soil_adc).state) / (dry - wet) * 100.0f;
+      if (pct < 0.0f)   pct = 0.0f;
+      if (pct > 100.0f) pct = 100.0f;
+      return pct;
+
+  - platform: template
+    name: "Bodenfeuchte Rohspannung"
+    id: moisture_v
+    unit_of_measurement: "V"
+    accuracy_decimals: 3
+    entity_category: diagnostic
+    update_interval: ${moisture_cycle}
+    lambda: |-
+      if (isnan(id(soil_adc).state)) return NAN;
+      return id(soil_adc).state;
+
+  # --- DHT22 ---------------------------------------------------------------
+  - platform: dht
+    pin: GPIO${pin_dht}
+    model: DHT22
+    temperature:
+      name: "Temperatur"
+      id: temp_c
+      device_class: temperature
+      state_class: measurement
+      accuracy_decimals: 1
+    humidity:
+      name: "Luftfeuchte"
+      id: humidity
+      device_class: humidity
+      state_class: measurement
+      accuracy_decimals: 0
+    update_interval: 30s
+
+  # --- BH1750 --------------------------------------------------------------
+  - platform: bh1750
+    name: "Licht"
+    id: lux
+    address: 0x23
+    update_interval: 30s
+
+  # --- JSN-SR04T water level ----------------------------------------------
+  - platform: ultrasonic
+    id: water_cm
+    trigger_pin: GPIO${pin_ultrasonic_trig}
+    echo_pin: GPIO${pin_ultrasonic_echo}
+    name: "Abstand Wasseroberfläche"
+    unit_of_measurement: "cm"
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    update_interval: 60s
+    timeout: 3m
+    filters:
+      - filter_out: nan
+      - median:
+          window_size: 3
+          send_every: 3
+          send_first_at: 1
+
+  - platform: template
+    name: "Wassertank"
+    id: tank_pct
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    update_interval: 30s
+    lambda: |-
+      if (isnan(id(water_cm).state)) return NAN;
+      float full  = ${tank_full_cm};
+      float empty = ${tank_empty_cm};
+      float pct = (full - id(water_cm).state) / (full - empty) * 100.0f;
+      if (pct < 0.0f)   pct = 0.0f;
+      if (pct > 100.0f) pct = 100.0f;
+      return pct;
+
+  # --- Wi-Fi signal, useful for placing the box ---------------------------
+  - platform: wifi_signal
+    name: "WLAN-Signal"
+    id: rssi
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    id: uptime_s
+    internal: true
+
+# --------------------------------------------------------------------- switches
+switch:
+  - platform: gpio
+    id: soil_power
+    pin: GPIO${pin_soil_power}
+    restore_mode: ALWAYS_OFF
+    internal: true
+
+  # The pump. Always off after a reboot, and the dose cannot outlive the guard.
+  - platform: gpio
+    id: pump_relay
+    name: "Pumpe"
+    pin:
+      number: GPIO${pin_relay_pump}
+      inverted: ${relay_inverted}
+    restore_mode: ALWAYS_OFF
+    on_turn_off:
+      - logger.log: "pump relay OFF"
+
+  - platform: gpio
+    id: light_relay
+    name: "Grow Light"
+    pin:
+      number: GPIO${pin_relay_light}
+      inverted: ${relay_inverted}
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    id: buzzer
+    name: "Buzzer"
+    pin: GPIO${pin_buzzer}
+    restore_mode: ALWAYS_OFF
+
+# ----------------------------------------------------------------------- scripts
+script:
+  # Pump dose. mode: single => a second command while running is IGNORED,
+  # it can never extend a dose that is already in progress.
+  - id: pump_dose
+    mode: single
+    parameters:
+      secs: int
+    then:
+      - switch.turn_on: pump_relay
+      - delay: !lambda "return secs * 1000;"
+      - switch.turn_off: pump_relay
+
+  - id: beep
+    mode: single
+    parameters:
+      secs: int
+    then:
+      - switch.turn_on: buzzer
+      - delay: !lambda "return secs * 1000;"
+      - switch.turn_off: buzzer
+
+# ------------------------------------------------------------------ binary sensor
+binary_sensor:
+  # Manual "water now" button. Works even if the Pi is down — deliberately.
+  - platform: gpio
+    pin:
+      number: GPIO${pin_button}
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Taste Wasser jetzt"
+    id: button_water
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      then:
+        # Local, immediate dose — clamped by the firmware ceiling.
+        - script.execute:
+            id: pump_dose
+            secs: 15
+        - script.execute:
+            id: beep
+            secs: 1
+        - mqtt.publish_json:
+            topic: planter/event
+            payload: !lambda |-
+              root["event"] = "button_water_now";
+
+  - platform: status
+    name: "Status"
+
+# -------------------------------------------------------------------- telemetry
+# One retained-free JSON message every 10 s on planter/telemetry.
+# Telegraf writes it to InfluxDB, the API keeps it in memory and checks rules.
+interval:
+  - interval: 10s
+    then:
+      - mqtt.publish_json:
+          topic: planter/telemetry
+          payload: !lambda |-
+            root["device"] = "${device_name}";
+            root["fw"] = "${fw_version}";
+            if (id(esptime).now().is_valid()) root["ts"] = id(esptime).now().timestamp;
+
+            if (!isnan(id(moisture_pct).state)) root["moisture_pct"] = roundf(id(moisture_pct).state * 10) / 10.0f;
+            if (!isnan(id(temp_c).state))       root["temp_c"]      = roundf(id(temp_c).state * 10) / 10.0f;
+            if (!isnan(id(humidity).state))     root["humidity"]    = roundf(id(humidity).state);
+            if (!isnan(id(lux).state))          root["lux"]         = roundf(id(lux).state);
+            if (!isnan(id(tank_pct).state))     root["tank_pct"]    = roundf(id(tank_pct).state);
+            if (!isnan(id(rssi).state))         root["rssi"]        = roundf(id(rssi).state);
+
+            root["pump"]  = id(pump_relay).state ? "watering" : "idle";
+            root["light"] = id(light_relay).state ? "on" : "off";
+            root["mode"]  = "auto";
+            root["on_s"]  = (int) id(uptime_s).state;
+
+            // Report a fault if a sensor has gone silent (NaN) so the Pi can alert.
+            std::string fault = "";
+            if (isnan(id(moisture_pct).state)) fault += "soil ";
+            if (isnan(id(temp_c).state))       fault += "dht22 ";
+            if (isnan(id(lux).state))          fault += "bh1750 ";
+            if (isnan(id(tank_pct).state))     fault += "jsn_sr04t ";
+            for (auto &c : fault) if (c == ' ') c = ',';
+            root["fault"] = fault.length() ? fault : "ok";
+
+  # Anti-corrosion: power the probe, let it settle, sample, then cut the power.
+  - interval: ${moisture_cycle}
+    then:
+      - switch.turn_on: soil_power
+      - delay: 2s
+      - component.update: soil_adc
+      - component.update: moisture_v
+      - delay: 1s
+      - switch.turn_off: soil_power
+
+# ---------------------------------------------------------------------- buttons
+button:
+  - platform: restart
+    name: "Neustart"

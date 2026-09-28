@@ -1,0 +1,105 @@
+{
+  "uid": "planter-main",
+  "title": "Smart Planter",
+  "tags": ["planter", "euregio"],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "range",
+        "label": "Fenster",
+        "type": "custom",
+        "query": "1h,6h,24h,7d",
+        "current": { "text": "6h", "value": "6h" },
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat", "title": "Bodenfeuchte", "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [{ "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -1m)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"moisture_pct\")\n  |> last()" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 0, "min": 0, "max": 100,
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 25 }, { "color": "green", "value": 40 } ] } }, "overrides": [] }
+    },
+    {
+      "type": "stat", "title": "Temperatur", "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [{ "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -1m)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"temp_c\")\n  |> last()" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "celsius", "decimals": 1 }, "overrides": [] }
+    },
+    {
+      "type": "stat", "title": "Luftfeuchte", "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [{ "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -1m)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"humidity\")\n  |> last()" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 0, "max": 100 }, "overrides": [] }
+    },
+    {
+      "type": "stat", "title": "Licht", "gridPos": { "h": 5, "w": 4, "x": 12, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [{ "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -1m)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"lux\")\n  |> last()" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "unit": "lux", "decimals": 0 }, "overrides": [] }
+    },
+    {
+      "type": "stat", "title": "Wassertank", "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [{ "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -1m)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"tank_pct\")\n  |> last()" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 0, "min": 0, "max": 100,
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 15 } ] } }, "overrides": [] }
+    },
+    {
+      "type": "stat", "title": "Knoten", "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [{ "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -1m)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"moisture_pct\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: if float(v: uint(v: now()) - uint(v: r._time)) / 1000000000.0 < 60.0 then 1.0 else 0.0 }))",
+        "alias": "online" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "OFFLINE", "color": "red", "index": 1 }, "1": { "text": "ONLINE", "color": "green", "index": 0 } } } ], "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null } ] } }, "overrides": [] }
+    },
+    {
+      "type": "timeseries", "title": "Bodenfeuchte & Bewässerungsschwelle",
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 5 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [{ "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -$range)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"moisture_pct\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 18, "showPoints": "never", "gradientMode": "opacity" },
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 25 } ] } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "type": "timeseries", "title": "Temperatur & Luftfeuchte", "gridPos": { "h": 9, "w": 8, "x": 16, "y": 5 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -$range)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"temp_c\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" },
+        { "refId": "B", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -$range)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"humidity\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never" } }, "overrides": [
+        { "matcher": { "id": "byName", "options": "temp_c" }, "properties": [ { "id": "unit", "value": "celsius" }, { "id": "custom.axisPlacement", "value": "left" } ] },
+        { "matcher": { "id": "byName", "options": "humidity" }, "properties": [ { "id": "unit", "value": "percent" }, { "id": "custom.axisPlacement", "value": "right" } ] }
+      ] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "type": "timeseries", "title": "Tageslicht (lux)", "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [{ "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -$range)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"lux\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": { "unit": "lux", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 25, "gradientMode": "opacity", "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "type": "timeseries", "title": "WLAN-Signal", "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB-PLANTER}" },
+      "targets": [{ "refId": "A", "query": "from(bucket: \"${INFLUX_BUCKET}\")\n  |> range(start: -$range)\n  |> filter(fn: (r) => r._measurement == \"planter\" and r._field == \"rssi\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }],
+      "fieldConfig": { "defaults": { "unit": "dBm", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    }
+  ]
+}

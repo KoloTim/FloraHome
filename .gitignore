@@ -1,0 +1,8 @@
+.env
+data/
+esphome/secrets.yaml
+esphome/.esphome/
+*.db
+*.db-wal
+*.db-shm
+grafana/grafana.ini
