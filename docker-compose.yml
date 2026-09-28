@@ -114,6 +114,7 @@ services:
       AI_MODEL: ${AI_MODEL:-gemini-2.5-flash}
       AI_VISION_MODEL: ${AI_VISION_MODEL:-gemini-2.5-flash}
       HOST_HELPER_TOKEN: ${HOST_HELPER_TOKEN:-}
+      NODE_OFFLINE_SEC: ${NODE_OFFLINE_SEC:-90}
       NODES_DIR: /nodes
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -143,29 +144,9 @@ services:
     ports:
       - "${WEB_PORT:-8098}:80"
 
-  grafana:
-    image: grafana/grafana-oss:11.5.1
-    container_name: planter-grafana
-    restart: unless-stopped
-    depends_on:
-      influxdb:
-        condition: service_healthy
-    environment:
-      TZ: ${TZ:-Europe/Berlin}
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"   # read-only dashboard, matches the CORE security story
-      INFLUX_TOKEN: ${INFLUX_TOKEN}
-      INFLUX_ORG: ${INFLUX_ORG:-kololab}
-      INFLUX_BUCKET: ${INFLUX_BUCKET:-planter}
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana-data:/var/lib/grafana
-    ports:
-      - "${GRAFANA_PORT:-3030}:3000"
+  # Grafana was removed on purpose: the dashboard now renders its own graph page
+  # straight from InfluxDB (GET /api/history), so the extra container is dead
+  # weight. InfluxDB + Telegraf stay — they are the long-term data store.
 
   # Optional but recommended: edit + OTA-flash the ESP32 from the browser.
   # Reachable at http://<pi>:6052 — no need to plug in USB after the first flash.
@@ -212,5 +193,4 @@ services:
 volumes:
   mqtt-data:
   influx-data:
-  grafana-data:
   esphome-cache:

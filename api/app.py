@@ -130,6 +130,8 @@ DEFAULTS: dict[str, Any] = {
     "buzzer_enabled": True,
     "telegram_enabled": True,
     "node_offline_sec": NODE_OFFLINE_SEC,   # heartbeat lost -> node offline
+    "diary_enabled": True,                  # let Flori write weekly entries
+    "diary_interval_days": envf("DIARY_INTERVAL_DAYS", 7.0),
 }
 NUMERIC_KEYS = {k for k, v in DEFAULTS.items() if isinstance(v, (int, float))}
 BOOL_KEYS = {k for k, v in DEFAULTS.items() if isinstance(v, bool)}
@@ -1073,7 +1075,8 @@ async def state_tick() -> None:
 # Influx history
 # --------------------------------------------------------------------------- #
 
-ALLOWED_FIELDS = {"moisture_pct", "temp_c", "humidity", "lux", "tank_pct", "rssi"}
+ALLOWED_FIELDS = {"moisture_pct", "temp_c", "humidity", "lux", "tank_pct", "rssi",
+                  "soil_v", "ldr_v", "battery_pct"}
 
 
 async def influx_history(field: str, hours: float, every: str, node_name: str | None = None) -> list[dict[str, Any]]:
@@ -1114,13 +1117,24 @@ from(bucket: "{INFLUX_BUCKET}")
     return out
 
 
-def memory_history(field: str, hours: float, node_name: str | None = None) -> list[dict[str, Any]]:
+def memory_history(field: str, hours: float, node_name: str | None = None,
+                   every: str = "1m") -> list[dict[str, Any]]:
     cutoff = time.time() - hours * 3600
+    step = {"10s": 10, "1m": 60, "5m": 300, "15m": 900, "1h": 3600}.get(every, 60)
     src = node_history(node_name) if node_name else [p for k in node_names() for p in node_history(k)]
+    # Bucket + average so the memory fallback has the same shape as Influx
+    # (previously it returned raw points and ignored the `every` parameter).
+    buckets: dict[int, list[float]] = {}
+    for s in src:
+        ts = s.get("ts", 0)
+        v = s.get(field)
+        if ts < cutoff or not isinstance(v, (int, float)):
+            continue
+        b = int(ts // step) * step
+        buckets.setdefault(b, []).append(float(v))
     return [
-        {"t": datetime.fromtimestamp(s["ts"], timezone.utc).isoformat(), "v": float(s[field])}
-        for s in src
-        if s.get("ts", 0) >= cutoff and isinstance(s.get(field), (int, float))
+        {"t": datetime.fromtimestamp(b, timezone.utc).isoformat(), "v": sum(vs) / len(vs)}
+        for b, vs in sorted(buckets.items())
     ]
 
 
@@ -1497,7 +1511,6 @@ async def api_voice_ask(body: dict[str, Any], request: Request,
 
 # ---- AI plant diary --------------------------------------------------------- #
 
-DIARY_INTERVAL_H = envf("DIARY_INTERVAL_H", 168)   # weekly
 DIARY_DAYS = envf("DIARY_DAYS", 7)
 
 
@@ -1557,12 +1570,32 @@ async def _write_diary(node_name: str) -> str | None:
     return text
 
 
+def _newest_diary_ts(node_name: str) -> float:
+    with _db_lock:
+        row = db().execute("SELECT ts FROM diary WHERE node=? ORDER BY ts DESC LIMIT 1",
+                           (node_name,)).fetchone()
+    return float(row["ts"]) if row else 0.0
+
+
 async def diary_tick() -> None:
-    """Every `DIARY_INTERVAL_H`, write one diary entry per fresh node."""
+    """Write a diary entry per fresh node when its interval is due.
+
+    Due-ness is derived from the newest stored entry, so restarting the API no
+    longer resets the weekly timer (the old version slept 168 h before the first
+    write and lost that timer on every restart)."""
+    await asyncio.sleep(60)   # let MQTT connect and nodes report once
     while True:
-        await asyncio.sleep(DIARY_INTERVAL_H * 3600)
         for name in node_names():
-            await _write_diary(name)
+            cfg = get_config_for(name)
+            if not cfg.get("diary_enabled", True):
+                continue
+            try:
+                days = float(cfg.get("diary_interval_days", DIARY_DAYS))
+            except (TypeError, ValueError):
+                days = DIARY_DAYS
+            if time.time() - _newest_diary_ts(name) >= max(1.0, days) * 86400:
+                await _write_diary(name)   # no-ops safely while the node is offline
+        await asyncio.sleep(600)
 
 
 # ---- AI (plant chat + photo identification) --------------------------------- #
@@ -1951,7 +1984,7 @@ async def api_history(field: str = "moisture_pct", hours: float = 6, every: str 
     except Exception as exc:
         log.warning("history fell back to memory: %s", exc)
         return {"source": "memory", "field": field, "node": node_name,
-                "points": memory_history(field, hours, node_name)}
+                "points": memory_history(field, hours, node_name, every)}
 
 
 @app.get("/api/events")

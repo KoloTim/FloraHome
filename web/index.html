@@ -140,6 +140,22 @@
   .diary{display:flex;flex-direction:column;gap:10px}
   .diary-entry{background:var(--card2);border:1px solid var(--line);border-radius:12px;
     padding:12px 14px;line-height:1.5}
+  .diary-settings{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .diary-settings>summary{cursor:pointer;font-weight:700;color:var(--muted);list-style:none}
+  .diary-settings>summary::-webkit-details-marker{display:none}
+  .diary-settings>summary::before{content:"▸ ";}
+  .diary-settings[open]>summary::before{content:"▾ ";}
+
+  /* graph dashboard */
+  .graphs{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .gcard{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .gcard .gh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}
+  .gcard .gh b{font-size:.98rem}
+  .gcard .gv{font-size:1.45rem;font-weight:800;font-variant-numeric:tabular-nums}
+  .gcard .gv small{font-size:.7em;font-weight:600;color:var(--muted)}
+  .gcard canvas{width:100%;height:150px;display:block;margin-top:4px}
+  .gcard .gstats{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-top:4px}
+  .gcard.off{opacity:.55}
 
   /* UI scale control */
   .scalebar{display:inline-flex;gap:6px}
@@ -250,6 +266,7 @@
 <nav id="tabs">
   <button class="tab active" data-page="overview">🌿 Übersicht</button>
   <button class="tab" data-page="control">🎛️ Steuern</button>
+  <button class="tab" data-page="graphs">📈 Verlauf</button>
   <button class="tab" data-page="backend">🔧 Backend</button>
 </nav>
 
@@ -334,30 +351,45 @@
     <h2><span class="icon">📔</span> Pflanzentagebuch — <span id="diaryNode" class="muted"></span>
       <button id="btnDiaryWrite" class="ghost" style="margin-left:auto" type="button" disabled>Eintrag jetzt schreiben</button>
     </h2>
+    <p class="note">Notizen aus Sicht deiner Pflanze. Flori fasst die Woche automatisch
+      zusammen (Art, Werte, Gießen) – du kannst auch jederzeit selbst einen Eintrag
+      schreiben. Einträge bleiben pro Pflanze gespeichert.</p>
     <div id="diary" class="diary"></div>
+    <details class="diary-settings">
+      <summary>⚙️ Tagebuch-Einstellungen</summary>
+      <div class="sw" style="margin-top:10px">
+        <label for="d-cfg-diary_enabled">Automatische Einträge schreiben</label>
+        <input id="d-cfg-diary_enabled" type="checkbox"></div>
+      <div class="field">
+        <label for="d-cfg-diary_interval_days">Intervall (Tage)</label>
+        <input id="d-cfg-diary_interval_days" type="number" min="1" max="365"></div>
+      <button id="btnDiarySettings" class="primary" type="button" disabled>Einstellungen speichern</button>
+      <p class="note">Gilt für <b id="diarySettingsNode">diese Pflanze</b>.</p>
+    </details>
   </section>
+  </div><!-- /control -->
 
+  <!-- =========================== PAGE: VERLAUF =========================== -->
+  <div class="page" data-page="graphs">
   <section class="card">
     <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
-      <h2 style="margin:0"><span class="icon">📈</span> Verlauf</h2>
+      <h2 style="margin:0"><span class="icon">📈</span> Verlauf &amp; Diagramme —
+        <span id="graphNode" class="muted"></span></h2>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <select id="chartField">
-          <option value="moisture_pct">Bodenfeuchte</option>
-          <option value="temp_c">Temperatur</option>
-          <option value="humidity">Luftfeuchte</option>
-          <option value="lux">Licht</option>
-        </select>
-        <select id="chartRange">
+        <select id="graphRange" aria-label="Zeitraum">
           <option value="1">1 Stunde</option>
           <option value="6" selected>6 Stunden</option>
           <option value="24">24 Stunden</option>
+          <option value="168">7 Tage</option>
+          <option value="720">30 Tage</option>
         </select>
+        <button id="graphRefresh" type="button">↻ Aktualisieren</button>
       </div>
     </div>
-    <canvas id="chart" role="img" aria-label="Verlauf der Messwerte"></canvas>
-    <p class="note" id="chartNote">Verlauf wird geladen…</p>
+    <div id="graphs" class="graphs"></div>
+    <p class="note" id="graphNote">Verlauf wird geladen…</p>
   </section>
-  </div><!-- /control -->
+  </div><!-- /graphs -->
 
   <!-- =========================== PAGE: BACKEND =========================== -->
   <div class="page" data-page="backend">
@@ -681,62 +713,117 @@ async function loadTables(){
   if(authed){ try{ renderAudit(await json("/api/audit?limit=50")); }catch(e){} }
 }
 
-/* --------------------------------------------------------------------- chart */
-let chartData = [];
-function drawChart(){
-  const c = $("chart"), dpr = window.devicePixelRatio || 1;
-  const w = c.clientWidth, h = 200;
-  c.width = w*dpr; c.height = h*dpr;
-  const ctx = c.getContext("2d"); ctx.scale(dpr,dpr); ctx.clearRect(0,0,w,h);
+/* ------------------------------------------------------- graph dashboard
+ * Every metric gets its own chart, straight from InfluxDB (with an in-memory
+ * fallback). No Grafana needed. */
+const METRICS = [
+  {key:"moisture_pct", label:"Bodenfeuchte",   icon:"💧", unit:"%",   color:"#5fd08a", d:0, thr:"pump_threshold_pct"},
+  {key:"temp_c",       label:"Temperatur",     icon:"🌡️", unit:"°C", color:"#f2b64c", d:1},
+  {key:"humidity",     label:"Luftfeuchte",    icon:"☁️", unit:"%",   color:"#7cc7ff", d:0},
+  {key:"lux",          label:"Licht",          icon:"☀️", unit:"lx",  color:"#ffd76a", d:0},
+  {key:"tank_pct",     label:"Wassertank",     icon:"🛢️", unit:"%",   color:"#9b8cff", d:0},
+  {key:"soil_v",       label:"Boden Rohspan.", icon:"🧪", unit:"V",   color:"#69e0c8", d:3},
+  {key:"rssi",         label:"WLAN-Signal",    icon:"📶", unit:"dBm", color:"#9db3a5", d:0},
+];
+let graphCache = [];
+
+function buildGraphCards(){
+  $("graphs").innerHTML = METRICS.map(mt => `
+    <div class="gcard" id="gcard-${mt.key}">
+      <div class="gh"><b>${mt.icon} ${mt.label}</b>
+        <span class="gv" id="gv-${mt.key}">–<small>${mt.unit}</small></span></div>
+      <canvas id="g-${mt.key}" role="img" aria-label="${mt.label} Verlauf"></canvas>
+      <div class="gstats"><span id="gs-${mt.key}">–</span></div>
+    </div>`).join("");
+}
+
+function drawSeries(canvas, points, mt, threshold){
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 300, h = canvas.clientHeight || 150;
+  canvas.width = w*dpr; canvas.height = h*dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
   const css = getComputedStyle(document.documentElement);
-  const muted = css.getPropertyValue("--muted").trim(), accent = css.getPropertyValue("--accent").trim(),
-        line = css.getPropertyValue("--line").trim();
-  if(chartData.length < 2){
-    ctx.fillStyle = muted; ctx.font = "15px system-ui";
-    ctx.fillText("Noch keine Verlaufsdaten – der Knoten sendet alle 10 Sekunden.", 12, h/2);
-    return;
+  const muted = css.getPropertyValue("--muted").trim();
+  const line = css.getPropertyValue("--line").trim();
+  if(!points || points.length < 2){
+    ctx.fillStyle = muted; ctx.font = "14px system-ui";
+    ctx.fillText("keine Daten", 12, h/2);
+    return null;
   }
-  const pad={l:46,r:12,t:12,b:26};
-  const vals = chartData.map(p=>p.v);
-  let min=Math.min(...vals), max=Math.max(...vals);
-  if(max-min<1){ max+=1; min-=1; }
-  const p5=(max-min)*0.12; min-=p5; max+=p5;
-  const t0=new Date(chartData[0].t).getTime(), t1=new Date(chartData[chartData.length-1].t).getTime();
-  const X=t=>pad.l+(t1===t0?0.5:(t-t0)/(t1-t0))*(w-pad.l-pad.r);
-  const Y=v=>pad.t+(1-(v-min)/(max-min))*(h-pad.t-pad.b);
-  ctx.strokeStyle=line; ctx.fillStyle=muted; ctx.font="12px system-ui"; ctx.lineWidth=1;
-  for(let i=0;i<=4;i++){ const v=min+(max-min)*i/4,y=Y(v);
+  const pad = {l:44, r:10, t:10, b:22};
+  const vals = points.map(p => p.v);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if(max - min < 1e-9){ max += 1; min -= 1; }
+  const p5 = (max-min)*0.12; min -= p5; max += p5;
+  const t0 = new Date(points[0].t).getTime(), t1 = new Date(points[points.length-1].t).getTime();
+  const X = t => pad.l + (t1===t0?0.5:(t-t0)/(t1-t0))*(w-pad.l-pad.r);
+  const Y = v => pad.t + (1-(v-min)/(max-min))*(h-pad.t-pad.b);
+  ctx.strokeStyle = line; ctx.fillStyle = muted; ctx.font = "11px system-ui"; ctx.lineWidth = 1;
+  for(let i=0;i<=3;i++){ const v=min+(max-min)*i/3, y=Y(v);
     ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke();
-    ctx.fillText(v.toFixed(0),6,y+4); }
-  for(let i=0;i<=3;i++){ const t=t0+(t1-t0)*i/3,d=new Date(t);
-    ctx.fillText(d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}),X(t)-16,h-6); }
-  ctx.beginPath(); ctx.moveTo(X(t0),Y(chartData[0].v));
-  chartData.forEach(p=>ctx.lineTo(X(new Date(p.t).getTime()),Y(p.v)));
-  ctx.lineTo(X(t1),h-pad.b); ctx.lineTo(X(t0),h-pad.b); ctx.closePath();
-  ctx.fillStyle=accent+"22"; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(X(t0),Y(chartData[0].v));
-  chartData.forEach(p=>ctx.lineTo(X(new Date(p.t).getTime()),Y(p.v)));
-  ctx.strokeStyle=accent; ctx.lineWidth=2.5; ctx.stroke();
-  if($("chartField").value==="moisture_pct" && cfgCache.pump_threshold_pct!==undefined){
-    const th=Number(cfgCache.pump_threshold_pct);
-    if(th>=min&&th<=max){ ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle=muted; ctx.lineWidth=1.5;
-      ctx.beginPath(); ctx.moveTo(pad.l,Y(th)); ctx.lineTo(w-pad.r,Y(th)); ctx.stroke(); ctx.restore();
-      ctx.fillStyle=muted; ctx.fillText(`Schwelle ${th}%`,pad.l+6,Y(th)-5); }
+    ctx.fillText(v.toFixed(mt.d), 4, y+4); }
+  const spanMs = t1 - t0;
+  for(let i=0;i<=2;i++){ const t=t0+spanMs*i/2, dt=new Date(t);
+    const lbl = spanMs > 36*3600e3 ? dt.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})
+                                   : dt.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+    ctx.fillText(lbl, X(t)-14, h-6); }
+  ctx.beginPath(); ctx.moveTo(X(t0),Y(points[0].v));
+  points.forEach(p => ctx.lineTo(X(new Date(p.t).getTime()), Y(p.v)));
+  ctx.lineTo(X(t1), h-pad.b); ctx.lineTo(X(t0), h-pad.b); ctx.closePath();
+  ctx.fillStyle = mt.color + "22"; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(X(t0),Y(points[0].v));
+  points.forEach(p => ctx.lineTo(X(new Date(p.t).getTime()), Y(p.v)));
+  ctx.strokeStyle = mt.color; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.stroke();
+  if(threshold !== undefined && threshold !== null && !Number.isNaN(threshold)
+     && threshold >= min && threshold <= max){
+    ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle = muted; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad.l,Y(threshold)); ctx.lineTo(w-pad.r,Y(threshold)); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = muted; ctx.fillText(`Schwelle ${threshold}${mt.unit}`, pad.l+6, Y(threshold)-4);
+  }
+  const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+  return {min:Math.min(...vals), max:Math.max(...vals), avg};
+}
+
+function redrawGraphs(){
+  for(const res of graphCache){
+    const cv = $(`g-${res.mt.key}`); if(!cv) continue;
+    const threshold = res.mt.thr ? Number(cfgCache[res.mt.thr]) : undefined;
+    drawSeries(cv, res.points, res.mt, threshold);
   }
 }
-async function loadChart(){
-  const f=$("chartField").value, hours=Number($("chartRange").value);
-  const every = hours<=1?"10s":(hours<=6?"1m":"5m");
-  try{
-    const sn = selectedNode() || primaryNode();
-    const nq = sn ? `&node=${encodeURIComponent(sn)}` : "";
-    const r = await json(`/api/history?field=${f}&hours=${hours}&every=${every}${nq}`);
-    chartData = r.points || [];
-    $("chartNote").textContent = chartData.length
-      ? `${chartData.length} Messpunkte · Quelle: ${r.source==="influxdb"?"InfluxDB":"Arbeitsspeicher"}`
-      : "Keine Daten im gewählten Zeitraum.";
-  }catch(e){ chartData=[]; $("chartNote").textContent="Verlauf nicht verfügbar: "+e.message; }
-  drawChart();
+
+async function loadGraphs(){
+  const hours = Number(($("graphRange")||{}).value || 6);
+  const every = hours<=1?"10s":(hours<=6?"1m":hours<=24?"5m":hours<=168?"15m":"1h");
+  const sn = selectedNode() || primaryNode();
+  $("graphNode").textContent = sn ? nodeLabel(sn) : "";
+  const nq = sn ? `&node=${encodeURIComponent(sn)}` : "";
+  const results = await Promise.all(METRICS.map(async mt => {
+    try{
+      const r = await json(`/api/history?field=${mt.key}&hours=${hours}&every=${every}${nq}`);
+      return {mt, points:r.points||[], source:r.source, err:null};
+    }catch(e){ return {mt, points:[], err:e.message}; }
+  }));
+  graphCache = results;
+  let latest = null, source = "";
+  for(const res of results){
+    const cur = res.points.length ? res.points[res.points.length-1].v : null;
+    const el = $(`gv-${res.mt.key}`);
+    if(el) el.innerHTML = (cur==null?"–":fmtNum(cur,res.mt.d)) + `<small>${res.mt.unit}</small>`;
+    const threshold = res.mt.thr ? Number(cfgCache[res.mt.thr]) : undefined;
+    const stats = drawSeries($(`g-${res.mt.key}`), res.points, res.mt, threshold);
+    const sEl = $(`gs-${res.mt.key}`);
+    if(sEl) sEl.textContent = stats
+      ? `min ${fmtNum(stats.min,res.mt.d)} · ø ${fmtNum(stats.avg,res.mt.d)} · max ${fmtNum(stats.max,res.mt.d)} ${res.mt.unit} · ${res.points.length} Punkte`
+      : (res.err ? "nicht verfügbar" : "keine Daten im Zeitraum");
+    if(res.points.length) latest = res;
+    if(res.source) source = res.source;
+  }
+  $("graphNote").textContent = latest
+    ? `Quelle: ${source==="influxdb"?"InfluxDB":source==="memory"?"Arbeitsspeicher":"–"} · Zeitraum: ${hours} h`
+    : "Keine Verlaufsdaten im gewählten Zeitraum.";
 }
 
 /* ---------------------------------------------------------------- live stream */
@@ -756,7 +843,7 @@ function setConn(ok){
 }
 
 /* ---------------------------------------------------------------------- auth */
-const WRITE_BTNS = ["btnWater","btnLight","btnBuzz","btnVoice","btnStop","btnEstop","btnSettings","btnNodeSettings","btnResume","btnCal","btnDiaryWrite"];
+const WRITE_BTNS = ["btnWater","btnLight","btnBuzz","btnVoice","btnStop","btnEstop","btnSettings","btnNodeSettings","btnResume","btnCal","btnDiaryWrite","btnDiarySettings"];
 function setAuthed(v){
   authed = v;
   WRITE_BTNS.forEach(id => { const el=$(id); if(el) el.disabled = !v; });
@@ -847,7 +934,8 @@ $("settingsDlg").addEventListener("close", async () => {
     await json(`/api/config/node/${encodeURIComponent(cfgEditNode)}`,
                {method:"PUT", body: JSON.stringify(updates)});
     toast("⚙️ Einstellungen für " + nodeLabel(cfgEditNode) + " gespeichert");
-    loadTables(); loadChart();
+    loadTables();
+    if($("graphs").children.length) loadGraphs();
   }catch(e){ alert("Speichern fehlgeschlagen: "+e.message); }
 });
 
@@ -915,9 +1003,9 @@ async function voiceTurn(button){
 }
 $("btnVoice").onclick = () => voiceTurn($("btnVoice"));
 $("btnMic").onclick = () => voiceTurn($("btnMic"));
-$("chartField").onchange = loadChart;
-$("chartRange").onchange = loadChart;
-window.addEventListener("resize", drawChart);
+$("graphRange").onchange = () => { if(!$("graphs").children.length) buildGraphCards(); loadGraphs(); };
+$("graphRefresh").onclick = () => { if(!$("graphs").children.length) buildGraphCards(); loadGraphs(); };
+window.addEventListener("resize", redrawGraphs);
 
 /* ------------------------------------------------------------ plant profiles */
 let SPECIES = [];
@@ -1072,13 +1160,36 @@ function refreshCal(){
 async function refreshDiary(){
   const n = selectedNode(); if(!n) return;
   $("diaryNode").textContent = nodeLabel(n);
+  loadDiarySettings();
   try{
     const d = await json(`/api/diary/${encodeURIComponent(n)}?limit=8`);
     $("diary").innerHTML = (d.entries || []).map(e =>
       `<div class="diary-entry"><div class="muted" style="font-size:.82rem">${new Date(e.ts*1000).toLocaleString("de-DE")}</div>${esc(e.text)}</div>`
-    ).join("") || '<p class="muted">Noch keine Einträge – schreib einen oder warte auf den Wochen-Eintrag.</p>';
+    ).join("") || '<p class="muted">Noch keine Einträge – schreib einen oder warte auf den nächsten automatischen Eintrag.</p>';
   }catch(e){ $("diary").innerHTML = '<p class="muted">Tagebuch nicht verfügbar.</p>'; }
 }
+async function loadDiarySettings(){
+  const n = selectedNode(); if(!n) return;
+  const lab = $("diarySettingsNode"); if(lab) lab.textContent = nodeLabel(n);
+  try{
+    const r = await json(`/api/config/node/${encodeURIComponent(n)}`);
+    const c = r.config || {};
+    $("d-cfg-diary_enabled").checked = c.diary_enabled !== false;
+    $("d-cfg-diary_interval_days").value = c.diary_interval_days ?? 7;
+  }catch(e){}
+}
+$("btnDiarySettings").onclick = async () => {
+  const n = selectedNode(); if(!n) return;
+  const updates = {
+    diary_enabled: $("d-cfg-diary_enabled").checked,
+    diary_interval_days: Number($("d-cfg-diary_interval_days").value),
+  };
+  try{
+    await json(`/api/config/node/${encodeURIComponent(n)}`,
+               {method:"PUT", body: JSON.stringify(updates)});
+    toast("📔 Tagebuch-Einstellungen gespeichert");
+  }catch(e){ alert("Speichern fehlgeschlagen: " + e.message); }
+};
 $("btnDiaryWrite").onclick = async () => {
   const n = selectedNode(); if(!n) return;
   $("btnDiaryWrite").disabled = true;
@@ -1211,7 +1322,8 @@ function showPage(name){
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.dataset.page === name));
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.page === name));
   localStorage.setItem("fhPage", name);
-  if(name === "control"){ refreshCal(); loadChart(); }
+  if(name === "control"){ refreshCal(); }
+  if(name === "graphs"){ if(!$("graphs").children.length) buildGraphCards(); loadGraphs(); }
   if(name === "backend"){ loadDevices(); }
 }
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => showPage(t.dataset.page));
@@ -1450,7 +1562,6 @@ let floriDragging = false;
   await refresh();
   await refreshHalted();
   await loadTables();
-  await loadChart();
   await loadDevices();
   await loadAI();
   await refreshDiary();
@@ -1467,7 +1578,7 @@ let floriDragging = false;
   }, 45000);
   setInterval(async()=>{ await refresh(); await refreshHalted(); }, 15000);
   setInterval(loadTables, 20000);
-  setInterval(loadChart, 60000);
+  setInterval(() => { if($("graphs").children.length) loadGraphs(); }, 60000);
 })();
 </script>
 </body>
