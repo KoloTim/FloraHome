@@ -26,9 +26,15 @@ fi
 BROWSER="$(command -v chromium || command -v chromium-browser || true)"
 [ -z "$BROWSER" ] && { echo "kiosk: no chromium found"; exit 1; }
 
+# UI scale: 1.0 is the recommended value for the 800x480 panel (bigger text,
+# fewer surprises for a single-touch finger). Override with PLANTER_SCALE.
+SCALE="${PLANTER_SCALE:-1.0}"
+
 exec "$BROWSER" \
   --kiosk \
   --touch-events=enabled \
+  --overscroll-history-navigation=0 \
+  --enable-features=TouchpadOverscrollHistoryNavigation:disabled \
   --ozone-platform=wayland \
   --enable-features=UseOzonePlatform \
   --disable-features=Translate,TranslateUI,MediaRouter,OptimizationHints \
@@ -39,7 +45,7 @@ exec "$BROWSER" \
   --hide-scrollbars \
   --lang=de \
   --accept-lang=de-DE,de \
-  --force-device-scale-factor=0.85 \
+  --force-device-scale-factor="$SCALE" \
   --no-first-run \
   --password-store=basic \
   --check-for-update-interval=31536000 \

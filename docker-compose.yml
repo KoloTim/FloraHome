@@ -108,10 +108,14 @@ services:
       PUMP_COOLDOWN_MIN: ${PUMP_COOLDOWN_MIN:-30}
       DB_PATH: /data/planter.db
       FLASHER_URL: ${FLASHER_URL:-http://host.docker.internal:6053}
+      HOST_HELPER_URL: ${HOST_HELPER_URL:-http://host.docker.internal:6054}
+      HOST_HELPER_TOKEN: ${HOST_HELPER_TOKEN:-}
+      NODES_DIR: /nodes
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/data
+      - ./esphome:/nodes:ro
     ports:
       - "8097:8000"   # debug only; the web container proxies to :8000 internally
     healthcheck:

@@ -785,31 +785,63 @@ if(!localStorage.getItem("fhHint")){
    auto-prompt on a kiosk with a fresh profile is just noise. */
 
 /* ------------------------------------------- drag-to-scroll for touch panels
- * The 5" panel's controller reports as an absolute MOUSE (no BTN_TOUCH), so the
- * browser never scrolls on drag. We turn a press-and-drag on empty space into a
- * scroll, and leave taps/clicks on controls untouched. */
+ * Our 5" panel is single-touch. Depending on whether the virtual touchscreen
+ * bridge is running, drags either arrive as touch (native scroll) or as an
+ * absolute mouse (no scroll). Handle both, with inertia, and never steal taps
+ * from controls. This runs for `pointerType: mouse` (the raw panel) and adds a
+ * little smoothing for `pointerType: touch` when the bridge is absent. */
 (function dragScroll(){
   const scroller = document.scrollingElement || document.documentElement;
-  let active = false, startY = 0, startTop = 0, moved = false;
+  let active = false, startY = 0, startTop = 0, lastY = 0, lastT = 0, vel = 0, moved = false, raf = 0;
   const isControl = t => t.closest && t.closest("button,input,select,textarea,a,summary,label,dialog");
+
+  function glide(){
+    vel *= 0.94;
+    if(Math.abs(vel) < 0.5){ raf = 0; return; }
+    scroller.scrollTop += vel;
+    raf = requestAnimationFrame(glide);
+  }
   document.addEventListener("pointerdown", e => {
-    if(e.button !== 0 || e.pointerType === "touch") return;   // real touch scrolls natively
+    if(e.button !== 0) return;
+    if(e.pointerType === "touch" && e.isPrimary === false) return;
     if(isControl(e.target)) return;
-    active = true; moved = false; startY = e.clientY; startTop = scroller.scrollTop;
+    cancelAnimationFrame(raf); raf = 0;
+    active = true; moved = false; startY = lastY = e.clientY; startTop = scroller.scrollTop;
+    lastT = performance.now(); vel = 0;
   }, {passive:true});
   document.addEventListener("pointermove", e => {
     if(!active) return;
+    const now = performance.now();
     const dy = e.clientY - startY;
-    if(!moved && Math.abs(dy) < 8) return;
+    if(!moved && Math.abs(dy) < 10) return;         // dead-zone: this is a tap
     moved = true;
     scroller.scrollTop = startTop - dy;
-    e.preventDefault();
+    const dt = Math.max(1, now - lastT);
+    vel = (lastY - e.clientY) / dt * 16;             // px per frame
+    lastY = e.clientY; lastT = now;
+    if(e.pointerType !== "touch") e.preventDefault();
   }, {passive:false});
-  const end = () => { active = false; };
+  const end = () => {
+    if(!active) return;
+    active = false;
+    if(moved && Math.abs(vel) > 1) raf = requestAnimationFrame(glide);
+  };
   document.addEventListener("pointerup", end);
   document.addEventListener("pointercancel", end);
-  // swallow the click that follows a drag so nothing gets activated accidentally
-  document.addEventListener("click", e => { if(moved){ e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+  document.addEventListener("click", e => {
+    if(moved){ e.preventDefault(); e.stopPropagation(); moved = false; }
+  }, true);
+})();
+
+/* ---------------------------------------------------- fat-finger tap safety
+ * Single touch panels hit small controls poorly. Any button under 48px gets a
+ * minimum hit area, and we expand the tap target of the header pills. */
+(function fatFinger(){
+  const s = document.createElement("style");
+  s.textContent = `button{min-height:48px}
+    .pill{min-height:40px}
+    header .ghost{min-width:96px}`;
+  document.head.appendChild(s);
 })();
 
 /* --------------------------------------------------------------------- start */

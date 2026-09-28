@@ -1161,37 +1161,61 @@ async def api_plants_assigned() -> dict[str, Any]:
 
 # ---- devices + flashing (dashboard) ----------------------------------------- #
 
-FLASHER_URL = env("FLASHER_URL", "http://127.0.0.1:6053")
+FLASHER_URL = env("FLASHER_URL", "http://host.docker.internal:6053")
+COMPOSE_DIR = env("COMPOSE_DIR", "/configs")
+NODES_DIR = env("NODES_DIR", "/nodes")
 
 
-async def _flasher_get(path: str) -> dict[str, Any]:
+def _available_nodes() -> list[str]:
+    """Node configs that can be flashed (shared from the repo's esphome/)."""
+    names: list[str] = []
     try:
-        async with httpx.AsyncClient(timeout=8) as client:
-            r = await client.get(f"{FLASHER_URL}{path}")
-            return r.json()
-    except Exception as exc:  # noqa: BLE001
-        return {"error": str(exc)}
+        for f in os.listdir(NODES_DIR):
+            if f.endswith(".yaml") and "secrets" not in f and f != "smartplanter.yaml":
+                names.append(f[:-5])
+    except OSError:
+        pass
+    return sorted(names)
+
+
+async def _helper_post(path: str, body: dict[str, Any], timeout: float = 900) -> dict[str, Any]:
+    return await _helper("POST", path, body, timeout=timeout)
 
 
 @app.get("/api/devices")
 async def api_devices() -> dict[str, Any]:
-    """Attached ESPs + known devices. Merges the flasher service's view."""
-    live = await _flasher_get("/devices")
+    """Attached ESPs + known devices. Prefers the host helper (real MACs)."""
+    live = await _helper("GET", "/devices", timeout=90)
+    attached = live.get("devices", [])
+    if "error" in live:  # fall back to the container flasher's simple view
+        fl = await _helper("GET", "/devices") if False else None
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                attached = (await client.get(f"{FLASHER_URL}/devices")).json().get("devices", [])
+        except Exception:  # noqa: BLE001
+            attached = []
     known = {d["id"]: d for d in list_devices()}
-    for dev in live.get("devices", []):
-        mac = dev.get("mac")
-        dev_id = mac or dev.get("port")
+    for dev in attached:
+        dev_id = dev.get("mac") or dev.get("port")
         if dev_id and dev_id not in known:
             upsert_device(dev_id, {"kind": "esp32", "port": dev.get("port"),
-                                   "chip": dev.get("chip"), "mac": mac, "last_seen": time.time()})
-    return {"attached": live.get("devices", []), "known": list_devices(),
-            "flasher": live.get("error") if live.get("error") else "ok"}
+                                   "chip": dev.get("chip"), "mac": dev.get("mac"),
+                                   "last_seen": time.time()})
+    return {"attached": attached, "known": list_devices(),
+            "helper": live.get("error") if live.get("error") else "ok"}
 
 
 @app.get("/api/nodes/available")
 async def api_nodes_available() -> dict[str, Any]:
     """Node configs available to flash."""
-    return await _flasher_get("/nodes")
+    nodes = _available_nodes()
+    if not nodes:
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                nodes = (await client.get(f"{FLASHER_URL}/nodes")).json().get("nodes", [])
+        except Exception:  # noqa: BLE001
+            pass
+    return {"nodes": nodes}
 
 
 @app.post("/api/flash")
@@ -1200,34 +1224,43 @@ async def api_flash(
     request: Request,
     planter_session: str | None = Cookie(default=None),
 ) -> dict[str, Any]:
-    """Flash a node over USB. The flasher does the esptool/esphome work."""
+    """Flash a node over USB. The host helper does the esptool/esphome work."""
     user = require_user(request, planter_session)
     node = str(body.get("node", ""))
     port = str(body.get("port", "/dev/ttyUSB0"))
     if not node:
         raise HTTPException(status_code=400, detail="node required")
     audit(user, "flash_requested", f"{node} on {port}", client_ip(request))
-    try:
-        async with httpx.AsyncClient(timeout=900) as client:
-            r = await client.post(f"{FLASHER_URL}/flash", json={"node": node, "port": port})
-            result = r.json()
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=503, detail=f"flasher unavailable: {exc}")
+    result = await _helper_post("/flash", {"node": node, "port": port})
+    if result.get("helper") == "unavailable":
+        raise HTTPException(status_code=503, detail="host helper unavailable (install deploy/install-host-helper.sh)")
     audit(user, "flash_done" if result.get("ok") else "flash_failed",
           f"{node} on {port}", client_ip(request))
     return result
 
 
-# ---- hotspot / Wi-Fi settings (needs host access) --------------------------- #
+# ---- hotspot / Wi-Fi settings (applied via the host helper) ----------------- #
+
+HOST_HELPER_URL = env("HOST_HELPER_URL", "http://host.docker.internal:6054")
+HOST_HELPER_TOKEN = env("HOST_HELPER_TOKEN", "")
+
+
+async def _helper(method: str, path: str, body: dict[str, Any] | None = None,
+                  timeout: float = 60) -> dict[str, Any]:
+    headers = {"X-Host-Token": HOST_HELPER_TOKEN}
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.request(method, f"{HOST_HELPER_URL}{path}", json=body, headers=headers)
+            return r.json()
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc), "helper": "unavailable"}
+
 
 @app.get("/api/hotspot")
 async def api_hotspot(request: Request, planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
     require_user(request, planter_session)
-    return {
-        "note": "Hotspot (FloraHome) verwaltet der Host: nmcli con show Hotspot.",
-        "ssid": "FloraHome",
-        "owner": "host",
-    }
+    info = await _helper("GET", "/hotspot")
+    return {"owner": "host", **info}
 
 
 @app.put("/api/hotspot")
@@ -1236,14 +1269,20 @@ async def api_hotspot_put(
     request: Request,
     planter_session: str | None = Cookie(default=None),
 ) -> dict[str, Any]:
+    """Change the FloraHome access point. Applied on the host via the helper
+    (nmcli). Nodes must be re-flashed with the new SSID/PSK afterwards."""
     user = require_user(request, planter_session)
     ssid = data.get("ssid")
-    # The API container has no host namespace; this is intentionally a spool.
-    audit(user, "hotspot_change_requested", json.dumps(data, ensure_ascii=False), client_ip(request))
-    return {"ok": False,
-            "detail": "Hotspot-Änderung wird gespoolt (siehe docs/DEVICES.md). "
-                      "Aktuell per Host: nmcli con mod Hotspot 802-11-wireless.ssid <name>",
-            "requested": {"ssid": ssid}}
+    psk = data.get("psk")
+    if not ssid and not psk:
+        raise HTTPException(status_code=400, detail="ssid and/or psk required")
+    result = await _helper("POST", "/hotspot", {"ssid": ssid, "psk": psk}, timeout=120)
+    ok = bool(result.get("ok"))
+    audit(user, "hotspot_changed" if ok else "hotspot_change_failed",
+          json.dumps({"ssid": ssid, "psk": "***" if psk else None}, ensure_ascii=False),
+          client_ip(request))
+    return {"ok": ok, "detail": "Hotspot aktualisiert – Knoten mit neuen Zugangsdaten neu flashen."
+            if ok else result, "requested": {"ssid": ssid}}
 
 
 @app.get("/api/config")
