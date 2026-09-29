@@ -1,202 +1,163 @@
-# Handoff — next session
+# Handoff — next session (FloraHome / FlorAI)
 
-_Very thorough, because a fresh agent/session should be able to pick this up cold._
+_Updated 2026-09-29. Read this top-to-bottom; it is written so a fresh agent can
+continue cold. The repo is the source of truth and everything here is pushed to
+GitHub (`KoloTim/FloraHome`, branch `main`)._
 
-Repo: **https://github.com/KoloTim/FloraHome** (branch `main`). Everything below
-is already pushed. Tag `pre-multinode` marks the state before the multi-node
-rework.
+## 0. TL;DR of where we are
 
----
+- **Dashboard/API work is done and live** on the Pi: FlorAI rebrand, EN/DE/NL i18n,
+  native graph dashboard (Grafana removed), AI plant-control tools, modular
+  sensors API+UI, backend API-key management, kiosk + onboarding.
+- **Node stability**: the real cause of the "offline after ~90 s" was the firmware
+  **re-processing the retained `estop` message continuously**, flooding the main
+  loop and starving telemetry + MQTT keepalives. Fixed in firmware (`ce47e41`) and
+  API (publish estop only on change). **plant-a verified stable**; plant-b flashed.
+- **Network**: the Pi is **no longer an access point**. `wlan0` joined the home
+  Wi-Fi **`Group1`** (Pi = `192.168.0.104`). Nodes also joined `Group1`; the MQTT
+  broker address is a secret (`esphome/secrets.yaml: mqtt_broker`). The old
+  `Hotspot` profile is saved as a rollback.
+- **OPEN right now**: plant-a may need one clean reflash (last flashes were flaky —
+  "chip stopped responding"); the Pi was resource-starved by parallel compiles.
+  Reboot the Pi, then re-check both nodes.
 
-## 1. The deployment in one screen
+## 1. Access
 
 | Thing | Value |
 |---|---|
-| Demo host | Raspberry Pi 4B, hostname `Tim`, **192.168.91.68**, user `tim` / `timtimtim` |
-| SSH to Pi | works with paramiko (password); a helper script exists (see §7) |
+| Pi (eth) | `192.168.91.68`, user `tim` / `timtimtim` |
+| Pi (home Wi-Fi `Group1`) | `192.168.0.104` |
+| Dashboard | `http://192.168.91.68:8098` (kiosk runs it) |
+| API | `http://192.168.91.68:8097` |
 | Stack dir | `/home/tim/smartplanter` (Docker Compose project `smartplanter`) |
-| Containers | mosquitto, influxdb, telegraf, api, web, **esphome** (:6052), **flasher** (:6053) |
-| Dashboard | `http://192.168.91.68:8098` (kiosk runs it full-screen on the panel) |
-| API | `http://192.168.91.68:8097` (`/docs`, `/api/state`, `/health`) |
-| Graphs | built into the dashboard (**Verlauf** tab); Grafana removed |
-| ESPHome UI | `:6052` (build + OTA) |
-| **Host helper** | systemd `florahome-host-helper` on **:6054** (root; hotspot + USB flash + audio) |
-| Nodes | `plant-a` = `10.42.0.10` (`5c:01:3b:be:98:f4`), `plant-b` = `10.42.0.11` (`e0:8c:fe:e5:82:f4`) |
+| Nodes | `plant-a` = `plant-a` ZigbeeMQTT, `plant-b` |
 
-### Network
+SSH from this PC: **paramiko** (no `rsync` on Windows). Helper:
+`C:\Users\User\AppData\Local\Temp\opencode\FloraHome\deploy\remote_exec.py`
+run with env `RHOST/RUSER/RPW/RSCRIPT`. Work on the **GitHub Desktop clone**
+`C:\Users\User\smartplanter`. Push with the GitHub token inline (never saved).
 
-- **eth0** → your LAN `192.168.91.0/24`, gateway `192.168.91.1` (internet).
-- **wlan0** → **access point** `mode: ap`, SSID **`FloraHome`** (2.4 GHz, ch 6,
-  WPA2, PSK `floraplanter`), Pi at `10.42.0.1/24` (`ipv4.method: shared` = DHCP+NAT).
-- The nodes join the Pi's AP → same L2 as the broker → **OTA works**.
-- **OTA is manual/on-demand**, not automatic. USB is needed only for the first
-  flash (or after a Wi-Fi change). Once a node is on `FloraHome`, OTA works with
-  the USB cable unplugged.
+**Deploy pattern used all session** (write a bash script, run via RSCRIPT):
+`git clone --depth 1` to `/tmp/fhrepo` on the Pi, `rsync` `api/ web/ deploy/
+esphome/` into `/home/tim/smartplanter`, `docker compose up -d --build api web`,
+then **`docker compose restart web`** (rsync `--delete` swaps the index.html
+inode; nginx keeps the old one until restarted).
 
----
+## 2. Critical Pi gotchas (learned this session)
 
-## 2. How to reach the Pi from a fresh session
+- **Do NOT run two ESPHome compiles in parallel** — it starts resource-starvation
+  and SSH stops responding. Compile serially.
+- **ESPHome/flasher image**: pinned to `esphome/esphome:2025.8.4`; the `2025.8`
+  layer was corrupt. The **`esphome` container cannot see `/dev`**; only
+  `flasher` mounts `/dev`. Flash via a one-off:
+  ```
+  docker run --rm --privileged -v /dev:/dev -v /home/tim/smartplanter/esphome:/config \
+    --entrypoint esptool esphome/esphome:2025.8.4 \
+    --chip esp32 --port /dev/ttyUSBx --baud 115200 --after hard_reset \
+    write-flash -z 0x0 /config/.esphome/build/<node>/.pioenvs/<node>/firmware.factory.bin
+  ```
+- **PlatformIO cache** in the esphome container got corrupt twice (missing
+  `Arduino.h`/`esp_netif_types.h`). Fix: `rm -rf /root/.platformio/packages` inside
+  the container, recompile (re-downloads, ~slow one time).
+- **Kiosk white screen**: the Wayland socket is **`wayland-0`**; Chromium was told
+  `wayland-1`. Fixed in `deploy/kiosk.sh` (auto-detects `$XDG_RUNTIME_DIR/wayland-*`).
+  Kiosk relaunches itself if it exits.
+- **SSH rate-limits**; retry with backoff (the helper does 6 tries). Avoid hammering.
+- **`docker compose logs`** for mosquitto shows node disconnects: look for
+  `disconnected: exceeded timeout` (= the estop-flood symptom).
 
-There is no `rsync` on this Windows PC. Use **paramiko** (already installed) with
-the helper scripts in the temp dir, or write your own. The pattern:
+## 3. What was built (all pushed)
 
-```python
-import paramiko
-c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-c.connect("192.168.91.68", username="tim", password="timtimtim",
-          allow_agent=False, look_for_keys=False)   # <-- essential: skip agent keys
-```
-- The SSH server intermittently answers `"Not allowed at this time"`; **retry**
-  (connect loop, ~4 s backoff). Helper scripts already do this.
-- Run scripts via base64 to avoid quoting hell:
-  `echo <b64> | base64 -d | bash`. Scripts written by PowerShell get **CRLF** —
-  write them with LF or the shell errors on `$'\r'`.
-- Upload files with SFTP (`sftp.put`), download with `sftp.get`.
+1. **Node resilience** (`api/app.py`, `esphome/*.yaml`):
+   - `node_fresh()` is time-based (config `node_offline_sec`, default 90 s); never
+     gated by the LWT flag.
+   - LWT handled: an explicit non-retained `offline` marks the node down; retained
+     replays don't resurrect/flap.
+   - **estop handler is idempotent** (`if (stop_all == id(halted)) return;`) — the
+     flood fix. API publishes retained estop only on change.
+   - `api.reboot_timeout: 0s`, `wifi.power_save_mode: NONE`, `mqtt.keepalive: 10s`,
+     DHT `setup_priority: -100` + 60 s.
+   - subscribe `planter/+/event`; `publish()` checks rc; rules gate on fresh data.
+2. **FlorAI** (was "Flori"): floating animated mascot, contextual tips, drag/tap,
+   chat at the top of Übersicht. Brand: *"FloraHome — AI-powered smart plant
+   dashboard"*.
+3. **AI plant control** (safety-first): tools `get_plant_state`, `set_watering`,
+   `set_light`, `apply_species_care`, `water_now`, `write_diary`; per-plant
+   `ai_control` = `off|ask|auto` (default off). Hard rails: offline/EMERGENCY-STOP
+   refuse, dose clamp, daily cap, audit.
+4. **i18n EN (default) / DE / NL** — 324+ keys, header switcher (was unwired, now
+   fixed: `initLang()` + `#langSelect.onchange`).
+5. **Graph dashboard** (`Verlauf` tab), **Grafana removed**.
+6. **Modular sensors**: `/api/sensors/{node}` + `sensors` in `/api/state`; per-node
+   `sensor_<key>_enabled` (tri-state; auto-detect from telemetry/fault). Backend
+   tab renders cards with GPIO + wiring guide.
+7. **Backend**: API-key management (runtime overrides in `meta`, `_reload_secrets`),
+   System & status card.
+8. **UX**: in-app confirm/error dialogs, onboarding checklist, resistive-touch
+   polish, shorter/cuter diary entries.
+9. **Kiosk**: resilient launcher + labwc autostart + systemd user watchdog.
 
----
+## 4. TODO — continue here
 
-## 3. Firmware / nodes
+### P0 (finish the node story — do first)
+1. **Reflash plant-a cleanly** (it may still be on an older/corrupt image). One
+   compile at a time; verify serial shows `Connected` + `mqtt:309`.
+2. **Verify both nodes stay online 5+ min** on `Group1`.
+3. See the hardware TODO below.
 
-- Node configs live **directly in `esphome/`** (NOT a subdir — `!secret` resolves
-  next to the file): `smartplanter.yaml` (template), `plant-a.yaml`, `plant-b.yaml`,
-  `plant-c.yaml`, `battery-template.yaml`.
-- Per-node MQTT: `planter/<node>/{telemetry,status,event,cmd,estop,state/<f>}`.
-- Tooling: `deploy/add-node.sh` — `new <dev> "<name>" [battery]`, `list`,
-  `discover`, `compile`, `flash <dev> <port>`, `ota <dev> <ip>`.
-- Build on the Pi (toolchain cache present, ~4 GB in `~/.platformio`). A full
-  compile is ~7 min.
-- ESP32 flash gotcha: use **`--no-stub`** (Debian esptool 4.7 is missing the stub).
-- `esphome run` on this Pi must include `--device` (it defaults to OTA otherwise).
+### P1 (user's explicit wishes not yet finished)
+4. **Sensor troubleshooting UI** — guided per-sensor diagnosis (raw values,
+   fault → "wire X to GPIO Y", step-by-step). The modular-sensor cards are the
+   base; add a "Troubleshoot" flow.
+5. **FlorAI even more present/interactive** — quick-action chips (e.g. "Water now",
+   "Set up for species", "How is it?"), proactive tips, maybe a small avatar badge.
+6. **Nicer plant switching** — replace/upgrade the header dropdown (tiles/avatars).
+7. **Voice end-to-end test** — browser mic needs **HTTPS or localhost**. Plan:
+   self-signed HTTPS reverse proxy on the Pi, or a `.local`/Tailscale hostname
+   browsers treat as secure. Server side (`/api/voice/stt`, browser-first +
+   Pi fallback, `play_on_pi`) is done and deployed.
+8. **Charts refinement** — nicer axes/legend, maybe area smoothing, per-node
+   overlay.
 
-### Node status right now
+### P2 (hardware / polish)
+9. **Wire plant sensors properly**: DHT11 needs a **10 kΩ pull-up** (GPIO27);
+   plant-b currently `fault: dht11`. Soil probe calibration (plant-a reads 100 %).
+10. **Repo polish**: README screenshots, `docs/` refresh (FlorAI, home-Wi-Fi,
+    no-Grafana, modular sensors), tag a release.
 
-| Node | Sensors | fault |
+## 5. Hardware / wiring reference (ESP32)
+
+| Function | GPIO | Notes |
 |---|---|---|
-| plant-a ("Moni", Monstera) | DHT11 + LDR + HW-390 wired | `ok` (needs soil calibration) |
-| plant-b ("Sanse", Sans.) | **none wired** | `dht11,ldr` (expected) |
+| Soil ADC | 34 | ADC1, input-only; power-gated by GPIO25 |
+| Soil power | 25 | on only while sampling |
+| DHT11 data | 27 | **10 kΩ pull-up to 3.3 V required** |
+| LDR divider | 35 | ADC1, input-only |
+| Relay pump | 26 | active-low (config `relay_inverted`) |
+| Relay light | 13 | |
+| Buzzer | 14 | |
+| Button | 4 | to GND |
 
-Also present on USB: `/dev/ttyUSB0` = plant-a, `/dev/ttyUSB1` = plant-b.
+Serial: `/dev/ttyUSB0` = plant-a, `/dev/ttyUSB1` = plant-b.
 
----
+## 6. Config keys (per node, `/api/config/node/<node>`)
+`pump_auto`, `pump_threshold_pct`, `pump_seconds`, `pump_cooldown_min`,
+`pump_max_per_day`, `alert_dry_pct`, `alert_dry_min`, `alert_silent_min`,
+`alert_tank_pct`, `light_auto`, `light_on_below_lux`, `telegram_enabled`,
+`buzzer_enabled`, `node_offline_sec`, `diary_enabled`, `diary_interval_days`,
+`ai_control`, `sensor_<soil|dht|lux|tank|battery>_enabled`.
 
-## 4. Settings are PER NODE (this matters)
+## 7. Secrets
+`esphome/secrets.yaml` on the Pi (gitignored): `wifi_ssid: "Group1"`,
+`wifi_password`, `mqtt_broker: "192.168.0.104"`, mqtt creds, ota/ap passwords.
+Runtime API keys (AI, Influx, Telegram, host helper) are editable in
+**Backend → API keys** (stored in the `meta` table; override `.env`).
 
-- Table `node_config(node, key, value)`; `get_config_for(node)` = global config
-  overridden by node overrides. `PUT /api/config/node/<node>` sets overrides
-  (`null` clears one).
-- Global defaults live in `DEFAULTS` in `api/app.py` (env-seeded).
-- **Smart defaults**: assigning a species to a node auto-sets its watering values
-  from the species' care range (`_smart_overrides`), unless `smart_defaults:false`.
-- The dashboard uses `selectedNode()` (the plant selector) everywhere now — this
-  was the bug where editing one plant edited another.
-
----
-
-## 5. AI / voice
-
-- Provider: Google AI Studio key in `.env` (`AI_API_KEY`). Model
-  `gemini-3.8-flash` with `AI_FALLBACKS`. Endpoint: OpenAI-compatible
-  `.../v1beta/openai` for **chat**; **native** `.../v1beta/models/<m>:generateContent`
-  for **TTS/STT** (the OpenAI `/audio/speech` path 404s on Gemini).
-- **Chat**: `/api/ai/chat` — grounded in live telemetry + species care; retries
-  with more tokens if `finish_reason=length`.
-- **Photo → plant**: `/api/ai/identify` (vision), used by "📷 Neue Pflanze".
-- **Diary**: `_write_diary` + `diary_tick` (weekly, `DIARY_INTERVAL_H`),
-  `/api/diary/<node>` GET/POST. Stored in the `diary` table.
-- **Voice**: `/api/voice/{devices,record,ask,tts}`. Recording and playback go
-  through the **host helper** (`arecord`/`aplay`). Verified working
-  (`played:true`). **A USB microphone is still required** for input — the Pi has
-  no built-in mic. Speaker = 3.5 mm jack (`card 2`) or HDMI.
-
----
-
-## 6. Host helper (the thing that was broken)
-
-`deploy/host-helper.sh`, systemd unit `florahome-host-helper`:
-
-- Binds **`0.0.0.0:6054`** so containers can reach `host.docker.internal:6054`.
-  (It used to bind `127.0.0.1` — that was the "Host-Helfer nicht erreichbar".)
-- Auth: header `X-Host-Token` = `HOST_HELPER_TOKEN` (in `.env`).
-- iptables guard in the unit restricts 6054 to `172.16.0.0/12` (docker) only.
-- Endpoints: `/health`, `/hotspot` (GET/POST → nmcli), `/devices` (esptool MACs),
-  `/flash`, `/audio` (list), `/audio/record`, `/audio/play`.
-- **Gotcha**: the systemd unit sets `HOST_HELPER_BIND`; after editing the unit you
-  must `systemctl daemon-reload` **and** restart, or the old bind sticks.
-
----
-
-## 7. Dashboard
-
-Single file `web/index.html` (no build step; nginx serves it directly).
-Tabbed pages: **Übersicht · Steuern · Verlauf · Backend**. Features:
-
-- **Flori**, the animated floating companion (Clippy-style): contextual plant
-  tips, draggable, tap opens the chat. Chat lives at the **top of Übersicht**
-  (no separate KI tab any more).
-- **Verlauf** tab: per-metric charts from `/api/history` (InfluxDB, memory
-  fallback) — Grafana is gone.
-- Plant moodboard cards; one global plant selector in the header drives every
-  control.
-- Backend page: technical cards + "Details" dialog (GPIO pin map, firmware, raw
-  `soil_v`/`ldr_v`, RSSI, uptime/restarts, fault, MQTT topics, test command).
-- Calibration, watering settings (per node), diary, history chart.
-- Devices & flashing panel; voice buttons; A−/A+ scale; easter eggs.
-- Touch: `deploy/touch_bridge.py` (uinput) turns the absolute-mouse panel into a
-  real touchscreen; `deploy/kiosk.sh` runs Chromium kiosk (autostart).
-
----
-
-## 8. Known issues / next steps
-
-1. **Calibrate plant-a** (reads 100 %; moisture meaningless until then) — this
-   also stops spurious auto-watering.
-2. **Wire plant-b's sensors** (DHT11→GPIO27, LDR→GPIO35, soil→GPIO34 power GPIO25);
-   plant-b currently reports `fault: dht11`.
-3. **Pi Wi-Fi power-save is now disabled** (`/etc/NetworkManager/conf.d/99-wifi-powersave-off.conf`).
-   It was enabled and is the main reason nodes dropped after ~1 min. Re-apply
-   after an OS reinstall.
-4. **Firmware fixes for the node drops** (deployed in the YAML, needs a flash):
-   - `api.reboot_timeout: 0s` — the node no longer reboots every 15 min because no
-     ESPHome API client connects (we use MQTT).
-   - `wifi.power_save_mode: NONE` + explicit reconnect.
-   - `mqtt.keepalive: 30s` / `reboot_timeout: 15min`.
-   - DHT11 needs a 10 kΩ pull-up on GPIO27; without it reads block the loop.
-5. Voice input is **browser-based** now (getUserMedia) so any device with a mic
-   works; the Pi mic is optional. Reply audio plays on the requesting device,
-   optionally also on the Pi speaker.
-6. Battery node (`battery-template.yaml`) not yet built/flashed on real hardware.
-7. Touch panel is physically single-touch (no pinch); UI optimised for pressure.
-
-### Deploying these changes to the Pi
-
+## 8. First actions for the new session
 ```bash
-ssh tim@192.168.91.68
-cd ~/smartplanter && git pull
-docker compose up -d --build api web     # rebuild api, refresh web
-docker compose up -d --remove-orphans    # drops the old grafana container
-# firmware (needed for the resilience fixes):
-docker exec planter-esphome esphome compile /config/plant-a.yaml
-docker exec planter-flasher esphome run  /config/plant-a.yaml --device /dev/ttyUSB0 --no-logs
+# 1. Reach the Pi
+RHOST=192.168.91.68 RUSER=tim RPW=timtimtim python remote_exec.py 'uptime; \
+  curl -s localhost:8097/api/state | python3 -m json.tool | head -40'
+# 2. If a node is missing, reflash it (serial-compile, one at a time) — see §2.
+# 3. Continue the TODO list from P1 upward.
 ```
-
-Note: `esphome`/`flasher` are pinned to `esphome/esphome:2025.8.4`; the `2025.8`
-image had a corrupt layer on the Pi. The `esphome` container cannot see `/dev`
-(only `flasher` mounts `/dev`), so **flash via the flasher container**.
-
----
-
-## 9. Where things live
-
-| Path | What |
-|---|---|
-| `api/app.py` | the whole API (multi-node state, rules, AI, voice, diary, flash) |
-| `api/plants.json` | 16-species offline plant database |
-| `web/index.html` | dashboard (tabs, moodboard, backend) |
-| `esphome/*.yaml` | firmware per node + battery template |
-| `deploy/add-node.sh` | add/compile/flash/OTA a node |
-| `deploy/host-helper.sh` | privileged shim (hotspot/flash/audio) |
-| `deploy/touch_bridge.py`, `deploy/kiosk.sh` | Pi display |
-| `docs/ARCHITECTURE.md`, `MQTT.md`, `HOMEASSISTANT.md`, `ALERTS.md`, `AI.md`, `VOICE.md`, `BATTERY.md`, `DEVICES.md`, `TUTORIALS.md`, `STATUS.md` | docs |
-| `docs/diagrams/` | rendered SVGs |
-
-Read `docs/ARCHITECTURE.md` first, then `docs/STATUS.md`, then this file.
