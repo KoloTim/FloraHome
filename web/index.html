@@ -759,6 +759,8 @@ const I18N = {
     "voice.denied": "Microphone permission denied.",
     "voice.record_failed": "Recording failed: {msg}",
     "voice.not_supported": "This browser cannot record audio (needs HTTPS or localhost).",
+    "voice.helper_down": "The Pi audio helper is unreachable.",
+    "voice.fellback_pi": "Device mic unavailable – using the Pi mic.",
     "voice.play_on_pi": "Also play on the Pi speaker",
     "voice.mode": "Microphone", "voice.mode.browser": "This device",
     "voice.mode.pi": "The Pi (USB mic)",
@@ -970,6 +972,8 @@ const I18N = {
     "voice.denied": "Mikrofon-Zugriff verweigert.",
     "voice.record_failed": "Aufnahme fehlgeschlagen: {msg}",
     "voice.not_supported": "Dieser Browser kann kein Audio aufnehmen (HTTPS oder localhost nötig).",
+    "voice.helper_down": "Der Audio-Helfer auf dem Pi ist nicht erreichbar.",
+    "voice.fellback_pi": "Gerätemikrofon nicht verfügbar – nutze das Pi-Mikrofon.",
     "voice.play_on_pi": "Auch über den Pi-Lautsprecher abspielen",
     "voice.mode": "Mikrofon", "voice.mode.browser": "Dieses Gerät",
     "voice.mode.pi": "Der Pi (USB-Mikro)",
@@ -1181,6 +1185,8 @@ const I18N = {
     "voice.denied": "Microfoontoegang geweigerd.",
     "voice.record_failed": "Opnemen mislukt: {msg}",
     "voice.not_supported": "Deze browser kan geen audio opnemen (HTTPS of localhost nodig).",
+    "voice.helper_down": "De audio-helper op de Pi is niet bereikbaar.",
+    "voice.fellback_pi": "Microfoon van dit apparaat niet beschikbaar – ik gebruik de Pi-mic.",
     "voice.play_on_pi": "Ook via de Pi-luidspreker afspelen",
     "voice.mode": "Microfoon", "voice.mode.browser": "Dit apparaat",
     "voice.mode.pi": "De Pi (USB-mic)",
@@ -1340,6 +1346,13 @@ function setLang(lang, save=true){
   if(typeof loadKeys === "function") loadKeys();
   if(typeof loadSystem === "function") loadSystem();
 }
+// Apply the language on first paint, and let the header selector switch it live.
+(function initLang(){
+  LANG = detectLang();
+  const sel = $("langSelect");
+  if(sel){ sel.value = LANG; sel.onchange = () => setLang(sel.value); }
+  applyI18n();
+})();
 
 let authed = false, cfgCache = {}, lastState = {};
 
