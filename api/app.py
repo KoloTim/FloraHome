@@ -1,4 +1,4 @@
-"""
+﻿"""
 Smart Planter API — Euregio Hackathon
 -------------------------------------
 One process that owns:
@@ -1683,13 +1683,13 @@ LANG_NAMES = {"en": "English", "de": "Deutsch", "nl": "Nederlands"}
 STRINGS: dict[str, dict[str, str]] = {
     # voice + AI
     "voice.system": {
-        "en": "You are Flori, FloraHome's warm plant companion, speaking out loud. "
+        "en": "You are FlorAI, FloraHome's plant assistant's warm plant companion, speaking out loud. "
               "Reply in English, short and clear (1-3 sentences, no emojis, no markdown), "
               "using ONLY the data given.",
-        "de": "Du bist Flori, der warme Pflanzen-Begleiter von FloraHome, und sprichst laut. "
+        "de": "Du bist FlorAI, der warme Pflanzen-Begleiter von FloraHome, und sprichst laut. "
               "Antworte auf Deutsch, kurz und klar (1-3 Sätze, keine Emojis, kein Markdown), "
               "NUR mit den gegebenen Daten.",
-        "nl": "Je bent Flori, de warme plantenmaatje van FloraHome, en je spreekt hardop. "
+        "nl": "Je bent FlorAI, het warme plantenmaatje van FloraHome, en je spreekt hardop. "
               "Antwoord in het Nederlands, kort en duidelijk (1-3 zinnen, geen emoji's, "
               "geen markdown), gebruik ALLEEN de gegeven gegevens.",
     },
@@ -1704,16 +1704,16 @@ STRINGS: dict[str, dict[str, str]] = {
         "nl": "Transcribeer de gesproken woorden. Antwoord ALLEEN met de tekst.",
     },
     "chat.system": {
-        "en": "You are Flori, FloraHome's friendly plant companion, speaking as the plant "
+        "en": "You are FlorAI, FloraHome's plant assistant's friendly plant companion, speaking as the plant "
               "itself (first person). Reply in English, warm and concrete, using ONLY the "
               "given data. If the plant is unwell, explain what the readings mean and what "
               "the human should do. Always write complete sentences. Reply in 2-4 sentences.",
-        "de": "Du bist Flori, der freundliche Pflanzen-Begleiter von FloraHome und sprichst "
+        "de": "Du bist FlorAI, der freundliche Pflanzen-Begleiter von FloraHome und sprichst "
               "als die Pflanze selbst (ich-Form). Antworte auf Deutsch, warm und konkret, "
               "NUR mit den gegebenen Daten. Wenn es der Pflanze nicht gut geht, sag was die "
               "Werte bedeuten und was der Mensch tun soll. Schreibe immer vollständige Sätze. "
               "Antworte in 2-4 Sätzen.",
-        "nl": "Je bent Flori, het vriendelijke plantenmaatje van FloraHome, en je spreekt als "
+        "nl": "Je bent FlorAI, het vriendelijke plantenmaatje van FloraHome, en je spreekt als "
               "de plant zelf (ik-vorm). Antwoord in het Nederlands, warm en concreet, gebruik "
               "ALLEEN de gegeven gegevens. Als het niet goed gaat met de plant, leg uit wat de "
               "waarden betekenen en wat de mens moet doen. Schrijf altijd volledige zinnen. "
@@ -2216,7 +2216,7 @@ HOST_HELPER_TOKEN = env("HOST_HELPER_TOKEN", "")
 
 SECRET_SPECS: list[dict[str, Any]] = [
     {"name": "AI_API_KEY", "label": "KI-Schlüssel (AI_API_KEY)", "secret": True,
-     "hint": "Google AI Studio / OpenRouter / Groq – schaltet Flori frei"},
+     "hint": "Google AI Studio / OpenRouter / Groq – schaltet FlorAI frei"},
     {"name": "AI_BASE_URL", "label": "KI-Endpunkt (AI_BASE_URL)", "secret": False,
      "hint": "OpenAI-kompatibel, z. B. …/v1beta/openai"},
     {"name": "AI_MODEL", "label": "KI-Modell (AI_MODEL)", "secret": False, "hint": "z. B. gemini-3.8-flash"},

@@ -38,6 +38,9 @@
   .brand{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0}
   .brand .logo{font-size:1.6rem;line-height:1}
   h1{font-size:1.35rem;margin:0;white-space:nowrap;letter-spacing:-.01em}
+  .brand .tagline{display:block;font-size:.72rem;font-weight:600;color:var(--muted);
+    letter-spacing:.02em;white-space:nowrap}
+  @media (max-width:560px){ .brand .tagline{display:none} }
   .pills{display:flex;gap:8px;flex-wrap:wrap}
   .pill{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:.9rem;
         padding:7px 13px;border-radius:999px;border:2px solid var(--line);color:var(--muted)}
@@ -272,7 +275,7 @@
 </head>
 <body>
 <header>
-  <div class="brand"><span class="logo" aria-hidden="true">🌿</span><h1>FloraHome</h1></div>
+  <div class="brand"><span class="logo" aria-hidden="true">🌿</span><div><h1>FloraHome</h1><span class="tagline" data-i18n="brand.tagline">AI-powered smart plant dashboard</span></div></div>
   <div class="pills">
     <span id="conn" class="pill off" role="status">◌ <span id="connText" data-i18n="conn.connecting">Connecting…</span></span>
     <span id="nodeState" class="pill off">◌ <span id="nodeText" data-i18n="node.unknown">Node unknown</span></span>
@@ -284,7 +287,7 @@
     <button id="uiSmaller" class="ghost" type="button" title="Smaller" data-i18n-title="scale.smaller">A−</button>
     <button id="uiLarger" class="ghost" type="button" title="Bigger" data-i18n-title="scale.larger">A+</button>
   </span>
-  <button id="floriToggle" class="ghost" type="button" title="Show/hide Flori" data-i18n-title="flori.toggle">🌱 Flori</button>
+  <button id="floriToggle" class="ghost" type="button" title="Show/hide FlorAI" data-i18n-title="flori.toggle">🌱 FlorAI</button>
   <button id="authBtn" class="ghost" type="button" data-i18n="auth.login">Sign in</button>
 </header>
 
@@ -315,7 +318,7 @@
   <!-- ========================= PAGE: ÜBERSICHT ========================= -->
   <div class="page active" data-page="overview">
   <section class="card" id="floriCard">
-    <h2><span class="icon">💬</span> <span data-i18n="flori.card.title">Flori — your plant companion</span>
+    <h2><span class="icon">💬</span> <span data-i18n="flori.card.title">FlorAI — your plant companion</span>
       <span class="muted" style="font-size:.85rem;margin-left:auto" id="floriWho"></span>
     </h2>
     <div id="chatlog" aria-live="polite"></div>
@@ -326,15 +329,15 @@
     </div>
     <p class="note" id="aiNote"></p>
     <details class="diary-settings">
-      <summary data-i18n="flori.control.title">🌱 Flori's control of this plant</summary>
+      <summary data-i18n="flori.control.title">🌱 FlorAI's control of this plant</summary>
       <div style="margin-top:10px">
-        <label class="fld"><span data-i18n="flori.control.level">How much may Flori change?</span>
+        <label class="fld"><span data-i18n="flori.control.level">How much may FlorAI change?</span>
           <select id="aiControl" disabled>
             <option value="off" data-i18n="flori.control.off">Advice only</option>
             <option value="ask" data-i18n="flori.control.ask">Ask – propose, I approve</option>
             <option value="auto" data-i18n="flori.control.auto">Auto – set up & apply</option>
           </select></label>
-        <p class="note" data-i18n="flori.control.note">Flori can adjust watering, light and automations to match this plant's species. Safety limits (dose length, daily cap, EMERGENCY STOP) always apply and every action is logged.</p>
+        <p class="note" data-i18n="flori.control.note">FlorAI can adjust watering, light and automations to match this plant's species. Safety limits (dose length, daily cap, EMERGENCY STOP) always apply and every action is logged.</p>
         <button id="btnSetupPlant" class="primary" type="button" disabled data-i18n="flori.control.setup">🌿 Set up this plant from its species</button>
       </div>
     </details>
@@ -416,7 +419,7 @@
     <h2><span class="icon">📔</span> <span data-i18n="diary.title">Plant diary</span> — <span id="diaryNode" class="muted"></span>
       <button id="btnDiaryWrite" class="ghost" style="margin-left:auto" type="button" disabled data-i18n="diary.write">Write entry now</button>
     </h2>
-    <p class="note" data-i18n="diary.help">Notes from your plant's point of view. Flori summarises the week automatically (species, readings, watering) – you can also write one yourself any time. Entries are stored per plant.</p>
+    <p class="note" data-i18n="diary.help">Notes from your plant's point of view. FlorAI summarises the week automatically (species, readings, watering) – you can also write one yourself any time. Entries are stored per plant.</p>
     <div id="diary" class="diary"></div>
     <details class="diary-settings">
       <summary data-i18n="diary.settings">⚙️ Diary settings</summary>
@@ -624,7 +627,7 @@ deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
 
 <!-- ============================ Flori companion ============================ -->
 <div id="flori" class="flori" role="button" tabindex="0"
-     aria-label="Flori, dein Pflanzen-Begleiter – antippen zum Chat">
+     aria-label="FlorAI, dein Pflanzen-Begleiter – antippen zum Chat">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" aria-hidden="true">
     <defs>
       <filter id="floriShadowFilter" x="-20%" y="-20%" width="140%" height="140%">
@@ -655,7 +658,7 @@ deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
 <div id="floriBubble" class="flori-bubble hidden" role="status" aria-live="polite">
   <div id="floriText"></div>
   <div class="flori-actions">
-    <button id="floriChat" class="primary" type="button" data-i18n="flori.chat.cta">Chat with Flori</button>
+    <button id="floriChat" class="primary" type="button" data-i18n="flori.chat.cta">Chat with FlorAI</button>
     <button id="floriNext" type="button" data-i18n="flori.next">Another tip</button>
     <button id="floriHide" class="ghost" type="button" data-i18n="flori.hide">Hide</button>
   </div>
@@ -670,7 +673,7 @@ const $ = id => document.getElementById(id);
  * element sets its text; `data-i18n-ph` sets its placeholder. */
 const I18N = {
   en: {
-    "app.title": "FloraHome",
+    "app.title": "FloraHome", "brand.tagline": "AI-powered smart plant dashboard",
     "tab.overview": "🌿 Overview", "tab.control": "🎛️ Control",
     "tab.graphs": "📈 History", "tab.backend": "🔧 Backend",
     "conn.connecting": "Connecting…", "conn.live": "Live connected",
@@ -679,14 +682,14 @@ const I18N = {
     "node.offline": "Node offline ({ago} ago)", "node.count": "{n}/{total} nodes online",
     "scale.smaller": "Smaller", "scale.larger": "Bigger",
     "auth.login": "Sign in", "auth.logout": "Sign out",
-    "flori.toggle": "Show/hide Flori",
+    "flori.toggle": "Show/hide FlorAI",
     "estop.active.title": "🛑 EMERGENCY STOP ACTIVE",
     "estop.active.body": "Pump and light are off; automatic watering is blocked – also after a restart, until released.",
     "estop.resume": "▶️ Release",
-    "flori.card.title": "Flori — your plant companion",
+    "flori.card.title": "FlorAI — your plant companion",
     "flori.chat.placeholder": "How is my plant doing?",
     "flori.chat.send": "Ask", "flori.chat.mic": "Speak",
-    "flori.thinking": "Flori is thinking…",
+    "flori.thinking": "FlorAI is thinking…",
     "alerts.title": "Notifications",
     "onboard.title": "Getting started",
     "onboard.hide": "Hide",
@@ -698,7 +701,7 @@ const I18N = {
     "onboard.online": "Get the node online",
     "onboard.online.why": "It should join “FloraHome” and send data within a minute.",
     "onboard.plant": "Name your plant",
-    "onboard.plant.why": "Pick a species so Flori knows how to care for it.",
+    "onboard.plant.why": "Pick a species so FlorAI knows how to care for it.",
     "onboard.cal": "Calibrate the soil sensor",
     "onboard.cal.why": "Otherwise moisture reads 100% and auto-watering stays off.",
     "alerts.none": "✅ No notices. Everything looks good.",
@@ -718,7 +721,7 @@ const I18N = {
     "cal.wet_in": "In water (wet) — volts", "cal.apply": "Apply values",
     "cal.hint": "Per plant. Copy the <b>raw voltage</b>: probe in air → left, in a glass of water → right.",
     "diary.title": "Plant diary", "diary.write": "Write entry now",
-    "diary.help": "Notes from your plant's point of view. Flori summarises the week automatically (species, readings, watering) – you can also write one yourself any time. Entries are stored per plant.",
+    "diary.help": "Notes from your plant's point of view. FlorAI summarises the week automatically (species, readings, watering) – you can also write one yourself any time. Entries are stored per plant.",
     "diary.settings": "⚙️ Diary settings", "diary.auto": "Write entries automatically",
     "diary.interval": "Interval (days)", "diary.save": "Save settings",
     "diary.for_plant": "Applies to {plant}.", "diary.none": "No entries yet – write one or wait for the next automatic entry.",
@@ -744,14 +747,14 @@ const I18N = {
     "toast.voice_think": "🧠 Thinking…", "toast.signed_in": "🔓 Signed in",
     "toast.login_failed": "Sign-in failed: {msg}", "toast.buzzer": "🔊 Buzzer test sent",
     "voice.no_mic": "No microphone found on this device.",
-    "flori.control.title": "🌱 Flori's control of this plant",
-    "flori.control.level": "How much may Flori change?",
+    "flori.control.title": "🌱 FlorAI's control of this plant",
+    "flori.control.level": "How much may FlorAI change?",
     "flori.control.off": "Advice only",
     "flori.control.ask": "Ask – propose, I approve",
     "flori.control.auto": "Auto – set up & apply",
-    "flori.control.note": "Flori can adjust watering, light and automations to match this plant's species. Safety limits (dose length, daily cap, EMERGENCY STOP) always apply and every action is logged.",
+    "flori.control.note": "FlorAI can adjust watering, light and automations to match this plant's species. Safety limits (dose length, daily cap, EMERGENCY STOP) always apply and every action is logged.",
     "flori.control.setup": "🌿 Set up this plant from its species",
-    "flori.control.saved": "🌱 Flori's control level saved",
+    "flori.control.saved": "🌱 FlorAI's control level saved",
     "flori.did_applied": "applied",
     "tool.get_plant_state": "Read plant state", "tool.set_watering": "Change watering",
     "tool.set_light": "Change light", "tool.apply_species_care": "Apply species care",
@@ -765,8 +768,8 @@ const I18N = {
     "voice.mode": "Microphone", "voice.mode.browser": "This device",
     "voice.mode.pi": "The Pi (USB mic)",
     "voice.settings": "🎙️ Voice",
-    "flori.greeting": "👋 Hi! I'm <b>Flori</b>, your plant companion. Tap me when you want to chat.",
-    "flori.chat.cta": "Chat with Flori", "flori.next": "Another tip", "flori.hide": "Hide",
+    "flori.greeting": "👋 Hi! I'm <b>FlorAI</b>, your plant companion. Tap me when you want to chat.",
+    "flori.chat.cta": "Chat with FlorAI", "flori.next": "Another tip", "flori.hide": "Hide",
     "common.node_config": "Node (config)",
     "common.unavailable": "Unavailable: {msg}",
     "common.save_failed": "Saving failed: {msg}",
@@ -813,8 +816,8 @@ const I18N = {
     "nd.pins_source": "Source: <code>esphome/smartplanter.yaml</code> substitutions. Check here if you wired it yourself.",
     "nd.network": "Network", "nd.mqtt_topics": "MQTT topics", "nd.hotspot": "Hotspot",
     "nd.test_cmd": "Test command",
-    "ai.awake": "Flori is awake (model {model}). Ask anything about your plants.",
-    "ai.nokey": "Flori needs a key: set AI_API_KEY in the backend (Google AI Studio / OpenRouter :free).",
+    "ai.awake": "FlorAI is awake (model {model}). Ask anything about your plants.",
+    "ai.nokey": "FlorAI needs a key: set AI_API_KEY in the backend (Google AI Studio / OpenRouter :free).",
     "ai.unknown": "AI status unknown.", "ai.no_reply": "(no reply)", "ai.error": "Error: {msg}",
     "plant.care": "💧 {moist_min}–{moist_max}% · 🌡️ {temp_min}–{temp_max}°C · ☀️ {light_min}–{light_max} lx · every {days} days · {difficulty}",
     "plant.title": "🪴 Plant profile", "plant.node": "Node", "plant.species": "Species / plant",
@@ -857,7 +860,7 @@ const I18N = {
     "src.ui": "Dashboard",
     "sys.uptime": "Uptime", "sys.active": "{ago} active", "sys.connected": "connected",
     "sys.disconnected": "disconnected", "sys.offline_after": "Node offline after",
-    "sys.ai": "AI (Flori)", "sys.ai_model": "AI model", "sys.counts": "Counters",
+    "sys.ai": "AI (FlorAI)", "sys.ai_model": "AI model", "sys.counts": "Counters",
     "sys.counts_val": "nodes {nodes} · events {events} · devices {devices}",
     "sys.unavailable": "System info unavailable: {msg}",
     "egg.rain": "🌧️ A little rain for you!", "egg.party_on": "🎉 Debug mode: party 🌱",
@@ -868,8 +871,8 @@ const I18N = {
     "diary.saved": "📔 Diary settings saved", "diary.written": "📔 Entry written",
     "diary.error": "Diary: {msg}",
     "diary.for_prefix": "Applies to", "diary.for_suffix": ".",
-    "flori.shown": "🌱 Flori is back!",
-    "flori.hidden": "Flori hidden — the 🌱 button top right brings him back.",
+    "flori.shown": "🌱 FlorAI is back!",
+    "flori.hidden": "FlorAI hidden — the 🌱 button top right brings him back.",
     "flori.tip.offline": "😴 <b>{plant}</b> isn't reporting right now. Without fresh readings I won't water automatically — check power/WiFi briefly.",
     "flori.tip.fault": "🤒 <b>{plant}</b> reports a sensor fault (<b>{fault}</b>). Usually checking the wiring briefly helps.",
     "flori.tip.thirsty": "💧 <b>{plant}</b> is thirsty ({pct}% soil moisture). Tap Water under Control.",
@@ -877,13 +880,13 @@ const I18N = {
     "flori.tip.warm": "🥵 <b>{plant}</b> is warm ({temp} °C). Shade or airing helps.",
     "flori.tip.watering": "💦 I'm watering <b>{plant}</b> right now.",
     "flori.tip.multi": "🌱 You have <b>{n} plants</b>. Switch between them at the top of the header.",
-    "flori.tip.intro": "👋 I'm <b>Flori</b>. Ask me e.g. “How is my plant doing?” or “When should I water?”",
+    "flori.tip.intro": "👋 I'm <b>FlorAI</b>. Ask me e.g. “How is my plant doing?” or “When should I water?”",
     "flori.tip.diary": "📝 In the <b>plant diary</b> (Control tab) I record how your plant is developing.",
     "flori.tip.cal": "🧪 Wobbly soil moisture? Recalibrate once — Control tab → calibration.",
     "flori.tip.login": "🔔 Signing in at the top right unlocks control, watering and the diary.",
   },
   de: {
-    "app.title": "FloraHome",
+    "app.title": "FloraHome", "brand.tagline": "KI-gestütztes Smart-Plant-Dashboard",
     "tab.overview": "🌿 Übersicht", "tab.control": "🎛️ Steuern",
     "tab.graphs": "📈 Verlauf", "tab.backend": "🔧 Backend",
     "conn.connecting": "Verbinde…", "conn.live": "Live verbunden",
@@ -892,14 +895,14 @@ const I18N = {
     "node.offline": "Knoten offline ({ago} her)", "node.count": "{n}/{total} Knoten online",
     "scale.smaller": "Kleiner", "scale.larger": "Größer",
     "auth.login": "Anmelden", "auth.logout": "Abmelden",
-    "flori.toggle": "Flori ein-/ausblenden",
+    "flori.toggle": "FlorAI ein-/ausblenden",
     "estop.active.title": "🛑 NOT-AUS AKTIV",
     "estop.active.body": "Pumpe und Licht sind aus, die automatische Bewässerung ist gesperrt – auch nach einem Neustart, bis freigegeben wird.",
     "estop.resume": "▶️ Freigeben",
-    "flori.card.title": "Flori — dein Pflanzen-Begleiter",
+    "flori.card.title": "FlorAI — dein Pflanzen-Begleiter",
     "flori.chat.placeholder": "Wie geht es meiner Pflanze?",
     "flori.chat.send": "Fragen", "flori.chat.mic": "Sprechen",
-    "flori.thinking": "Flori denkt nach…",
+    "flori.thinking": "FlorAI denkt nach…",
     "alerts.title": "Meldungen",
     "onboard.title": "Erste Schritte",
     "onboard.hide": "Ausblenden",
@@ -911,7 +914,7 @@ const I18N = {
     "onboard.online": "Knoten online bringen",
     "onboard.online.why": "Er sollte sich binnen einer Minute mit „FloraHome“ verbinden.",
     "onboard.plant": "Pflanze benennen",
-    "onboard.plant.why": "Art wählen, damit Flori die Pflege kennt.",
+    "onboard.plant.why": "Art wählen, damit FlorAI die Pflege kennt.",
     "onboard.cal": "Bodensensor kalibrieren",
     "onboard.cal.why": "Sonst zeigt die Feuchte 100 % und die Automatik bleibt aus.",
     "alerts.none": "✅ Keine Meldungen. Alles im grünen Bereich.",
@@ -931,7 +934,7 @@ const I18N = {
     "cal.wet_in": "In Wasser (nass) — Volt", "cal.apply": "Werte übernehmen",
     "cal.hint": "Pro Pflanze. Messwert <b>Rohspannung</b> abschreiben: Probe in Luft → links, in ein Glas Wasser → rechts.",
     "diary.title": "Pflanzentagebuch", "diary.write": "Eintrag jetzt schreiben",
-    "diary.help": "Notizen aus Sicht deiner Pflanze. Flori fasst die Woche automatisch zusammen (Art, Werte, Gießen) – du kannst auch jederzeit selbst einen Eintrag schreiben. Einträge bleiben pro Pflanze gespeichert.",
+    "diary.help": "Notizen aus Sicht deiner Pflanze. FlorAI fasst die Woche automatisch zusammen (Art, Werte, Gießen) – du kannst auch jederzeit selbst einen Eintrag schreiben. Einträge bleiben pro Pflanze gespeichert.",
     "diary.settings": "⚙️ Tagebuch-Einstellungen", "diary.auto": "Automatische Einträge schreiben",
     "diary.interval": "Intervall (Tage)", "diary.save": "Einstellungen speichern",
     "diary.for_plant": "Gilt für {plant}.", "diary.none": "Noch keine Einträge – schreib einen oder warte auf den nächsten automatischen Eintrag.",
@@ -957,14 +960,14 @@ const I18N = {
     "toast.voice_think": "🧠 Denke nach…", "toast.signed_in": "🔓 Angemeldet",
     "toast.login_failed": "Anmeldung fehlgeschlagen: {msg}", "toast.buzzer": "🔊 Buzzer-Test gesendet",
     "voice.no_mic": "Kein Mikrofon auf diesem Gerät gefunden.",
-    "flori.control.title": "🌱 Floris Kontrolle über diese Pflanze",
-    "flori.control.level": "Wie viel darf Flori ändern?",
+    "flori.control.title": "🌱 FlorAIs Kontrolle über diese Pflanze",
+    "flori.control.level": "Wie viel darf FlorAI ändern?",
     "flori.control.off": "Nur Beratung",
     "flori.control.ask": "Fragen – vorschlagen, ich bestätige",
     "flori.control.auto": "Auto – einrichten & anwenden",
-    "flori.control.note": "Flori kann Bewässerung, Licht und Automatik an die Art dieser Pflanze anpassen. Sicherheitsgrenzen (Dosierdauer, Tageslimit, NOT-AUS) gelten immer und jede Aktion wird protokolliert.",
+    "flori.control.note": "FlorAI kann Bewässerung, Licht und Automatik an die Art dieser Pflanze anpassen. Sicherheitsgrenzen (Dosierdauer, Tageslimit, NOT-AUS) gelten immer und jede Aktion wird protokolliert.",
     "flori.control.setup": "🌿 Diese Pflanze nach ihrer Art einrichten",
-    "flori.control.saved": "🌱 Floris Kontrollstufe gespeichert",
+    "flori.control.saved": "🌱 FlorAIs Kontrollstufe gespeichert",
     "flori.did_applied": "angewendet",
     "tool.get_plant_state": "Pflanzenstatus lesen", "tool.set_watering": "Bewässerung ändern",
     "tool.set_light": "Licht ändern", "tool.apply_species_care": "Artenpflege anwenden",
@@ -978,8 +981,8 @@ const I18N = {
     "voice.mode": "Mikrofon", "voice.mode.browser": "Dieses Gerät",
     "voice.mode.pi": "Der Pi (USB-Mikro)",
     "voice.settings": "🎙️ Voice",
-    "flori.greeting": "👋 Hallo! Ich bin <b>Flori</b>, dein Pflanzen-Begleiter. Tippe auf mich, wenn du reden willst.",
-    "flori.chat.cta": "Mit Flori reden", "flori.next": "Noch ein Tipp", "flori.hide": "Ausblenden",
+    "flori.greeting": "👋 Hallo! Ich bin <b>FlorAI</b>, dein Pflanzen-Begleiter. Tippe auf mich, wenn du reden willst.",
+    "flori.chat.cta": "Mit FlorAI reden", "flori.next": "Noch ein Tipp", "flori.hide": "Ausblenden",
     "common.node_config": "Knoten (Config)",
     "common.unavailable": "Nicht verfügbar: {msg}",
     "common.save_failed": "Speichern fehlgeschlagen: {msg}",
@@ -1026,8 +1029,8 @@ const I18N = {
     "nd.pins_source": "Quelle: <code>esphome/smartplanter.yaml</code> substitutions. Bei eigener Verkabelung hier abgleichen.",
     "nd.network": "Netzwerk", "nd.mqtt_topics": "MQTT-Themen", "nd.hotspot": "Hotspot",
     "nd.test_cmd": "Befehl testen",
-    "ai.awake": "Flori ist wach (Modell {model}). Frag alles rund um deine Pflanzen.",
-    "ai.nokey": "Flori braucht einen Schlüssel: AI_API_KEY im Backend hinterlegen (Google AI Studio / OpenRouter :free).",
+    "ai.awake": "FlorAI ist wach (Modell {model}). Frag alles rund um deine Pflanzen.",
+    "ai.nokey": "FlorAI braucht einen Schlüssel: AI_API_KEY im Backend hinterlegen (Google AI Studio / OpenRouter :free).",
     "ai.unknown": "KI-Status unbekannt.", "ai.no_reply": "(keine Antwort)", "ai.error": "Fehler: {msg}",
     "plant.care": "💧 {moist_min}–{moist_max}% · 🌡️ {temp_min}–{temp_max}°C · ☀️ {light_min}–{light_max} lx · alle {days} Tage · {difficulty}",
     "plant.title": "🪴 Pflanzenprofil", "plant.node": "Knoten", "plant.species": "Art / Pflanze",
@@ -1070,7 +1073,7 @@ const I18N = {
     "src.ui": "Dashboard",
     "sys.uptime": "Laufzeit", "sys.active": "{ago} aktiv", "sys.connected": "verbunden",
     "sys.disconnected": "getrennt", "sys.offline_after": "Knoten offline nach",
-    "sys.ai": "KI (Flori)", "sys.ai_model": "KI-Modell", "sys.counts": "Zähler",
+    "sys.ai": "KI (FlorAI)", "sys.ai_model": "KI-Modell", "sys.counts": "Zähler",
     "sys.counts_val": "Knoten {nodes} · Ereignisse {events} · Geräte {devices}",
     "sys.unavailable": "Systeminfo nicht verfügbar: {msg}",
     "egg.rain": "🌧️ Ein bisschen Regen für dich!", "egg.party_on": "🎉 Debug-Modus: Party 🌱",
@@ -1081,8 +1084,8 @@ const I18N = {
     "diary.saved": "📔 Tagebuch-Einstellungen gespeichert", "diary.written": "📔 Eintrag geschrieben",
     "diary.error": "Tagebuch: {msg}",
     "diary.for_prefix": "Gilt für", "diary.for_suffix": ".",
-    "flori.shown": "🌱 Flori ist wieder da!",
-    "flori.hidden": "Flori versteckt – der 🌱-Button oben rechts holt ihn zurück.",
+    "flori.shown": "🌱 FlorAI ist wieder da!",
+    "flori.hidden": "FlorAI versteckt – der 🌱-Button oben rechts holt ihn zurück.",
     "flori.tip.offline": "😴 <b>{plant}</b> meldet sich gerade nicht. Ohne frische Werte gieße ich nicht automatisch – kurz Strom/WLAN prüfen.",
     "flori.tip.fault": "🤒 <b>{plant}</b> meldet einen Sensorfehler (<b>{fault}</b>). Meist hilft die Verkabelung kurz prüfen.",
     "flori.tip.thirsty": "💧 <b>{plant}</b> ist durstig ({pct} % Bodenfeuchte). Tippe unter „Steuern“ auf Bewässern.",
@@ -1090,13 +1093,13 @@ const I18N = {
     "flori.tip.warm": "🥵 <b>{plant}</b> ist warm ({temp} °C). Schatten oder Lüften tut gut.",
     "flori.tip.watering": "💦 Ich gieße <b>{plant}</b> gerade.",
     "flori.tip.multi": "🌱 Du hast <b>{n} Pflanzen</b>. Oben im Kopf schaltest du zwischen ihnen um.",
-    "flori.tip.intro": "👋 Ich bin <b>Flori</b>. Frag mich z. B. „Wie geht es meiner Pflanze?“ oder „Wann soll ich gießen?“",
+    "flori.tip.intro": "👋 Ich bin <b>FlorAI</b>. Frag mich z. B. „Wie geht es meiner Pflanze?“ oder „Wann soll ich gießen?“",
     "flori.tip.diary": "📝 Im <b>Pflanzentagebuch</b> (Tab „Steuern“) halte ich fest, wie sich deine Pflanze entwickelt.",
     "flori.tip.cal": "🧪 Wackelige Bodenfeuchte? Einmal neu kalibrieren – Tab „Steuern“ → Kalibrierung.",
     "flori.tip.login": "🔔 Anmelden oben rechts schaltet Steuern, Gießen und das Tagebuch frei.",
   },
   nl: {
-    "app.title": "FloraHome",
+    "app.title": "FloraHome", "brand.tagline": "AI-aangedreven smart plant-dashboard",
     "tab.overview": "🌿 Overzicht", "tab.control": "🎛️ Bediening",
     "tab.graphs": "📈 Geschiedenis", "tab.backend": "🔧 Backend",
     "conn.connecting": "Verbinden…", "conn.live": "Live verbonden",
@@ -1105,14 +1108,14 @@ const I18N = {
     "node.offline": "Node offline ({ago} geleden)", "node.count": "{n}/{total} nodes online",
     "scale.smaller": "Kleiner", "scale.larger": "Groter",
     "auth.login": "Inloggen", "auth.logout": "Uitloggen",
-    "flori.toggle": "Flori tonen/verbergen",
+    "flori.toggle": "FlorAI tonen/verbergen",
     "estop.active.title": "🛑 NOODSTOP ACTIEF",
     "estop.active.body": "Pomp en licht zijn uit; automatisch water geven is geblokkeerd – ook na een herstart, tot je vrijgeeft.",
     "estop.resume": "▶️ Vrijgeven",
-    "flori.card.title": "Flori — je plantenmaatje",
+    "flori.card.title": "FlorAI — je plantenmaatje",
     "flori.chat.placeholder": "Hoe gaat het met mijn plant?",
     "flori.chat.send": "Vragen", "flori.chat.mic": "Spreken",
-    "flori.thinking": "Flori denkt na…",
+    "flori.thinking": "FlorAI denkt na…",
     "alerts.title": "Meldingen",
     "onboard.title": "Aan de slag",
     "onboard.hide": "Verbergen",
@@ -1124,7 +1127,7 @@ const I18N = {
     "onboard.online": "De node online krijgen",
     "onboard.online.why": "Hij moet binnen een minuut verbinden met “FloraHome”.",
     "onboard.plant": "Je plant een naam geven",
-    "onboard.plant.why": "Kies een soort zodat Flori weet hoe je moet zorgen.",
+    "onboard.plant.why": "Kies een soort zodat FlorAI weet hoe je moet zorgen.",
     "onboard.cal": "De bodemsensor kalibreren",
     "onboard.cal.why": "Anders leest het vocht 100% en blijft automatisch water geven uit.",
     "alerts.none": "✅ Geen meldingen. Alles ziet er goed uit.",
@@ -1144,7 +1147,7 @@ const I18N = {
     "cal.wet_in": "In water (nat) — volt", "cal.apply": "Waarden toepassen",
     "cal.hint": "Per plant. Neem de <b>ruwe spanning</b> over: sonde in lucht → links, in een glas water → rechts.",
     "diary.title": "Plantendagboek", "diary.write": "Nu een item schrijven",
-    "diary.help": "Notities vanuit het perspectief van je plant. Flori vat de week automatisch samen (soort, waarden, water geven) – je kunt ook zelf altijd een item schrijven. Items worden per plant opgeslagen.",
+    "diary.help": "Notities vanuit het perspectief van je plant. FlorAI vat de week automatisch samen (soort, waarden, water geven) – je kunt ook zelf altijd een item schrijven. Items worden per plant opgeslagen.",
     "diary.settings": "⚙️ Dagboek-instellingen", "diary.auto": "Automatisch items schrijven",
     "diary.interval": "Interval (dagen)", "diary.save": "Instellingen opslaan",
     "diary.for_plant": "Geldt voor {plant}.", "diary.none": "Nog geen items – schrijf er een of wacht op het volgende automatische item.",
@@ -1170,14 +1173,14 @@ const I18N = {
     "toast.voice_think": "🧠 Denken…", "toast.signed_in": "🔓 Ingelogd",
     "toast.login_failed": "Inloggen mislukt: {msg}", "toast.buzzer": "🔊 Zoemertest verzonden",
     "voice.no_mic": "Geen microfoon gevonden op dit apparaat.",
-    "flori.control.title": "🌱 Flori's controle over deze plant",
-    "flori.control.level": "Hoeveel mag Flori wijzigen?",
+    "flori.control.title": "🌱 FlorAI's controle over deze plant",
+    "flori.control.level": "Hoeveel mag FlorAI wijzigen?",
     "flori.control.off": "Alleen advies",
     "flori.control.ask": "Vragen – voorstellen, ik keur goed",
     "flori.control.auto": "Auto – instellen & toepassen",
-    "flori.control.note": "Flori kan water geven, licht en automatisering aanpassen aan de soort van deze plant. Veiligheidslimieten (dosisduur, daglimiet, NOODSTOP) gelden altijd en elke actie wordt gelogd.",
+    "flori.control.note": "FlorAI kan water geven, licht en automatisering aanpassen aan de soort van deze plant. Veiligheidslimieten (dosisduur, daglimiet, NOODSTOP) gelden altijd en elke actie wordt gelogd.",
     "flori.control.setup": "🌿 Deze plant instellen op basis van zijn soort",
-    "flori.control.saved": "🌱 Flori's controleniveau opgeslagen",
+    "flori.control.saved": "🌱 FlorAI's controleniveau opgeslagen",
     "flori.did_applied": "toegepast",
     "tool.get_plant_state": "Plantstatus lezen", "tool.set_watering": "Water geven wijzigen",
     "tool.set_light": "Licht wijzigen", "tool.apply_species_care": "Soortverzorging toepassen",
@@ -1191,8 +1194,8 @@ const I18N = {
     "voice.mode": "Microfoon", "voice.mode.browser": "Dit apparaat",
     "voice.mode.pi": "De Pi (USB-mic)",
     "voice.settings": "🎙️ Voice",
-    "flori.greeting": "👋 Hoi! Ik ben <b>Flori</b>, je plantenmaatje. Tik op mij als je wilt praten.",
-    "flori.chat.cta": "Met Flori praten", "flori.next": "Nog een tip", "flori.hide": "Verbergen",
+    "flori.greeting": "👋 Hoi! Ik ben <b>FlorAI</b>, je plantenmaatje. Tik op mij als je wilt praten.",
+    "flori.chat.cta": "Met FlorAI praten", "flori.next": "Nog een tip", "flori.hide": "Verbergen",
     "common.node_config": "Node (config)",
     "common.unavailable": "Niet beschikbaar: {msg}",
     "common.save_failed": "Opslaan mislukt: {msg}",
@@ -1239,8 +1242,8 @@ const I18N = {
     "nd.pins_source": "Bron: <code>esphome/smartplanter.yaml</code> substitutions. Controleer hier als je zelf bedrading hebt gemaakt.",
     "nd.network": "Netwerk", "nd.mqtt_topics": "MQTT-onderwerpen", "nd.hotspot": "Hotspot",
     "nd.test_cmd": "Opdracht testen",
-    "ai.awake": "Flori is wakker (model {model}). Vraag alles over je planten.",
-    "ai.nokey": "Flori heeft een sleutel nodig: stel AI_API_KEY in de backend in (Google AI Studio / OpenRouter :free).",
+    "ai.awake": "FlorAI is wakker (model {model}). Vraag alles over je planten.",
+    "ai.nokey": "FlorAI heeft een sleutel nodig: stel AI_API_KEY in de backend in (Google AI Studio / OpenRouter :free).",
     "ai.unknown": "AI-status onbekend.", "ai.no_reply": "(geen antwoord)", "ai.error": "Fout: {msg}",
     "plant.care": "💧 {moist_min}–{moist_max}% · 🌡️ {temp_min}–{temp_max}°C · ☀️ {light_min}–{light_max} lx · elke {days} dagen · {difficulty}",
     "plant.title": "🪴 Plantenprofiel", "plant.node": "Node", "plant.species": "Soort / plant",
@@ -1283,7 +1286,7 @@ const I18N = {
     "src.ui": "Dashboard",
     "sys.uptime": "Uptime", "sys.active": "{ago} actief", "sys.connected": "verbonden",
     "sys.disconnected": "gescheiden", "sys.offline_after": "Node offline na",
-    "sys.ai": "AI (Flori)", "sys.ai_model": "AI-model", "sys.counts": "Tellers",
+    "sys.ai": "AI (FlorAI)", "sys.ai_model": "AI-model", "sys.counts": "Tellers",
     "sys.counts_val": "nodes {nodes} · gebeurtenissen {events} · apparaten {devices}",
     "sys.unavailable": "Systeeminfo niet beschikbaar: {msg}",
     "egg.rain": "🌧️ Een beetje regen voor jou!", "egg.party_on": "🎉 Debugmodus: feest 🌱",
@@ -1294,8 +1297,8 @@ const I18N = {
     "diary.saved": "📔 Dagboek-instellingen opgeslagen", "diary.written": "📔 Item geschreven",
     "diary.error": "Dagboek: {msg}",
     "diary.for_prefix": "Geldt voor", "diary.for_suffix": ".",
-    "flori.shown": "🌱 Flori is terug!",
-    "flori.hidden": "Flori verborgen – de 🌱-knop rechtsboven haalt hem terug.",
+    "flori.shown": "🌱 FlorAI is terug!",
+    "flori.hidden": "FlorAI verborgen – de 🌱-knop rechtsboven haalt hem terug.",
     "flori.tip.offline": "😴 <b>{plant}</b> meldt zich nu niet. Zonder verse waarden geef ik niet automatisch water – controleer kort stroom/wifi.",
     "flori.tip.fault": "🤒 <b>{plant}</b> meldt een sensorfout (<b>{fault}</b>). Meestal helpt het om de bedrading kort te controleren.",
     "flori.tip.thirsty": "💧 <b>{plant}</b> heeft dorst ({pct}% bodemvocht). Tik op Water geven onder Bediening.",
@@ -1303,7 +1306,7 @@ const I18N = {
     "flori.tip.warm": "🥵 <b>{plant}</b> is warm ({temp} °C). Schaduw of luchten helpt.",
     "flori.tip.watering": "💦 Ik geef <b>{plant}</b> nu water.",
     "flori.tip.multi": "🌱 Je hebt <b>{n} planten</b>. Wissel bovenaan tussen ze.",
-    "flori.tip.intro": "👋 Ik ben <b>Flori</b>. Vraag me bijvoorbeeld “Hoe gaat het met mijn plant?” of “Wanneer moet ik water geven?”",
+    "flori.tip.intro": "👋 Ik ben <b>FlorAI</b>. Vraag me bijvoorbeeld “Hoe gaat het met mijn plant?” of “Wanneer moet ik water geven?”",
     "flori.tip.diary": "📝 In het <b>plantendagboek</b> (tab Bediening) houd ik bij hoe je plant zich ontwikkelt.",
     "flori.tip.cal": "🧪 Wisselend bodemvocht? Kalibreer opnieuw – tab Bediening → kalibratie.",
     "flori.tip.login": "🔔 Inloggen rechtsboven ontgrendelt bediening, water geven en het dagboek.",
