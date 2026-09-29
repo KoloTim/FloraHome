@@ -150,15 +150,22 @@ Tabbed pages: **Übersicht · Steuern · Verlauf · Backend**. Features:
 
 1. **Calibrate plant-a** (reads 100 %; moisture meaningless until then) — this
    also stops spurious auto-watering.
-2. **Wire plant-b's sensors** (DHT11→GPIO27, LDR→GPIO35, soil→GPIO34 power GPIO25).
-3. **USB mic** for voice input.
-4. **OTA is manual** — decide if you want a scheduled auto-OTA (not built).
-5. Chat/voice require login (writes are protected). Login is now a dialog, but
-   the kiosk still has no saved session, so you re-login after each restart.
-   API keys can be set at runtime in **Backend → API-Schlüssel & Zugänge**.
+2. **Wire plant-b's sensors** (DHT11→GPIO27, LDR→GPIO35, soil→GPIO34 power GPIO25);
+   plant-b currently reports `fault: dht11`.
+3. **Pi Wi-Fi power-save is now disabled** (`/etc/NetworkManager/conf.d/99-wifi-powersave-off.conf`).
+   It was enabled and is the main reason nodes dropped after ~1 min. Re-apply
+   after an OS reinstall.
+4. **Firmware fixes for the node drops** (deployed in the YAML, needs a flash):
+   - `api.reboot_timeout: 0s` — the node no longer reboots every 15 min because no
+     ESPHome API client connects (we use MQTT).
+   - `wifi.power_save_mode: NONE` + explicit reconnect.
+   - `mqtt.keepalive: 30s` / `reboot_timeout: 15min`.
+   - DHT11 needs a 10 kΩ pull-up on GPIO27; without it reads block the loop.
+5. Voice input is **browser-based** now (getUserMedia) so any device with a mic
+   works; the Pi mic is optional. Reply audio plays on the requesting device,
+   optionally also on the Pi speaker.
 6. Battery node (`battery-template.yaml`) not yet built/flashed on real hardware.
-7. Touch panel is physically single-touch (no pinch) even with the bridge; the
-   UI is optimised for pressure input but the panel itself is the limit.
+7. Touch panel is physically single-touch (no pinch); UI optimised for pressure.
 
 ### Deploying these changes to the Pi
 
@@ -167,7 +174,14 @@ ssh tim@192.168.91.68
 cd ~/smartplanter && git pull
 docker compose up -d --build api web     # rebuild api, refresh web
 docker compose up -d --remove-orphans    # drops the old grafana container
+# firmware (needed for the resilience fixes):
+docker exec planter-esphome esphome compile /config/plant-a.yaml
+docker exec planter-flasher esphome run  /config/plant-a.yaml --device /dev/ttyUSB0 --no-logs
 ```
+
+Note: `esphome`/`flasher` are pinned to `esphome/esphome:2025.8.4`; the `2025.8`
+image had a corrupt layer on the Pi. The `esphome` container cannot see `/dev`
+(only `flasher` mounts `/dev`), so **flash via the flasher container**.
 
 ---
 
