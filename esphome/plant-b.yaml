@@ -1,5 +1,5 @@
-# ============================================================================
-# Smart Planter / FloraHome — ESP32 node (WROOM DevKit, 30/38-pin)
+﻿# ============================================================================
+# Smart Planter / FloraHome â€” ESP32 node (WROOM DevKit, 30/38-pin)
 # ----------------------------------------------------------------------------
 # This is the config for the REAL hardware we have:
 #   * DHT11 temperature/humidity      GPIO 27
@@ -8,7 +8,7 @@
 #   * relay module: pump IN1 GPIO 26, grow light IN2 GPIO 13
 #   * active buzzer                   GPIO 14
 #   * "water now" button              GPIO 4
-#   (No JSN-SR04T / tank sensor — the tank feature is removed on purpose.)
+#   (No JSN-SR04T / tank sensor â€” the tank feature is removed on purpose.)
 #
 # Flash once over USB, then OTA:
 #   esphome run smartplanter.yaml
@@ -29,7 +29,7 @@ substitutions:
   # --- MQTT broker ---------------------------------------------------------
   # The node joins the Pi's own hotspot (SSID FloraHome, 10.42.0.0/24); the Pi
   # is 10.42.0.1 there and owns the broker. Same L2 => OTA works.
-  mqtt_broker: "10.42.0.1"
+  mqtt_broker: !secret mqtt_broker
 
   # --- Soil calibration (HW-390 capacitive) --------------------------------
   # moisture_pct = (dry_v - measured_v) / (dry_v - wet_v) * 100
@@ -95,7 +95,7 @@ logger:
 api:
   # We talk to the node over MQTT, never over the ESPHome native API. Leaving the
   # default reboot_timeout made the node reboot every 15 min when no API client
-  # connected — one of the causes of the "randomly offline" nodes. Disable it.
+  # connected â€” one of the causes of the "randomly offline" nodes. Disable it.
   reboot_timeout: 0s
 
 ota:
