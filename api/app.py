@@ -1456,9 +1456,10 @@ def public_node(name: str, n: dict[str, Any]) -> dict[str, Any]:
             "halted": n["halted"],
             "restarts": n.get("restarts", 0),
             "on_s": n.get("on_s"),
-            "online": node_fresh(n),
+            # demo plants are virtual: they always look online & fresh
+            "online": True if n.get("demo") else node_fresh(n),
             "last_seen": n["last_seen"],
-            "last_seen_age_s": round(age, 1) if age is not None else None,
+            "last_seen_age_s": 0.0 if n.get("demo") else (round(age, 1) if age is not None else None),
             "pump_count_today": n["pump_count_today"],
             "pump_paused": bool(n.get("pump_paused")),
             "unresponsive_doses": n.get("unresponsive_doses", 0),
