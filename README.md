@@ -7,6 +7,10 @@ account.
 
 ![FloraHome dashboard](docs/img/dashboard-dark.png)
 
+*Live dashboard on the Pi (every plant has its own mood, photo/avatar, care range and FlorAI companion):*
+
+![FloraHome live dashboard](docs/img/florahome-dashboard-live.png)
+
 > **New here?** Start with [`docs/TUTORIALS.md`](docs/TUTORIALS.md) � handoff: [`docs/HANDOFF_NEXT_SESSION.md`](docs/HANDOFF_NEXT_SESSION.md).
 > How it all fits together: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 > (with diagrams). Real Pi + ESP32 deployment log:

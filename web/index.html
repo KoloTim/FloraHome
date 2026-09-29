@@ -3151,7 +3151,7 @@ if(!localStorage.getItem("fhHint")){
 (function dragScroll(){
   const scroller = document.scrollingElement || document.documentElement;
   let active = false, startY = 0, startTop = 0, lastY = 0, lastT = 0, vel = 0, moved = false, raf = 0;
-  const isControl = t => t.closest && t.closest("button,input,select,textarea,a,summary,label,dialog");
+  const isControl = t => t.closest && t.closest("button,input,select,textarea,a,summary,label,dialog,.flori,.flori-bubble,.toast,canvas");
 
   function glide(){
     vel *= 0.94;
@@ -3371,19 +3371,21 @@ let floriDragging = false;
   floriEl.addEventListener("pointermove", e => {
     if(!floriDragging) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
-    if(Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+    if(Math.abs(dx) + Math.abs(dy) > 16) moved = true;   // generous: resistive touch drifts
     if(!moved) return;
     floriEl.style.left = Math.max(4, Math.min(innerWidth - floriEl.offsetWidth - 4, ox + dx)) + "px";
     floriEl.style.top = Math.max(4, Math.min(innerHeight - floriEl.offsetHeight - 4, oy + dy)) + "px";
     positionBubble();
   });
-  floriEl.addEventListener("pointerup", () => {
+  function floriEnd(){
     if(!floriDragging) return;
     floriDragging = false;
-    if(!moved) openFloriChat();
-    localStorage.setItem(FLORI_POS, JSON.stringify({ l: floriEl.style.left, t: floriEl.style.top }));
+    if(!moved) openFloriChat();          // a tap opens the chat
+    try{ localStorage.setItem(FLORI_POS, JSON.stringify({ l: floriEl.style.left, t: floriEl.style.top })); }catch(err){}
     positionBubble();
-  });
+  }
+  floriEl.addEventListener("pointerup", floriEnd);
+  floriEl.addEventListener("pointercancel", floriEnd);
   try{
     const p = JSON.parse(localStorage.getItem(FLORI_POS) || "null");
     if(p && p.l && p.t){ floriEl.style.left = p.l; floriEl.style.top = p.t;
