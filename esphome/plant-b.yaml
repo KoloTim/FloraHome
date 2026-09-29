@@ -180,6 +180,10 @@ mqtt:
       then:
         - lambda: |-
             bool stop_all = x["estop"] | false;
+            // Idempotent: the API republishes this retained every few seconds, so
+            // only act/log when the state actually changes. Logging every delivery
+            // flooded the main loop and starved telemetry + MQTT keepalives.
+            if (stop_all == id(halted)) return;
             id(halted) = stop_all;
             if (stop_all) {
               id(pump_dose)->stop();

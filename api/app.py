@@ -1099,7 +1099,12 @@ async def _state_for_node(node_name: str, n: dict[str, Any]) -> None:
             publish(t_state(node_name, "light"), metrics.get("light") or "off", retain=True)
         elif f in metrics:
             publish(t_state(node_name, f), metrics[f], retain=True)
-    publish(t_estop(node_name), {"estop": n["halted"]}, retain=True)
+    # The estop topic is retained and only published when it actually changes
+    # (see /api/estop, /api/resume). Republishing it every 5 s made the firmware
+    # reprocess it constantly, which flooded its main loop. Publish once per node.
+    if n.get("_estop_sent") != n["halted"]:
+        publish(t_estop(node_name), {"estop": n["halted"]}, retain=True)
+        n["_estop_sent"] = n["halted"]
     publish(t_state(node_name, "last_seen"), int(n["last_seen"] or time.time()), retain=True)
     publish(t_state(node_name, "online"), "online" if node_fresh(n) else "offline", retain=True)
     for topic, cfg in ha_discovery_payloads(node_name, n.get("device")):
