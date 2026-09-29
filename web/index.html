@@ -185,6 +185,19 @@
     opacity:0;transition:opacity .25s,transform .25s;max-width:90vw;text-align:center;font-weight:600}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+  /* in-app confirm dialog */
+  .confirm-dlg{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);
+    color:var(--ink);max-width:440px;width:92%;padding:0}
+
+  /* first-run onboarding checklist */
+  .onboard{display:grid;gap:10px}
+  .onboard .step{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;
+    background:var(--card2);border:1px solid var(--line);border-radius:12px}
+  .onboard .step .n{font-size:1.4rem;line-height:1;flex:none}
+  .onboard .step.done{opacity:.65}
+  .onboard .step b{display:block;margin-bottom:2px}
+  .onboard .step .why{font-size:.88rem;color:var(--muted)}
+
   /* easter egg rain */
   .eggfall{position:fixed;top:-40px;font-size:2rem;z-index:98;pointer-events:none;
     animation-name:eggfall;animation-timing-function:ease-in;animation-fill-mode:forwards}
@@ -330,6 +343,13 @@
   <section class="card">
     <h2><span class="icon">🔔</span> <span data-i18n="alerts.title">Notifications</span></h2>
     <div id="alerts" role="region" aria-live="polite"></div>
+  </section>
+
+  <section class="card" id="onboardCard" hidden>
+    <h2><span class="icon">🚀</span> <span data-i18n="onboard.title">Getting started</span>
+      <button id="btnOnboardHide" class="ghost" style="margin-left:auto" type="button" data-i18n="onboard.hide">Hide</button>
+    </h2>
+    <div id="onboard" class="onboard"></div>
   </section>
 
   <section class="card">
@@ -655,6 +675,19 @@ const I18N = {
     "flori.chat.send": "Ask", "flori.chat.mic": "Speak",
     "flori.thinking": "Flori is thinking…",
     "alerts.title": "Notifications",
+    "onboard.title": "Getting started",
+    "onboard.hide": "Hide",
+    "onboard.hidden.tip": "You can reopen Help any time from the Plants card.",
+    "onboard.signin": "Sign in",
+    "onboard.signin.why": "Unlocks watering, settings and the diary.",
+    "onboard.node": "Add a plant node",
+    "onboard.node.why": "Flash an ESP32 (Backend → Devices) or plug one in.",
+    "onboard.online": "Get the node online",
+    "onboard.online.why": "It should join “FloraHome” and send data within a minute.",
+    "onboard.plant": "Name your plant",
+    "onboard.plant.why": "Pick a species so Flori knows how to care for it.",
+    "onboard.cal": "Calibrate the soil sensor",
+    "onboard.cal.why": "Otherwise moisture reads 100% and auto-watering stays off.",
     "alerts.none": "✅ No notices. Everything looks good.",
     "alerts.critical": "Critical", "alerts.warning": "Warning",
     "alerts.since": "since {ago}",
@@ -788,6 +821,7 @@ const I18N = {
     "devices.summary": "{ports} attached · {nodes} node configs",
     "devices.unavailable": "Devices unavailable: {msg}",
     "flash.confirm": "Flash “{node}” to {port} now? The device will restart.",
+    "flash.go": "Flash",
     "flash.running": "Flashing… (can take 1–2 min)", "flash.ok": "✅ {node} flashed",
     "flash.failed": "❌ Flash failed", "flash.error": "Error while flashing.",
     "flash.exception": "Flash error: {msg}",
@@ -840,6 +874,19 @@ const I18N = {
     "flori.chat.send": "Fragen", "flori.chat.mic": "Sprechen",
     "flori.thinking": "Flori denkt nach…",
     "alerts.title": "Meldungen",
+    "onboard.title": "Erste Schritte",
+    "onboard.hide": "Ausblenden",
+    "onboard.hidden.tip": "Die Hilfe lässt sich jederzeit über die Pflanzen-Karte wieder öffnen.",
+    "onboard.signin": "Anmelden",
+    "onboard.signin.why": "Schaltet Bewässern, Einstellungen und Tagebuch frei.",
+    "onboard.node": "Pflanzknoten hinzufügen",
+    "onboard.node.why": "ESP32 flashen (Backend → Geräte) oder anschließen.",
+    "onboard.online": "Knoten online bringen",
+    "onboard.online.why": "Er sollte sich binnen einer Minute mit „FloraHome“ verbinden.",
+    "onboard.plant": "Pflanze benennen",
+    "onboard.plant.why": "Art wählen, damit Flori die Pflege kennt.",
+    "onboard.cal": "Bodensensor kalibrieren",
+    "onboard.cal.why": "Sonst zeigt die Feuchte 100 % und die Automatik bleibt aus.",
     "alerts.none": "✅ Keine Meldungen. Alles im grünen Bereich.",
     "alerts.critical": "Kritisch", "alerts.warning": "Warnung",
     "alerts.since": "seit {ago}",
@@ -973,6 +1020,7 @@ const I18N = {
     "devices.summary": "{ports} angeschlossen · {nodes} Knoten-Configs",
     "devices.unavailable": "Geräte nicht verfügbar: {msg}",
     "flash.confirm": "„{node}“ jetzt auf {port} flashen? Das Gerät startet neu.",
+    "flash.go": "Flashen",
     "flash.running": "Flashen läuft… (kann 1–2 min dauern)", "flash.ok": "✅ {node} geflasht",
     "flash.failed": "❌ Flash fehlgeschlagen", "flash.error": "Fehler beim Flashen.",
     "flash.exception": "Flash-Fehler: {msg}",
@@ -1025,6 +1073,19 @@ const I18N = {
     "flori.chat.send": "Vragen", "flori.chat.mic": "Spreken",
     "flori.thinking": "Flori denkt na…",
     "alerts.title": "Meldingen",
+    "onboard.title": "Aan de slag",
+    "onboard.hide": "Verbergen",
+    "onboard.hidden.tip": "Je kunt de Help altijd heropenen via de Planten-kaart.",
+    "onboard.signin": "Inloggen",
+    "onboard.signin.why": "Ontgrendelt water geven, instellingen en het dagboek.",
+    "onboard.node": "Een plantnode toevoegen",
+    "onboard.node.why": "Flash een ESP32 (Backend → Apparaten) of sluit er een aan.",
+    "onboard.online": "De node online krijgen",
+    "onboard.online.why": "Hij moet binnen een minuut verbinden met “FloraHome”.",
+    "onboard.plant": "Je plant een naam geven",
+    "onboard.plant.why": "Kies een soort zodat Flori weet hoe je moet zorgen.",
+    "onboard.cal": "De bodemsensor kalibreren",
+    "onboard.cal.why": "Anders leest het vocht 100% en blijft automatisch water geven uit.",
     "alerts.none": "✅ Geen meldingen. Alles ziet er goed uit.",
     "alerts.critical": "Kritiek", "alerts.warning": "Waarschuwing",
     "alerts.since": "sinds {ago}",
@@ -1158,6 +1219,7 @@ const I18N = {
     "devices.summary": "{ports} aangesloten · {nodes} node-configs",
     "devices.unavailable": "Apparaten niet beschikbaar: {msg}",
     "flash.confirm": "“{node}” nu naar {port} flashen? Het apparaat start opnieuw.",
+    "flash.go": "Flashen",
     "flash.running": "Flashen bezig… (kan 1–2 min duren)", "flash.ok": "✅ {node} geflasht",
     "flash.failed": "❌ Flashen mislukt", "flash.error": "Fout bij het flashen.",
     "flash.exception": "Flash-fout: {msg}",
@@ -1328,6 +1390,7 @@ function render(payload){
   renderNodeSelect();
   refreshCal();
   floriRefreshWho();
+  renderOnboarding(nodes);
 
   const n = nodes.length, online = nodes.filter(x => x.online).length;
   $("nodeState").className = "pill " + (online ? "on" : "off");
@@ -1340,6 +1403,36 @@ function render(payload){
 async function refresh(){
   try{ render(await json("/api/state")); }catch(e){}
 }
+
+/* First-run onboarding: a short, plain-language checklist so a new user knows
+   what to do. Steps tick themselves off from live state + whether they're signed
+   in. Dismissible and remembered. */
+function renderOnboarding(nodes){
+  const card = $("onboardCard"); if(!card) return;
+  if(localStorage.getItem("fhOnboardDone") === "1"){ card.hidden = true; return; }
+  const anyOnline = nodes.some(n => n.online);
+  const anyPlant = nodes.some(n => n.plant && (n.plant.species || n.plant.nickname || n.plant.name));
+  const calDone = nodes.some(n => n.online && n.metrics && typeof n.metrics.soil_v === "number"
+                                  && n.metrics.cal_dry && n.metrics.cal_wet);
+  const steps = [
+    {done: authed, icon:"🔐", title:t("onboard.signin"), why:t("onboard.signin.why")},
+    {done: nodes.length > 0, icon:"🔌", title:t("onboard.node"), why:t("onboard.node.why")},
+    {done: anyOnline, icon:"📡", title:t("onboard.online"), why:t("onboard.online.why")},
+    {done: anyPlant, icon:"🪴", title:t("onboard.plant"), why:t("onboard.plant.why")},
+    {done: calDone, icon:"🧪", title:t("onboard.cal"), why:t("onboard.cal.why")},
+  ];
+  $("onboard").innerHTML = steps.map(s => `
+    <div class="step ${s.done?"done":""}">
+      <span class="n">${s.done ? "✅" : s.icon}</span>
+      <span><b>${s.title}</b><span class="why">${s.why}</span></span>
+    </div>`).join("");
+  card.hidden = false;
+}
+$("btnOnboardHide").onclick = () => {
+  localStorage.setItem("fhOnboardDone","1");
+  $("onboardCard").hidden = true;
+  toast(t("onboard.hidden.tip"));
+};
 
 function renderAlerts(events){
   const active = events.filter(e => e.active);
@@ -1541,7 +1634,7 @@ $("loginDlg").addEventListener("close", async () => {
     await json("/api/login",{method:"POST",
       body: JSON.stringify({ username: $("login-user").value, password: $("login-pass").value })});
     setAuthed(true); toast(t("toast.signed_in"));
-  }catch(e){ alert(t("toast.login_failed",{msg:e.message})); }
+  }catch(e){ errToast(t("toast.login_failed",{msg:e.message})); }
 });
 ["login-user","login-pass"].forEach(id =>
   $(id).addEventListener("keydown", e => {
@@ -1555,7 +1648,7 @@ async function send(body){
   const node = body.node || selectedNode() || primaryNode();
   if(node) payload.node = node;
   try{ await json("/api/command",{method:"POST",body:JSON.stringify(payload)}); loadTables(); refresh(); }
-  catch(e){ alert(t("toast.cmd_failed",{msg:e.message})); throw e; }
+  catch(e){ errToast(t("toast.cmd_failed",{msg:e.message})); throw e; }
 }
 $("btnWater").onclick = () => send({action:"pump", seconds: cfgCache.pump_seconds || 15});
 $("btnLight").onclick = () => send({action:"light", state:"toggle"});
@@ -1563,7 +1656,7 @@ $("btnBuzz").onclick  = () => send({action:"buzzer", seconds:3});
 $("btnStop").onclick  = () => send({action:"stop"});
 $("btnCal").onclick = () => {
   const dry = parseFloat($("cal-dry-in").value), wet = parseFloat($("cal-wet-in").value);
-  if(!(dry>0) || !(wet>0)){ alert(t("cal.need_values")); return; }
+  if(!(dry>0) || !(wet>0)){ errToast(t("cal.need_values")); return; }
   send({action:"cal", soil_dry_v:dry, soil_wet_v:wet});
 };
 
@@ -1601,11 +1694,11 @@ $("btnEstop").onclick = async () => {
   estopArmed = 0;
   $("btnEstop").classList.remove("armed");
   try{ await json("/api/estop",{method:"POST"}); toast(t("estop.set")); refreshHalted(); loadTables(); }
-  catch(e){ alert(t("estop.failed",{msg:e.message})); }
+  catch(e){ errToast(t("estop.failed",{msg:e.message})); }
 };
 $("btnResume").onclick = async () => {
   try{ await json("/api/resume",{method:"POST"}); refreshHalted(); loadTables(); }
-  catch(e){ alert(t("estop.resume_failed",{msg:e.message})); }
+  catch(e){ errToast(t("estop.resume_failed",{msg:e.message})); }
 };
 
 /* ------------------------------------------------------------------ settings */
@@ -1635,7 +1728,7 @@ $("settingsDlg").addEventListener("close", async () => {
     toast(t("settings.saved",{plant:nodeLabel(cfgEditNode)}));
     loadTables();
     if($("graphs").children.length) loadGraphs();
-  }catch(e){ alert(t("common.save_failed",{msg:e.message})); }
+  }catch(e){ errToast(t("common.save_failed",{msg:e.message})); }
 });
 
 /* Node details / troubleshooting — pins, firmware, model, live raw values. */
@@ -1816,7 +1909,7 @@ $("plantDlg").addEventListener("close", async () => {
     notes: $("pl-notes").value || null,
   };
   try{ await json(`/api/plant/${encodeURIComponent(node)}`, {method:"PUT", body: JSON.stringify(body)}); refresh(); }
-  catch(e){ alert(t("common.save_failed",{msg:e.message})); }
+  catch(e){ errToast(t("common.save_failed",{msg:e.message})); }
 });
 
 /* ----------------------------------------------------------------- feedback */
@@ -1826,6 +1919,26 @@ function toast(msg){
   document.body.appendChild(el);
   setTimeout(() => el.classList.add("show"), 10);
   setTimeout(() => { el.classList.remove("show"); setTimeout(()=>el.remove(), 300); }, 5000);
+}
+/* Friendly error toast — native alert() is jarring on the kiosk touch panel. */
+function errToast(msg){ toast("⚠️ " + msg); }
+
+/* In-app confirm dialog (replaces window.confirm, which is awkward on a
+   resistive touch panel and cannot be styled / translated cleanly). */
+function askConfirm(message, confirmLabel){
+  return new Promise(resolve => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "confirm-dlg";
+    dlg.innerHTML = `<form method="dialog" class="dlg-body">
+      <p style="margin:0 0 16px;font-size:1.05rem;line-height:1.5">${message}</p>
+      <div class="controls" style="grid-template-columns:1fr 1fr">
+        <button value="cancel" type="submit">${t("common.cancel")}</button>
+        <button class="primary" value="ok" type="submit">${confirmLabel || t("common.ok")}</button>
+      </div></form>`;
+    document.body.appendChild(dlg);
+    dlg.addEventListener("close", () => { resolve(dlg.returnValue === "ok"); dlg.remove(); });
+    dlg.showModal();
+  });
 }
 function notify(msg){ if("Notification" in window && Notification.permission === "granted"){
   try{ new Notification("FloraHome", {body: msg}); }catch(e){} } }
@@ -1955,13 +2068,13 @@ $("btnDiarySettings").onclick = async () => {
     await json(`/api/config/node/${encodeURIComponent(n)}`,
                {method:"PUT", body: JSON.stringify(updates)});
     toast(t("diary.saved"));
-  }catch(e){ alert(t("common.save_failed",{msg:e.message})); }
+  }catch(e){ errToast(t("common.save_failed",{msg:e.message})); }
 };
 $("btnDiaryWrite").onclick = async () => {
   const n = selectedNode(); if(!n) return;
   $("btnDiaryWrite").disabled = true;
   try{ await json(`/api/diary/${encodeURIComponent(n)}`, {method:"POST"}); toast(t("diary.written")); refreshDiary(); }
-  catch(e){ alert(t("diary.error",{msg:e.message})); }
+  catch(e){ errToast(t("diary.error",{msg:e.message})); }
   finally{ $("btnDiaryWrite").disabled = !authed; }
 };
 
@@ -2046,7 +2159,7 @@ $("np-confirm").onclick = async () => {
     await json(`/api/plant/${encodeURIComponent(node)}`, {method:"PUT", body: JSON.stringify(body)});
     toast(t("newplant.created",{node:node}));
     $("newPlantDlg").close(); refresh();
-  }catch(e){ alert(t("newplant.create_failed",{msg:e.message})); }
+  }catch(e){ errToast(t("newplant.create_failed",{msg:e.message})); }
 };
 
 /* ------------------------------------------------------------------- devices */
@@ -2070,7 +2183,7 @@ $("btnRefreshDevices").onclick = loadDevices;
 $("btnFlash").onclick = async () => {
   const node = $("flash-node").value, port = $("flash-port").value;
   if(!node || !port) return;
-  if(!confirm(t("flash.confirm",{node:node,port:port}))) return;
+  if(!await askConfirm(t("flash.confirm",{node:node,port:port}), t("flash.go"))) return;
   $("btnFlash").disabled = true; $("flashNote").textContent = t("flash.running");
   try{
     const r = await json("/api/flash", {method:"POST", body: JSON.stringify({node, port})});
@@ -2110,7 +2223,7 @@ async function saveKeys(updates){
   try{
     await json("/api/settings/keys", {method:"PUT", body: JSON.stringify(updates)});
     toast(t("keys.saved")); loadKeys(); loadAI();
-  }catch(e){ alert(t("common.save_failed",{msg:e.message})); }
+  }catch(e){ errToast(t("common.save_failed",{msg:e.message})); }
 }
 $("keysSave").onclick = () => {
   const updates = {};
