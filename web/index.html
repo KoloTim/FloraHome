@@ -145,6 +145,8 @@
     padding:12px 14px;line-height:1.5}
   .diary-bullets{margin:8px 0 0;padding-left:22px;display:grid;gap:5px;list-style:disc}
   .diary-bullets li{padding-left:2px}
+  .demo-steps{margin:10px 0 0;padding-left:24px;display:grid;gap:8px}
+  .demo-steps li{padding-left:2px;line-height:1.4}
   .diary-settings{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
   .diary-settings>summary{cursor:pointer;font-weight:700;color:var(--muted);list-style:none}
   .diary-settings>summary::-webkit-details-marker{display:none}
@@ -597,6 +599,20 @@
     </div>
   </section>
 
+  <details class="card" open id="demoScriptCard">
+    <summary><span class="icon">📋</span> <span data-i18n="demo.script.title">Demo script (presentation)</span></summary>
+    <ol class="demo-steps">
+      <li data-i18n="demo.step1">Backend → 🎬 Demo mode ON (adds 5 example plants).</li>
+      <li data-i18n="demo.step2">Overview → pick a plant tile; show its mood + soil %.</li>
+      <li data-i18n="demo.step3">Tap a FlorAI chip, e.g. “How is it?”.</li>
+      <li data-i18n="demo.step4">Diary: this week in 3 bullet points.</li>
+      <li data-i18n="demo.step5">History tab: soil moisture over the last 24 h.</li>
+      <li data-i18n="demo.step6">Plants → 📷 New plant → take a photo → species + care → Create.</li>
+      <li data-i18n="demo.step7">Control: EMERGENCY STOP and the Watering limits.</li>
+      <li data-i18n="demo.step8">Demo mode OFF to return to the real plants. Done.</li>
+    </ol>
+  </details>
+
   <details class="card" open>
     <summary><span class="icon">🔌</span> <span data-i18n="backend.devices.title">Devices & flashing</span></summary>
     <div style="margin-top:12px">
@@ -860,6 +876,15 @@ const I18N = {
     "demo.active": "{n} demo plants loaded",
     "demo.inactive": "No demo plants",
     "demo.on": "🎬 Demo mode: ON ({n} plants)",
+    "demo.script.title": "Demo script (presentation)",
+    "demo.step1": "Backend -> Demo mode ON (adds 5 example plants).",
+    "demo.step2": "Overview -> pick a plant tile; show its mood + soil %.",
+    "demo.step3": "Tap a FlorAI chip, e.g. \"How is it?\".",
+    "demo.step4": "Diary: this week in 3 bullet points.",
+    "demo.step5": "History tab: soil moisture over the last 24 h.",
+    "demo.step6": "Plants -> New plant -> take a photo -> species + care -> Create.",
+    "demo.step7": "Control: EMERGENCY STOP and the Watering limits.",
+    "demo.step8": "Demo mode OFF to return to the real plants. Done.",
     "demo.off": "🎬 Demo mode: OFF",
     "demo.loaded": "Demo plants loaded",
     "demo.cleared": "Demo plants removed",
@@ -1157,6 +1182,15 @@ const I18N = {
     "demo.active": "{n} Demo-Pflanzen geladen",
     "demo.inactive": "Keine Demo-Pflanzen",
     "demo.on": "🎬 Demo-Modus: AN ({n} Pflanzen)",
+    "demo.script.title": "Demo-Skript (Präsentation)",
+    "demo.step1": "Backend -> Demo-Modus AN (fügt 5 Beispielpflanzen hinzu).",
+    "demo.step2": "Übersicht -> Pflanze wählen; Stimmung + Bodenfeuchte zeigen.",
+    "demo.step3": "FlorAI-Chip antippen, z. B. \"Wie geht's?\".",
+    "demo.step4": "Tagebuch: diese Woche in 3 Stichpunkten.",
+    "demo.step5": "Verlauf-Tab: Bodenfeuchte der letzten 24 h.",
+    "demo.step6": "Pflanzen -> Neue Pflanze -> Foto -> Art + Pflege -> Anlegen.",
+    "demo.step7": "Steuern: NOT-AUS und die Bewässerungsgrenzen.",
+    "demo.step8": "Demo-Modus AUS, zurück zu den echten Pflanzen. Fertig.",
     "demo.off": "🎬 Demo-Modus: AUS",
     "demo.loaded": "Demo-Pflanzen geladen",
     "demo.cleared": "Demo-Pflanzen entfernt",
@@ -1454,6 +1488,15 @@ const I18N = {
     "demo.active": "{n} demoplanten geladen",
     "demo.inactive": "Geen demoplanten",
     "demo.on": "🎬 Demomodus: AAN ({n} planten)",
+    "demo.script.title": "Demo-Skript (Präsentation)",
+    "demo.step1": "Backend -> Demo-Modus AN (fügt 5 Beispielpflanzen hinzu).",
+    "demo.step2": "Übersicht -> Pflanze wählen; Stimmung + Bodenfeuchte zeigen.",
+    "demo.step3": "FlorAI-Chip antippen, z. B. \"Wie geht's?\".",
+    "demo.step4": "Tagebuch: diese Woche in 3 Stichpunkten.",
+    "demo.step5": "Verlauf-Tab: Bodenfeuchte der letzten 24 h.",
+    "demo.step6": "Pflanzen -> Neue Pflanze -> Foto -> Art + Pflege -> Anlegen.",
+    "demo.step7": "Steuern: NOT-AUS und die Bewässerungsgrenzen.",
+    "demo.step8": "Demo-Modus AUS, zurück zu den echten Pflanzen. Fertig.",
     "demo.off": "🎬 Demomodus: UIT",
     "demo.loaded": "Demoplanten geladen",
     "demo.cleared": "Demoplanten verwijderd",
