@@ -161,8 +161,7 @@
   .gcard.off{opacity:.55}
 
   /* backend: api keys + system */
-  .keyrow{padding:12px 0;border-bottom:1px solid var(--line)}
-  .keyrow:last-child{border-bottom:none}
+  .keyrow{padding:12px 0;border-bottom:1px solid var(--line)}  .keyrow:last-child{border-bottom:none}
   .keyrow .klabel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;margin-bottom:6px}
   .keyrow .khint{font-size:.8rem;color:var(--muted);font-weight:400}
   .keyrow .keyform{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
@@ -180,6 +179,22 @@
     border:2px solid var(--accent);transform:translate(-50%,-50%) scale(.3);opacity:.9;
     animation:tapfx .4s ease-out forwards}
   @keyframes tapfx{to{transform:translate(-50%,-50%) scale(1.6);opacity:0}}
+
+  /* modular sensors */
+  .sensors{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .sensor{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .sensor.on{border-color:var(--ok-dim)}
+  .sensor .shead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .sensor .shead b{flex:1 1 auto}
+  .sensor .st{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:800;
+    padding:3px 9px;border-radius:999px;border:2px solid var(--line);color:var(--muted)}
+  .sensor .st.present{border-color:var(--ok);color:var(--ok)}
+  .sensor .st.absent{border-color:var(--warn);color:var(--warn)}
+  .sensor .wire{font-size:.86rem;color:var(--muted);margin:8px 0}
+  .sensor .wire code{background:var(--card);border:1px solid var(--line);border-radius:6px;
+    padding:1px 5px;font-size:.92em}
+  .sensor .wire div{padding:2px 0}
+  .sensor .tgl{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.9rem}
 
   /* toast */
   .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);
@@ -465,6 +480,14 @@
     <p class="note" data-i18n="backend.nodes.note">Detailed values, firmware, pins and raw data. Open “Details” per node.</p>
   </section>
 
+  <section class="card" id="sensorsCard">
+    <h2><span class="icon">🧩</span> <span data-i18n="sensors.title">Sensors (modular)</span>
+      <span class="muted" style="font-size:.85rem;margin-left:auto" id="sensorsWho"></span>
+    </h2>
+    <p class="note" data-i18n="sensors.intro">A node only needs the sensors you actually connect. Toggle each one on or off and follow the wiring guide. Turned-off sensors are ignored in the dashboard and in FlorAI's advice.</p>
+    <div id="sensors" class="sensors"></div>
+  </section>
+
   <details class="card" open>
     <summary><span class="icon">🔑</span> <span data-i18n="backend.keys.title">API keys & credentials</span></summary>
     <div style="margin-top:12px">
@@ -734,6 +757,12 @@ const I18N = {
     "backend.nodes.title": "Nodes & hardware",
     "backend.nodes.note": "Detailed values, firmware, pins and raw data. Open “Details” per node.",
     "backend.keys.title": "API keys & credentials",
+    "sensors.title": "Sensors (modular)",
+    "sensors.intro": "A node only needs the sensors you actually connect. Toggle each one on or off and follow the wiring guide. Turned-off sensors are ignored in the dashboard and in FlorAI's advice.",
+    "sensors.present": "reporting", "sensors.absent": "not detected",
+    "sensors.enabled": "Enabled", "sensors.pins": "Pins",
+    "sensors.none": "No sensors defined.",
+    "sensors.on_toast": "Sensor {s} enabled", "sensors.off_toast": "Sensor {s} disabled",
     "backend.keys.locked": "Sign in to view and change keys.",
     "backend.keys.save": "Save keys", "backend.keys.reload": "↻ Reload",
     "backend.keys.note": "Values are stored server-side and applied <b>immediately</b>. An empty field = unchanged. “Reset” restores the .env value.",
@@ -947,6 +976,12 @@ const I18N = {
     "backend.nodes.title": "Knoten & Technik",
     "backend.nodes.note": "Detaillierte Werte, Firmware, Pins und Rohdaten. „Details“ je Knoten öffnen.",
     "backend.keys.title": "API-Schlüssel & Zugänge",
+    "sensors.title": "Sensoren (modular)",
+    "sensors.intro": "Ein Knoten braucht nur die Sensoren, die du wirklich anschließt. Schalte jeden einzeln ein oder aus und folge der Verkabelungshilfe. Ausgeschaltete Sensoren werden im Dashboard und in FlorAIs Ratschlägen ignoriert.",
+    "sensors.present": "meldet", "sensors.absent": "nicht erkannt",
+    "sensors.enabled": "Aktiv", "sensors.pins": "Pins",
+    "sensors.none": "Keine Sensoren definiert.",
+    "sensors.on_toast": "Sensor {s} aktiviert", "sensors.off_toast": "Sensor {s} deaktiviert",
     "backend.keys.locked": "Anmelden, um Schlüssel zu sehen und zu ändern.",
     "backend.keys.save": "Schlüssel speichern", "backend.keys.reload": "↻ Neu laden",
     "backend.keys.note": "Werte werden serverseitig gespeichert und <b>sofort</b> übernommen. Leeres Feld = unverändert. „Zurücksetzen“ stellt den .env-Wert wieder her.",
@@ -1160,6 +1195,12 @@ const I18N = {
     "backend.nodes.title": "Nodes & hardware",
     "backend.nodes.note": "Gedetailleerde waarden, firmware, pinnen en ruwe data. Open “Details” per node.",
     "backend.keys.title": "API-sleutels & toegang",
+    "sensors.title": "Sensoren (modulair)",
+    "sensors.intro": "Een node heeft alleen de sensoren nodig die je echt aansluit. Zet elk apart aan of uit en volg de bedradingshulp. Uitgeschakelde sensoren worden genegeerd in het dashboard en in FlorAI's advies.",
+    "sensors.present": "meldt", "sensors.absent": "niet gedetecteerd",
+    "sensors.enabled": "Actief", "sensors.pins": "Pinnen",
+    "sensors.none": "Geen sensoren gedefinieerd.",
+    "sensors.on_toast": "Sensor {s} geactiveerd", "sensors.off_toast": "Sensor {s} gedeactiveerd",
     "backend.keys.locked": "Log in om sleutels te bekijken en te wijzigen.",
     "backend.keys.save": "Sleutels opslaan", "backend.keys.reload": "↻ Herladen",
     "backend.keys.note": "Waarden worden server-side opgeslagen en <b>direct</b> toegepast. Leeg veld = ongewijzigd. “Resetten” herstelt de .env-waarde.",
@@ -1456,6 +1497,7 @@ function render(payload){
   refreshCal();
   floriRefreshWho();
   renderOnboarding(nodes);
+  renderSensors();
 
   const n = nodes.length, online = nodes.filter(x => x.online).length;
   $("nodeState").className = "pill " + (online ? "on" : "off");
@@ -2103,6 +2145,46 @@ function renderBackendNodes(names){
     </div>`;
   }).join("") || '<p class="muted">'+t("backend.none")+'</p>';
   box.querySelectorAll("[data-detail]").forEach(b => b.onclick = () => openNodeDetails(b.dataset.detail));
+}
+
+/* Modular sensors: show each sensor with its wiring, presence and an on/off
+   toggle (per node). Toggling writes sensor_<key>_enabled. */
+function renderSensors(){
+  const n = selectedNode();
+  const box = $("sensors"); if(!box || !n) return;
+  const who = $("sensorsWho"); if(who) who.textContent = nodeLabel(n);
+  const sensors = (lastPayload.nodes[n] && lastPayload.nodes[n].sensors) || [];
+  box.innerHTML = sensors.map(s => {
+    const st = s.present ? t("sensors.present") : t("sensors.absent");
+    const stCls = s.present ? "present" : "absent";
+    const wire = Object.entries(s.wiring || {}).map(([k,v]) =>
+      `<div>${esc(v)}</div>`).join("");
+    return `<div class="sensor ${s.enabled?"on":""}" data-sensor="${s.key}">
+      <div class="shead">
+        <b>${esc(s.label)}</b>
+        <span class="st ${stCls}">${s.present?"●":"○"} ${st}</span>
+      </div>
+      <div class="wire">
+        <div class="muted" style="font-size:.82rem">${esc(s.needs||"")}</div>
+        ${wire}
+        ${s.pins?`<div class="muted" style="font-size:.82rem">${t("sensors.pins")}: ${Object.entries(s.pins).map(([k,v])=>`<code>${k}=GPIO${v}</code>`).join(" ")}</div>`:""}
+      </div>
+      <label class="tgl"><input type="checkbox" data-sensor-tgl="${s.key}"
+        ${s.enabled?"checked":""} ${authed?"":"disabled"}> ${t("sensors.enabled")}</label>
+    </div>`;
+  }).join("") || '<p class="muted">'+t("sensors.none")+'</p>';
+  box.querySelectorAll("[data-sensor-tgl]").forEach(cb =>
+    cb.onchange = () => toggleSensor(n, cb.dataset.sensorTgl, cb.checked, cb));
+}
+async function toggleSensor(node, key, on, cb){
+  cb.disabled = true;
+  try{
+    await json(`/api/config/node/${encodeURIComponent(node)}`,
+               {method:"PUT", body: JSON.stringify({["sensor_"+key+"_enabled"]: on})});
+    toast(on ? t("sensors.on_toast",{s:key}) : t("sensors.off_toast",{s:key}));
+    refresh();
+  }catch(e){ errToast(t("common.save_failed",{msg:e.message})); cb.checked = !on; }
+  finally{ cb.disabled = !authed; }
 }
 
 function refreshCal(){

@@ -136,6 +136,12 @@ DEFAULTS: dict[str, Any] = {
     "diary_interval_days": envf("DIARY_INTERVAL_DAYS", 7.0),
     # Flori's autonomy over THIS plant: off (advice only) | ask | auto
     "ai_control": "off",
+    # Modular sensors: each can be toggled per node (None = auto-detect).
+    "sensor_soil_enabled": None,
+    "sensor_dht_enabled": None,
+    "sensor_lux_enabled": None,
+    "sensor_tank_enabled": None,
+    "sensor_battery_enabled": None,
 }
 NUMERIC_KEYS = {k for k, v in DEFAULTS.items() if isinstance(v, (int, float))}
 BOOL_KEYS = {k for k, v in DEFAULTS.items() if isinstance(v, bool)}
@@ -613,6 +619,85 @@ ALIASES = {
 }
 PUBLISH_FIELDS = ["moisture_pct", "temp_c", "humidity", "lux", "soil_v", "tank_pct",
                   "rssi", "pump", "light", "mode", "fault", "on_s"]
+
+# ---- modular sensor registry ------------------------------------------------ #
+# A node only needs the sensors you attach. Each entry describes what a sensor is,
+# which ESP32 GPIO it uses, how to wire it, and how to tell whether it is present.
+# The dashboard renders this as a guided setup so a half-populated node is fine.
+SENSORS: list[dict[str, Any]] = [
+    {
+        "key": "soil", "label": "Soil moisture",
+        "metric": "moisture_pct", "fault_token": "soil",
+        "pins": {"signal": 34, "power": 25},
+        "needs": "HW-390 capacitive probe",
+        "wiring": {
+            "signal": "AOUT -> GPIO34 (ADC1, input-only)",
+            "power": "VCC -> GPIO25 (power-gated to fight corrosion)",
+            "gnd": "GND -> GND",
+        },
+        "calibration": True,
+    },
+    {
+        "key": "dht", "label": "Temperature & humidity",
+        "metric": "temp_c", "fault_token": "dht11",
+        "pins": {"data": 27},
+        "needs": "DHT11 (or DHT22)",
+        "wiring": {
+            "data": "DATA -> GPIO27 (add a 10 kΩ pull-up to 3.3 V!)",
+            "power": "VCC -> 3.3 V",
+            "gnd": "GND -> GND",
+        },
+        "calibration": False,
+    },
+    {
+        "key": "lux", "label": "Light level",
+        "metric": "lux", "fault_token": "ldr",
+        "pins": {"signal": 35},
+        "needs": "LDR voltage divider",
+        "wiring": {
+            "signal": "divider midpoint -> GPIO35 (ADC1, input-only)",
+            "top": "LDR from 3.3 V to the midpoint",
+            "bottom": "10 kΩ from the midpoint to GND",
+        },
+        "calibration": False,
+    },
+    {
+        "key": "tank", "label": "Water tank level",
+        "metric": "tank_pct", "fault_token": "tank",
+        "pins": {"signal": 32},
+        "needs": "optional float / ultrasonic level sensor",
+        "wiring": {"signal": "level signal -> GPIO32"},
+        "calibration": False,
+    },
+    {
+        "key": "battery", "label": "Battery",
+        "metric": "battery_pct", "fault_token": "batt",
+        "pins": {"signal": 32},
+        "needs": "battery-node build only",
+        "wiring": {"signal": "battery divider -> GPIO32 (see BATTERY.md)"},
+        "calibration": False,
+    },
+]
+
+
+def sensors_for(node_name: str) -> list[dict[str, Any]]:
+    """Registry + per-node presence, derived from the node's telemetry and fault."""
+    n = node(node_name)
+    metrics = n["metrics"]
+    fault = str(n.get("fault") or "").lower()
+    cfg = get_config_for(node_name)
+    out = []
+    for s in SENSORS:
+        present = s["metric"] in metrics and metrics.get(s["metric"]) is not None
+        if s["fault_token"] and s["fault_token"] in fault:
+            present = False
+        enabled_key = f"sensor_{s['key']}_enabled"
+        enabled = cfg.get(enabled_key)
+        if enabled is None:
+            enabled = present  # auto: on when the sensor is reporting
+        out.append({**s, "present": present, "enabled": bool(enabled)})
+    return out
+
 
 
 def normalise(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1312,6 +1397,7 @@ async def api_state() -> dict[str, Any]:
     nodes = {k: public_node(k, NODES[k]) for k in names}
     for k in names:
         nodes[k]["plant"] = get_plant(k)
+        nodes[k]["sensors"] = sensors_for(k)
     return {
         "nodes": nodes,
         "count": len(names),
@@ -2441,6 +2527,15 @@ async def api_system() -> dict[str, Any]:
             "devices": len(list_devices()),
         },
     }
+
+
+# ---- modular sensors -------------------------------------------------------- #
+
+@app.get("/api/sensors/{node}")
+async def api_sensors(node: str) -> dict[str, Any]:
+    """The sensor registry for one node: what each sensor is, its GPIO + wiring,
+    whether it is currently reporting, and whether it is enabled."""
+    return {"node": node, "sensors": sensors_for(node)}
 
 
 @app.post("/api/command")
