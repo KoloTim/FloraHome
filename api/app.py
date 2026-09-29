@@ -22,6 +22,7 @@ import hmac
 import io
 import json
 import logging
+import math
 import os
 import platform
 import secrets
@@ -66,6 +67,9 @@ DB_PATH = env("DB_PATH", "/data/planter.db")
 SECRET_KEY = env("SECRET_KEY", "insecure-dev-key").encode()
 ADMIN_USER = env("ADMIN_USER", "admin")
 ADMIN_PASSWORD = env("ADMIN_PASSWORD", "planteradmin")
+# Login is OFF by default for local/demo use: every control works without signing
+# in. Set AUTH_DISABLED=0 (e.g. in .env) to require the admin login again.
+AUTH_DISABLED = env("AUTH_DISABLED", "1").strip().lower() in ("1", "true", "yes", "on")
 
 MQTT_HOST = env("MQTT_HOST", "mosquitto")
 MQTT_PORT = int(env("MQTT_PORT", "1883"))
@@ -123,6 +127,16 @@ DEFAULTS: dict[str, Any] = {
     "pump_seconds": envf("PUMP_SECONDS", 20.0),               # run time per dose
     "pump_cooldown_min": envf("PUMP_COOLDOWN_MIN", 25.0),     # min gap between doses
     "pump_max_per_day": envf("PUMP_MAX_PER_DAY", 8.0),        # hard safety cap
+    # Smart dosing: the R385 diaphragm pump moves ~25-33 mL/s at 12 V, so we can
+    # water by VOLUME instead of a blind fixed time. `pot_ml` = mL that shifts the
+    # soil reading from 0 % to 100 % (i.e. the usable substrate water capacity).
+    "pump_ml_per_s": envf("PUMP_ML_PER_S", 30.0),
+    "pot_ml": envf("POT_ML", 400.0),            # mL that moves the soil 0%->100%
+    "pump_max_ml": envf("PUMP_MAX_ML", 120.0),  # hard cap on any ONE dose (mL)
+    "pump_max_seconds": envf("PUMP_MAX_SECONDS", 20.0),       # firmware ceiling is 45
+    # Stop auto-watering after this many doses that didn't raise the soil reading
+    # (a broken/loose probe otherwise makes the pump run forever).
+    "pump_max_unresponsive": envf("PUMP_MAX_UNRESPONSIVE", 3.0),
     "alert_dry_pct": envf("ALERT_DRY_PCT", 25.0),             # alert if still dry
     "alert_dry_min": envf("ALERT_DRY_MIN", 20.0),             # ...for this long
     "alert_silent_min": envf("ALERT_SILENT_MIN", 5.0),        # node heartbeat lost
@@ -209,6 +223,7 @@ def init_db() -> None:
                 nickname TEXT,
                 notes TEXT,
                 care TEXT,
+                photo TEXT,
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL
             );
@@ -236,6 +251,12 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit(ts DESC);
             """
         )
+        # Lightweight migrations for existing databases.
+        for ddl in ("ALTER TABLE plants ADD COLUMN photo TEXT",):
+            try:
+                c.execute(ddl)
+            except sqlite3.OperationalError:
+                pass  # column already exists
         now = time.time()
         for k, v in DEFAULTS.items():
             c.execute(
@@ -489,15 +510,18 @@ def upsert_plant(node_name: str, data: dict[str, Any]) -> dict[str, Any]:
         "nickname": data.get("nickname"),
         "notes": data.get("notes") or (species or {}).get("notes"),
         "care": json.dumps(care) if care else None,
+        # photo: absent -> keep existing; "" -> clear; else new data URL
+        "photo": data.get("photo"),
     }
     with _db_lock:
         db().execute(
-            """INSERT INTO plants(id,node,name,species_id,species,emoji,color,nickname,notes,care,created_at,updated_at)
-               VALUES(:id,:node,:name,:species_id,:species,:emoji,:color,:nickname,:notes,:care,:now,:now)
+            """INSERT INTO plants(id,node,name,species_id,species,emoji,color,nickname,notes,care,photo,created_at,updated_at)
+               VALUES(:id,:node,:name,:species_id,:species,:emoji,:color,:nickname,:notes,:care,:photo,:now,:now)
                ON CONFLICT(id) DO UPDATE SET
                  node=excluded.node, name=excluded.name, species_id=excluded.species_id,
                  species=excluded.species, emoji=excluded.emoji, color=excluded.color,
                  nickname=excluded.nickname, notes=excluded.notes, care=excluded.care,
+                 photo=COALESCE(excluded.photo, plants.photo),
                  updated_at=excluded.updated_at""",
             {**fields, "now": now},
         )
@@ -572,6 +596,12 @@ def new_node(name: str) -> dict[str, Any]:
         "pump_count_today": 0,
         "pump_day": datetime.now(timezone.utc).date().isoformat(),
         "halted": False,     # Not-Aus: forces every output off, blocks watering
+        # Over-watering guard: if doses don't raise the soil reading, the probe is
+        # probably faulty/not in the pot -> pause auto-watering instead of flooding.
+        "last_dose_moisture": None,
+        "unresponsive_doses": 0,
+        "pump_paused": False,
+        "_pump_paused_alerted": False,
     }
 
 
@@ -680,8 +710,20 @@ SENSORS: list[dict[str, Any]] = [
 ]
 
 
+# Per-sensor guided diagnosis. `checks` are i18n keys the dashboard renders as
+# a step-by-step checklist when a sensor misbehaves.
+SENSOR_DIAG: dict[str, dict[str, Any]] = {
+    "soil": {"unit": "%", "checks": ["diag.soil.raw", "diag.soil.power", "diag.soil.cal"]},
+    "dht": {"unit": "\u00b0C", "checks": ["diag.dht.pullup", "diag.dht.power", "diag.dht.data"]},
+    "lux": {"unit": "lx", "checks": ["diag.lux.divider", "diag.lux.midpoint"]},
+    "tank": {"unit": "%", "checks": ["diag.tank.signal"]},
+    "battery": {"unit": "%", "checks": ["diag.batt.signal"]},
+}
+
+
 def sensors_for(node_name: str) -> list[dict[str, Any]]:
-    """Registry + per-node presence, derived from the node's telemetry and fault."""
+    """Registry + per-node presence and a guided diagnosis, derived from the
+    node's telemetry and its fault string."""
     n = node(node_name)
     metrics = n["metrics"]
     fault = str(n.get("fault") or "").lower()
@@ -689,13 +731,28 @@ def sensors_for(node_name: str) -> list[dict[str, Any]]:
     out = []
     for s in SENSORS:
         present = s["metric"] in metrics and metrics.get(s["metric"]) is not None
-        if s["fault_token"] and s["fault_token"] in fault:
+        faulted = bool(s["fault_token"] and s["fault_token"] in fault)
+        if faulted:
             present = False
         enabled_key = f"sensor_{s['key']}_enabled"
         enabled = cfg.get(enabled_key)
         if enabled is None:
             enabled = present  # auto: on when the sensor is reporting
-        out.append({**s, "present": present, "enabled": bool(enabled)})
+        if not enabled:
+            status = "off"
+        elif faulted:
+            status = "fault"
+        elif not present:
+            status = "missing"
+        else:
+            status = "ok"
+        diag = SENSOR_DIAG.get(s["key"], {})
+        out.append({**s, "present": present, "enabled": bool(enabled),
+                    "status": status,
+                    "raw": metrics.get(s["metric"]),
+                    "unit": diag.get("unit"),
+                    "cause": (s["fault_token"] if faulted else None),
+                    "checks": diag.get("checks", [])})
     return out
 
 
@@ -1050,7 +1107,34 @@ def is_fresh() -> bool:
     return any(node_fresh(NODES[k]) for k in node_names())
 
 
+def dose_seconds(cfg: dict[str, Any], deficit_pct: float) -> int:
+    """Turn a soil-moisture deficit into a pump run time using the pump's flow
+    rate: needed_ml = deficit_pct/100 * pot_ml, seconds = needed_ml / ml_per_s.
+    Falls back to the fixed `pump_seconds` when flow/volume are unset."""
+    try:
+        ml_per_s = float(cfg.get("pump_ml_per_s") or 0)
+        pot_ml = float(cfg.get("pot_ml") or 0)
+        max_ml = float(cfg.get("pump_max_ml") or 150)
+        hi = int(cfg.get("pump_max_seconds") or 45)
+    except (TypeError, ValueError):
+        return int(cfg["pump_seconds"])
+    if ml_per_s <= 0 or pot_ml <= 0 or deficit_pct <= 0:
+        return int(cfg["pump_seconds"])
+    # bring the soil toward the target, but NEVER exceed one max dose
+    volume = min(deficit_pct / 100.0 * pot_ml, max_ml)
+    return int(max(1, min(round(volume / ml_per_s), hi)))
+
+
+def dose_ml(cfg: dict[str, Any], seconds: float) -> float:
+    try:
+        return round(float(seconds) * float(cfg.get("pump_ml_per_s") or 0), 1)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 async def _rules_for_node(node_name: str, n: dict[str, Any]) -> None:
+    if n.get("demo"):
+        return  # demo nodes are display-only: no automation, alerts or MQTT
     cfg = get_config_for(node_name)
     now = time.time()
     last_seen = n["last_seen"]
@@ -1086,10 +1170,22 @@ async def _rules_for_node(node_name: str, n: dict[str, Any]) -> None:
     if n["pump"] == "watering":
         n["pump"] = "cooldown"
 
+    # Over-watering guard: reset the counter when the soil is healthy or improved;
+    # pause auto-watering once repeat doses stop raising the reading.
+    max_unresp = int(cfg.get("pump_max_unresponsive") or 3)
+    improved = (moisture is not None and n.get("last_dose_moisture") is not None
+                and moisture > n["last_dose_moisture"] + 1.0)
+    if (moisture is not None and moisture >= cfg["pump_threshold_pct"]) or improved:
+        n["unresponsive_doses"] = 0
+        n["pump_paused"] = False
+    elif n.get("unresponsive_doses", 0) >= max_unresp:
+        n["pump_paused"] = True
+
     if (
         cfg["pump_auto"]
         and fresh                        # never act on stale readings / dead node
         and not n["halted"]
+        and not n["pump_paused"]         # probe not responding -> stop flooding
         and moisture is not None
         and moisture < cfg["pump_threshold_pct"]
         and not on_cooldown
@@ -1097,19 +1193,41 @@ async def _rules_for_node(node_name: str, n: dict[str, Any]) -> None:
         and tank_ok
         and n["pump"] != "watering"
     ):
-        secs = int(cfg["pump_seconds"])
+        if n.get("last_dose_moisture") is not None and moisture <= n["last_dose_moisture"] + 1.0:
+            n["unresponsive_doses"] = n.get("unresponsive_doses", 0) + 1
+        n["last_dose_moisture"] = moisture
+        deficit = max(0.0, cfg["pump_threshold_pct"] - moisture)
+        secs = dose_seconds(cfg, deficit)
+        ml = dose_ml(cfg, secs)
         if publish(t_cmd(node_name), {"action": "pump", "seconds": secs, "reason": "auto"}):
             n["pump"] = "watering"
             n["last_pump_ts"] = now
             n["pump_count_today"] += 1
-            log.info("[%s] pump ON for %ss (moisture %.1f%%)", node_name, secs, moisture)
-            audit("system", "pump_auto", f"{node_name}: {secs}s, moisture={moisture:.1f}%")
+            log.info("[%s] pump ON %ss (~%.0f mL) moisture %.1f%% -> target %.0f%%",
+                     node_name, secs, ml, moisture, cfg["pump_threshold_pct"])
+            audit("system", "pump_auto",
+                  f"{node_name}: {secs}s (~{ml}mL), moisture={moisture:.1f}%")
             await telegram(
-                f"💧 <b>{label}</b> bewässert {secs}s (Bodenfeuchte {moisture:.0f}%).",
+                f"💧 <b>{label}</b> bewässert {secs}s (~{ml:.0f} mL, Bodenfeuchte {moisture:.0f}%).",
                 f"{node_name}_pump_on", force=True,
             )
     elif n["pump"] == "cooldown" and not on_cooldown:
         n["pump"] = "idle"
+
+    # Alert once when auto-watering has paused (likely a soil-sensor problem).
+    if n.get("pump_paused"):
+        if not n.get("_pump_paused_alerted"):
+            n["_pump_paused_alerted"] = True
+            await raise_alert(
+                f"{node_name}:pump_paused", "warning",
+                f"[{label}] Gie\u00df-Automatik pausiert: Bodenmessung steigt nach dem Gie\u00dfen "
+                f"nicht ({n.get('unresponsive_doses')}x). Sonde pr\u00fcfen/kalibrieren.",
+                f"\u26a0\ufe0f <b>{label}</b>: Gie\u00df-Automatik pausiert \u2014 die Bodenmessung steigt "
+                f"trotz Gie\u00dfen nicht ({n.get('unresponsive_doses')}x). Bitte Sonde pr\u00fcfen.",
+            )
+    else:
+        n["_pump_paused_alerted"] = False
+        await resolve_alert(f"{node_name}:pump_paused")
 
     # -- dry soil too long ------------------------------------------------- #
     dry = fresh and moisture is not None and moisture < cfg["alert_dry_pct"]
@@ -1301,6 +1419,8 @@ def verify(token: str | None) -> str | None:
 
 
 def require_user(request: Request, session: str | None) -> str:
+    if AUTH_DISABLED:
+        return "open"           # login removed — every action is allowed
     user = verify(session)
     if not user:
         raise HTTPException(status_code=401, detail="login required")
@@ -1313,8 +1433,11 @@ def client_ip(request: Request) -> str:
 
 def _primary_name() -> str:
     names = node_names()
+    for k in names:                      # prefer a real, fresh node over a demo one
+        if not NODES[k].get("demo") and node_fresh(NODES[k]):
+            return k
     for k in names:
-        if node_fresh(NODES[k]):
+        if not NODES[k].get("demo"):
             return k
     return names[0] if names else "plant-a"
 
@@ -1337,6 +1460,8 @@ def public_node(name: str, n: dict[str, Any]) -> dict[str, Any]:
             "last_seen": n["last_seen"],
             "last_seen_age_s": round(age, 1) if age is not None else None,
             "pump_count_today": n["pump_count_today"],
+            "pump_paused": bool(n.get("pump_paused")),
+            "unresponsive_doses": n.get("unresponsive_doses", 0),
         }
 
 
@@ -1351,6 +1476,12 @@ async def lifespan(app: FastAPI):
     LOOP = asyncio.get_running_loop()
     init_db()
     _reload_secrets()
+    if meta_get("demo_enabled") == "1":     # restore demo plants after a restart
+        try:
+            _seed_demo()
+            log.info("demo mode restored")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("demo reseed failed: %s", exc)
     threading.Thread(target=start_mqtt, daemon=True).start()
     t1 = asyncio.create_task(_loop_task(rules_tick, 5))
     t2 = asyncio.create_task(_loop_task(state_tick, 5))
@@ -1478,9 +1609,208 @@ async def api_put_plant(
     return {"ok": True, "plant": plant, "applied_config": applied}
 
 
+@app.delete("/api/plant/{node}")
+async def api_delete_plant(
+    node: str,
+    request: Request,
+    planter_session: str | None = Cookie(default=None),
+) -> dict[str, Any]:
+    """Remove a plant profile from a node. The ESP keeps running; it just loses
+    its name/species/care profile (and shows up as an unassigned board)."""
+    user = require_user(request, planter_session)
+    with _db_lock:
+        cur = db().execute("DELETE FROM plants WHERE node=?", (node,))
+        db().commit()
+    audit(user, "plant_profile_deleted", f"{node} ({cur.rowcount} row)", client_ip(request))
+    return {"ok": True, "node": node, "deleted": cur.rowcount}
+
+
 @app.get("/api/plants/assigned/all")
 async def api_plants_assigned() -> dict[str, Any]:
     return {"plants": list_plants()}
+
+
+# ---- demo mode -------------------------------------------------------------- #
+# Seeds a few *virtual* plants (no hardware) so the dashboard can be shown with
+# varied moods, readings and a rich diary. Demo nodes are display-only: the rules
+# loop skips them (no watering/alerts), and one click removes them again.
+
+DEMO_PLANTS: list[dict[str, Any]] = [
+    {"id": "demo-monstera", "species": "monstera-deliciosa", "nickname": "Mona", "emoji": "\U0001F33F",
+     "color": "#4fae6a", "online": True, "pump": "idle", "count": 1,
+     "metrics": {"moisture_pct": 55, "temp_c": 23.2, "humidity": 56, "lux": 7200,
+                 "rssi": -55, "soil_v": 1.7, "ldr_v": 2.5}},
+    {"id": "demo-snake", "species": "sansevieria-trifasciata", "nickname": "Sancho", "emoji": "\U0001F335",
+     "color": "#3f9f6f", "online": True, "pump": "cooldown", "count": 0,
+     "metrics": {"moisture_pct": 8, "temp_c": 21.4, "humidity": 41, "lux": 3200,
+                 "rssi": -61, "soil_v": 2.6, "ldr_v": 2.1}},
+    {"id": "demo-calathea", "species": "calathea-orbifolia", "nickname": "Callie", "emoji": "\U0001F334",
+     "color": "#8fce9a", "online": True, "pump": "idle", "count": 2,
+     "metrics": {"moisture_pct": 82, "temp_c": 20.6, "humidity": 66, "lux": 900,
+                 "rssi": -58, "soil_v": 1.05, "ldr_v": 1.6}},
+    {"id": "demo-aloe", "species": "aloe-vera", "nickname": "Ali", "emoji": "\U0001FAB4",
+     "color": "#4bbf8f", "online": True, "pump": "idle", "count": 0,
+     "metrics": {"moisture_pct": 22, "temp_c": 36.1, "humidity": 24, "lux": 30000,
+                 "rssi": -49, "soil_v": 1.95, "ldr_v": 3.1}},
+    {"id": "demo-ficus", "species": "ficus-lyrata", "nickname": "Fico", "emoji": "\U0001F333",
+     "color": "#57a05c", "online": False, "pump": "idle", "count": 0,
+     "metrics": {"moisture_pct": 34, "temp_c": 22.0, "humidity": 50, "lux": 4200,
+                 "rssi": -70, "soil_v": 1.9, "ldr_v": 2.3}},
+]
+
+DEMO_DIARY: dict[str, list[str]] = {
+    "demo-monstera": [
+        "\u2022 A brand-new leaf is unfurling \U0001F33F\n\u2022 Soil at a comfy 55%, no drink needed\n\u2022 Loving the soft 7k lux by the window",
+        "\u2022 Two leaves bigger than last month\n\u2022 Got a small drink on Tuesday, just right\n\u2022 Feeling glossy and strong",
+        "\u2022 The top of my soil finally dried out\n\u2022 Turned a little toward the light\n\u2022 New aerial root checking things out",
+        "\u2022 A quiet, happy week in indirect sun\n\u2022 No pests in sight, leaves dust-free\n\u2022 Dreaming of the rainforest",
+    ],
+    "demo-snake": [
+        "\u2022 Still dry as a desert, 8% soil \U0001FAA8\n\u2022 I like it that way, but a sip soon?\n\u2022 Slow and steady as always",
+        "\u2022 Barely drank anything, thriving\n\u2022 Sharp new leaf poking up\n\u2022 Reminder: I hate wet feet",
+        "\u2022 Two weeks without water, easy\n\u2022 Survived the dark corner happily\n\u2022 Tough as nails",
+    ],
+    "demo-calathea": [
+        "\u2022 Soil 82% \u2014 a bit soggy for me \U0001F4A6\n\u2022 Skip my drink, let me dry out\n\u2022 Leaves still patterning beautifully",
+        "\u2022 Humidity nice and high at 66%\n\u2022 Edges crisp, I would like more moisture in air\n\u2022 Slow, dramatic leaf movement",
+        "\u2022 Opened up wide this morning\n\u2022 Slightly too wet, watching my roots\n\u2022 Fussy but worth it",
+    ],
+    "demo-aloe": [
+        "\u2022 Blazing 30k lux today, I love it \u2600\uFE0F\n\u2022 A touch warm at 36C \u2014 some shade please\n\u2022 Bone dry soil, exactly my style",
+        "\u2022 Spine tips blush red in the sun\n\u2022 No water needed for a while\n\u2022 Desert royalty",
+        "\u2022 Basking and growing plump\n\u2022 Warm afternoon, I can take it\n\u2022 Nice and dry",
+    ],
+    "demo-ficus": [
+        "\u2022 Went quiet for a bit \u2014 check my plug? \U0001F50C\n\u2022 Last reading: 34% soil\n\u2022 I will be back online soon",
+        "\u2022 Growing tall and steady\n\u2022 Hates being moved, notes to self\n\u2022 Bright, indirect light forever",
+    ],
+}
+
+DEMO_IDS = {p["id"] for p in DEMO_PLANTS}
+
+DEMO_EVENTS = [
+    ("warning", "demo-snake:soil_dry", "[Sancho] Soil is dry (8%)"),
+    ("warning", "demo-calathea:tank_empty", "[Callie] Water tank almost empty"),
+    ("critical", "demo-ficus:node_silent", "[Fico] No data for 15 minutes"),
+]
+
+
+def _demo_avatar(emoji: str, color: str) -> str:
+    """A little profile picture generated from the plant database (species colour
+    + emoji), as an inline SVG data URL — no external images needed."""
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">'
+        '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{color}"/><stop offset="1" stop-color="#0a100d"/>'
+        '</linearGradient></defs>'
+        '<rect width="256" height="256" rx="52" fill="url(#g)"/>'
+        '<circle cx="128" cy="120" r="86" fill="#ffffff" opacity="0.10"/>'
+        '<text x="128" y="168" font-size="150" text-anchor="middle" '
+        'font-family="Noto Color Emoji,Apple Color Emoji,Segoe UI Emoji">'
+        f'{emoji}</text></svg>'
+    )
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
+
+
+def _seed_demo_history(name: str, base: dict[str, Any], now: float) -> None:
+    """Backfill ~36 h of realistic readings so the History tab has pretty charts."""
+    h = node_history(name)
+    h.clear()
+    step, total = 300, int(36 * 3600 / 300)
+    for i in range(total):
+        ts = now - 36 * 3600 + i * step
+        mo = base.get("moisture_pct", 40) + 14 * math.sin(i / 16.0) - (i / total) * 8
+        h.append({
+            "ts": ts,
+            "moisture_pct": round(max(0.0, min(100.0, mo)), 1),
+            "temp_c": round(base.get("temp_c", 22) + 2.5 * math.sin(i / 34.0 + 1), 1),
+            "humidity": round(max(0.0, min(100.0, base.get("humidity", 50) - 6 * math.sin(i / 34.0))), 0),
+            "lux": round(max(0.0, base.get("lux", 5000) * (0.45 + 0.55 * abs(math.sin(i / 22.0)))), 0),
+            "soil_v": round(max(0.0, min(3.3, base.get("soil_v", 1.8) + 0.15 * math.sin(i / 16.0))), 3),
+            "rssi": round(base.get("rssi", -60) + 4 * math.sin(i / 25.0), 0),
+            "tank_pct": round(max(0, 70 - (i / total) * 25), 0),
+        })
+
+
+def _seed_demo() -> list[str]:
+    now = time.time()
+    for p in DEMO_PLANTS:
+        n = node(p["id"])
+        with STATE_LOCK:
+            n["demo"] = True
+            n["metrics"] = dict(p["metrics"])
+            n["metrics_ts"] = now
+            n["last_seen"] = now if p.get("online", True) else now - 900
+            n["fault"] = "ok"
+            n["pump"] = p.get("pump", "idle")
+            n["pump_count_today"] = p.get("count", 0)
+            n["on_s"] = 86_400 * 9
+            n["halted"] = False
+            n["alerts"] = []
+            n["pump_paused"] = False
+        sp = load_plant_db().get(p["species"]) or {}
+        avatar = _demo_avatar(p.get("emoji") or sp.get("emoji") or "\U0001FAB4",
+                              p.get("color") or sp.get("color") or "#5fd08a")
+        upsert_plant(p["id"], {"id": f"plant-{p['id']}", "species_id": p["species"],
+                               "nickname": p["nickname"], "name": p["nickname"],
+                               "emoji": p["emoji"], "color": p["color"],
+                               "photo": avatar})
+        _seed_demo_history(p["id"], p["metrics"], now)
+        with _db_lock:
+            db().execute("DELETE FROM diary WHERE node=?", (p["id"],))
+            db().commit()
+        for i, txt in enumerate(DEMO_DIARY.get(p["id"], [])):
+            add_diary(p["id"], txt, ts=now - i * 2.3 * 86400)
+    for level, code, msg in DEMO_EVENTS:
+        open_event(level, code, msg)
+    meta_set("demo_enabled", "1")
+    broadcast({"type": "state"})
+    return [p["id"] for p in DEMO_PLANTS]
+
+
+def _clear_demo() -> list[str]:
+    removed: list[str] = []
+    with NODES_LOCK:
+        for k in list(NODES.keys()):
+            if NODES[k].get("demo") or k in DEMO_IDS:
+                NODES.pop(k, None)
+                removed.append(k)
+    with _db_lock:
+        for k in removed:
+            db().execute("DELETE FROM plants WHERE node=?", (k,))
+            db().execute("DELETE FROM diary WHERE node=?", (k,))
+        db().execute("DELETE FROM events WHERE code LIKE 'demo-%'")
+        db().commit()
+    for k in removed:
+        node_history(k).clear()
+    meta_set("demo_enabled", None)
+    broadcast({"type": "state"})
+    return removed
+
+
+@app.post("/api/demo/seed")
+async def api_demo_seed(request: Request,
+                        planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    user = require_user(request, planter_session)
+    ids = _seed_demo()
+    audit(user, "demo_seed", f"{len(ids)} demo nodes", client_ip(request))
+    return {"ok": True, "nodes": ids}
+
+
+@app.post("/api/demo/clear")
+async def api_demo_clear(request: Request,
+                         planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    user = require_user(request, planter_session)
+    ids = _clear_demo()
+    audit(user, "demo_clear", f"{len(ids)} demo nodes", client_ip(request))
+    return {"ok": True, "nodes": ids}
+
+
+@app.get("/api/demo/status")
+async def api_demo_status() -> dict[str, Any]:
+    with NODES_LOCK:
+        demo = sorted(k for k, n in NODES.items() if n.get("demo"))
+    return {"active": bool(demo), "nodes": demo}
 
 
 # ---- devices + flashing (dashboard) ----------------------------------------- #
@@ -1495,8 +1825,13 @@ def _available_nodes() -> list[str]:
     names: list[str] = []
     try:
         for f in os.listdir(NODES_DIR):
-            if f.endswith(".yaml") and "secrets" not in f and f != "smartplanter.yaml":
-                names.append(f[:-5])
+            low = f.lower()
+            if not f.endswith(".yaml"):
+                continue
+            # only real node configs — skip secrets, templates and the legacy file
+            if "secret" in low or "template" in low or f in ("smartplanter.yaml",):
+                continue
+            names.append(f[:-5])
     except OSError:
         pass
     return sorted(names)
@@ -1689,10 +2024,10 @@ def _diary_points(node_name: str) -> dict[str, Any]:
             "humidity": stats("humidity"), "lux": stats("lux"), "samples": len(recent)}
 
 
-def add_diary(node_name: str, text: str) -> None:
+def add_diary(node_name: str, text: str, ts: float | None = None) -> None:
     with _db_lock:
         db().execute("INSERT INTO diary(node,ts,text) VALUES(?,?,?)",
-                     (node_name, time.time(), text))
+                     (node_name, ts or time.time(), text))
         db().commit()
 
 
@@ -1700,7 +2035,37 @@ def diary_for(node_name: str, limit: int = 12) -> list[dict[str, Any]]:
     with _db_lock:
         rows = db().execute("SELECT * FROM diary WHERE node=? ORDER BY ts DESC LIMIT ?",
                             (node_name, max(1, min(limit, 100)))).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["text"] = _diary_bullets(d.get("text") or "")
+        out.append(d)
+    return out
+
+
+def _diary_bullets(text: str, maxn: int = 3) -> str:
+    """Normalise a diary entry into at most `maxn` clean bullet lines. Short
+    lines are kept as-is; long lines (a paragraph) are split into sentences, so
+    both old paragraph entries and new bullet output end up tidy."""
+    raw = (text or "").replace("\r", "\n")
+    chunks: list[str] = []
+    for ln in raw.split("\n"):
+        s = ln.strip().lstrip("\u2022-*\u00b7").strip()
+        if not s:
+            continue
+        low = s.lower()
+        if low.startswith(("dear diary", "dear plant diary", "liebes tagebuch",
+                           "beste dagboek", "lief dagboek")):
+            continue  # drop the greeting opener
+        if len(s) <= 90:
+            chunks.append(s)
+        else:
+            for part in s.replace("! ", ". ").replace("? ", ". ").split(". "):
+                p = part.strip().rstrip(".!?").strip()
+                if p:
+                    chunks.append(p + ".")
+    chunks = chunks[:maxn]
+    return "\n".join("\u2022 " + c for c in chunks)
 
 
 async def _write_diary(node_name: str, lang: str = "en") -> str | None:
@@ -1726,6 +2091,7 @@ async def _write_diary(node_name: str, lang: str = "en") -> str | None:
     except HTTPException as exc:
         log.warning("diary failed for %s: %s", node_name, exc.detail)
         return None
+    text = _diary_bullets(text)
     add_diary(node_name, text)
     audit("system", "ai_diary", node_name)
     broadcast({"type": "diary", "node": node_name, "text": text})
@@ -1811,12 +2177,33 @@ STRINGS: dict[str, dict[str, str]] = {
               "Antwoord in 2-4 zinnen.",
     },
     "identify.system": {
-        "en": "You are a plant identifier. Reply ONLY with JSON: "
-              '{"common":"...","scientific":"...","confidence":0-1,"care_hint":"..."}. ',
-        "de": "Du bist ein Pflanzenbestimmer. Antworte NUR mit JSON: "
-              '{"common":"...","scientific":"...","confidence":0-1,"care_hint":"..."}. ',
-        "nl": "Je bent een plantenherkenner. Antwoord ALLEEN met JSON: "
-              '{"common":"...","scientific":"...","confidence":0-1,"care_hint":"..."}. ',
+        "en": "You are a plant identifier and houseplant-care expert. Reply ONLY with "
+              "one JSON object, no prose: "
+              '{"common":"English name","common_de":"German name","scientific":"...",'
+              '"emoji":"one emoji","color":"#rrggbb","confidence":0-1,'
+              '"care":{"moisture_min_pct":0-100,"moisture_max_pct":0-100,"temp_min_c":n,'
+              '"temp_max_c":n,"humidity_min_pct":0-100,"light_min_lux":n,"light_max_lux":n,'
+              '"watering_interval_days":n,"difficulty":"very easy|easy|medium|hard"},'
+              '"notes":"one short care sentence"}. '
+              "Base the care numbers on the identified species (estimate sensibly if unsure). ",
+        "de": "Du bist ein Pflanzenbestimmer und Experte f\u00fcr Zimmerpflanzenpflege. "
+              "Antworte NUR mit einem JSON-Objekt, ohne Text: "
+              '{"common":"englischer Name","common_de":"deutscher Name","scientific":"...",'
+              '"emoji":"ein Emoji","color":"#rrggbb","confidence":0-1,'
+              '"care":{"moisture_min_pct":0-100,"moisture_max_pct":0-100,"temp_min_c":n,'
+              '"temp_max_c":n,"humidity_min_pct":0-100,"light_min_lux":n,"light_max_lux":n,'
+              '"watering_interval_days":n,"difficulty":"sehr leicht|leicht|mittel|schwer"},'
+              '"notes":"ein kurzer Pflegehinweis"}. '
+              "Leite die Pflegewerte von der bestimmten Art ab (sch\u00e4tze sinnvoll). ",
+        "nl": "Je bent een plantenherkenner en kamerplanten-expert. Antwoord ENKEL met "
+              'één JSON-object, zonder tekst: '
+              '{"common":"Engelse naam","common_de":"Duitse naam","scientific":"...",'
+              '"emoji":"één emoji","color":"#rrggbb","confidence":0-1,'
+              '"care":{"moisture_min_pct":0-100,"moisture_max_pct":0-100,"temp_min_c":n,'
+              '"temp_max_c":n,"humidity_min_pct":0-100,"light_min_lux":n,"light_max_lux":n,'
+              '"watering_interval_days":n,"difficulty":"heel makkelijk|makkelijk|gemiddeld|moeilijk"},'
+              '"notes":"korte verzorgingstip"}. '
+              "Baseer de verzorgingswaarden op de herkende soort (schat verstandig). ",
     },
     "identify.prefer": {
         "en": "Prefer these species if they fit: ",
@@ -1827,21 +2214,30 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Done – I've updated the plant's settings.",
         "de": "Erledigt – ich habe die Einstellungen der Pflanze angepasst.",
         "nl": "Klaar – ik heb de instellingen van de plant aangepast.",
-    },    "diary.prompt": {
-        "en": "Write a SHORT, cute diary entry (1-3 short sentences, English, max ~60 words) "
-              "as the plant '{name}' ({species}), in first person. Sprinkle in 1-2 fitting "
-              "emojis. Use this week: {stats}. Now: soil {moist}%, {temp}C, light {lux}lx, "
-              "pump {pump} ({count}x today), fault={fault}. Be warm, playful and concrete.",
-        "de": "Schreibe einen KURZEN, niedlichen Tagebuch-Eintrag (1-3 kurze Sätze, Deutsch, "
-              "max. ~60 Wörter) als die Pflanze '{name}' ({species}), in Ich-Form. Baue 1-2 "
-              "passende Emojis ein. Diese Woche: {stats}. Jetzt: Bodenfeuchte {moist}%, "
-              "{temp}C, Licht {lux}lx, Pumpe {pump} ({count}x heute), fault={fault}. Sei warm, "
-              "verspielt und konkret.",
-        "nl": "Schrijf een KORT, schattig dagboekbijdrage (1-3 korte zinnen, Nederlands, "
-              "max. ~60 woorden) als de plant '{name}' ({species}), in de ik-vorm. Strooi er "
-              "1-2 passende emoji's in. Deze week: {stats}. Nu: bodem {moist}%, {temp}C, "
-              "licht {lux}lx, pomp {pump} ({count}x vandaag), fault={fault}. Wees warm, speels "
-              "en concreet.",
+    },
+    "ai.local_note": {
+        "en": "(The AI is busy right now, so this is a quick answer straight from the live sensors.)",
+        "de": "(Die KI ist gerade ausgelastet, daher eine kurze Antwort direkt aus den Live-Sensoren.)",
+        "nl": "(De AI is even druk, dus dit is een kort antwoord rechtstreeks uit de live-sensoren.)",
+    },
+    "diary.prompt": {
+        "en": "You are the houseplant '{name}' ({species}) writing a TINY weekly diary entry. "
+              "Output EXACTLY 3 bullet points, one per line, each starting with the bullet "
+              "character '\u2022', each max ~9 words, first person, warm and playful, at most "
+              "2 emojis in total. Base them on this week: {stats}. Right now: soil {moist}%, "
+              "{temp}C, light {lux}lx, pump {pump} ({count}x today), fault={fault}. "
+              "Output ONLY the 3 bullet lines, nothing else.",
+        "de": "Du bist die Zimmerpflanze '{name}' ({species}) und schreibst einen KLEINEN "
+              "Wochen-Tagebucheintrag. Gib GENAU 3 Aufz\u00e4hlungspunkte aus, einer pro Zeile, "
+              "jeder beginnt mit '\u2022', je max. ~9 Worte, in Ich-Form, warm und verspielt, "
+              "insgesamt höchstens 2 Emojis. Grundlage: diese Woche {stats}. Jetzt: "
+              "Bodenfeuchte {moist}%, {temp}C, Licht {lux}lx, Pumpe {pump} ({count}x heute), "
+              "fault={fault}. Gib NUR die 3 Zeilen aus, sonst nichts.",
+        "nl": "Je bent de kamerplant '{name}' ({species}) en schrijft een KLEIN weekdagboek. "
+              "Geef PRECIES 3 bullets, \u00e9\u00e9n per regel, elk beginnend met '\u2022', "
+              "max ~9 woorden, in de ik-vorm, warm en speels, samen hoogstens 2 emoji's. "
+              "Gebaseerd op deze week: {stats}. Nu: bodem {moist}%, {temp}C, licht {lux}lx, "
+              "pomp {pump} ({count}x vandaag), fault={fault}. Geef ALLEEN de 3 regels, niets anders.",
     },
 }
 
@@ -1879,8 +2275,19 @@ AI_MODEL = env("AI_MODEL", "gemini-3.8-flash")
 AI_VISION_MODEL = env("AI_VISION_MODEL", AI_MODEL)
 # Fallbacks tried in order when a model is busy/unavailable (503) or gone (404).
 AI_FALLBACKS = [m.strip() for m in env(
-    "AI_FALLBACKS", "gemini-3.8-flash,gemini-flash-latest,gemini-3.6-flash,gemini-2.5-flash,gemma-4-31b-it"
+    "AI_FALLBACKS",
+    "gemini-3.5-flash,gemini-flash-lite-latest,gemini-3.1-flash-lite,"
+    "gemini-3.6-flash,gemini-3.7-flash,gemini-3.8-flash,gemini-flash-latest",
 ).split(",") if m.strip()]
+# Bound the time the dashboard can sit on "thinking". Without a total budget the
+# provider's busy-503s would make us try every fallback model and hang for
+# minutes. Per-attempt timeout x the overall budget keeps worst case ~40 s.
+AI_HTTP_TIMEOUT = envf("AI_HTTP_TIMEOUT", 20.0)
+AI_TOTAL_BUDGET = envf("AI_TOTAL_BUDGET", 30.0)
+# After a full failure, stop hammering the provider: serve local answers for a
+# cooldown so the UI stays snappy during an outage.
+AI_COOLDOWN_SEC = envf("AI_COOLDOWN_SEC", 60.0)
+_AI_BREAKER = {"down_until": 0.0}
 
 
 # Native Gemini endpoint (TTS/STT audio is not on the OpenAI-compat path).
@@ -1967,9 +2374,12 @@ async def _ai_chat(messages: list[dict[str, Any]], model: str | None = None,
     tried: list[str] = []
     candidates = [model or AI_MODEL] + [m for m in AI_FALLBACKS if m != (model or AI_MODEL)]
     last = ""
-    async with httpx.AsyncClient(timeout=60) as client:
+    deadline = time.time() + AI_TOTAL_BUDGET
+    async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT) as client:
         for m in candidates:
             tried.append(m)
+            if time.time() >= deadline:
+                break
             payload = {"model": m, "messages": messages,
                        "max_tokens": max_tokens, "temperature": 0.7}
             try:
@@ -1978,6 +2388,7 @@ async def _ai_chat(messages: list[dict[str, Any]], model: str | None = None,
                     headers={"Authorization": f"Bearer {AI_API_KEY}",
                              "Content-Type": "application/json"},
                     json=payload,
+                    timeout=min(AI_HTTP_TIMEOUT, max(1.0, deadline - time.time())),
                 )
             except Exception as exc:  # noqa: BLE001
                 last = str(exc); continue
@@ -2019,6 +2430,8 @@ AI_TOOLS = [
             "seconds": {"type": "number", "description": "Pump run time per dose (1-45 s)"},
             "cooldown_min": {"type": "number", "description": "Minimum minutes between doses"},
             "max_per_day": {"type": "number", "description": "Hard cap of doses per day"},
+            "ml_per_s": {"type": "number", "description": "Pump flow rate in mL per second (R385 ≈ 30 at 12 V)"},
+            "pot_ml": {"type": "number", "description": "Substrate water capacity in mL (water needed to move soil 0→100%)"},
             "dry_alert_pct": {"type": "number"}},
             "required": []}}},
     {"type": "function", "function": {
@@ -2042,7 +2455,8 @@ AI_TOOLS = [
         "description": "Start ONE bounded watering dose now (respects the per-dose and daily safety limits).",
         "parameters": {"type": "object", "properties": {
             "node": {"type": "string"},
-            "seconds": {"type": "number", "description": "Dose length, 1-30 s"}},
+            "seconds": {"type": "number", "description": "Dose length, 1-30 s"},
+            "ml": {"type": "number", "description": "Desired volume in mL; converted to seconds via the pump flow rate"}},
             "required": []}}},
     {"type": "function", "function": {
         "name": "write_diary",
@@ -2091,6 +2505,8 @@ async def _run_ai_tool(name: str, args: dict[str, Any], node_name: str, user: st
         if "seconds" in args:        upd["pump_seconds"] = max(1.0, min(float(args["seconds"]), 45.0))
         if "cooldown_min" in args:   upd["pump_cooldown_min"] = max(0.0, float(args["cooldown_min"]))
         if "max_per_day" in args:    upd["pump_max_per_day"] = max(0.0, min(float(args["max_per_day"]), 24.0))
+        if "ml_per_s" in args:       upd["pump_ml_per_s"] = max(1.0, min(float(args["ml_per_s"]), 200.0))
+        if "pot_ml" in args:         upd["pot_ml"] = max(10.0, min(float(args["pot_ml"]), 100000.0))
         if "dry_alert_pct" in args:  upd["alert_dry_pct"] = float(args["alert_dry_pct"])
         applied = set_config_for(node_name, upd)
         audit(user, "ai_set_watering", f"{node_name}: {json.dumps(applied, ensure_ascii=False)}", ip)
@@ -2131,8 +2547,22 @@ async def _run_ai_tool(name: str, args: dict[str, Any], node_name: str, user: st
         moisture = m(n, "moisture_pct")
         if moisture is not None and moisture >= cfg["pump_threshold_pct"] + 15:
             return deny(f"Soil is already moist ({moisture:.0f}%); refusing to over-water.")
-        secs = int(max(1, min(float(args.get("seconds", 10)), 30)))
-        secs = min(secs, int(cfg["pump_seconds"])) if cfg.get("pump_seconds") else secs
+        flow = float(cfg.get("pump_ml_per_s") or 0)
+        max_ml = float(cfg.get("pump_max_ml") or 150)
+        want_ml = 0.0
+        try:
+            want_ml = float(args.get("ml") or 0)
+        except (TypeError, ValueError):
+            want_ml = 0.0
+        if want_ml > 0 and flow > 0:
+            want_ml = min(want_ml, max_ml)          # never exceed one max dose
+            cap = int(cfg.get("pump_max_seconds") or 20)
+            secs = int(max(1, min(round(want_ml / flow), cap)))
+        else:
+            secs = int(max(1, min(float(args.get("seconds", 5)), 30)))
+            secs = min(secs, int(cfg["pump_seconds"])) if cfg.get("pump_seconds") else secs
+            if flow > 0:                            # respect the volume cap too
+                secs = min(secs, int(max(1, round(max_ml / flow))))
         secs = min(secs, 45)  # firmware ceiling
         if not publish(t_cmd(node_name), {"action": "pump", "seconds": secs, "reason": "ai"}):
             return deny("MQTT unavailable; command not sent.")
@@ -2161,24 +2591,42 @@ async def _ai_chat_with_tools(messages: list[dict[str, Any]], node_name: str, us
         raise HTTPException(status_code=503, detail="AI not configured (set AI_API_KEY)")
     actions: list[dict[str, Any]] = []
     msgs = list(messages)
-    async with httpx.AsyncClient(timeout=60) as client:
+    models = [AI_MODEL] + [m for m in AI_FALLBACKS if m != AI_MODEL]
+    deadline = time.time() + AI_TOTAL_BUDGET
+    async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT) as client:
         for _ in range(max_rounds):
-            payload = {"model": AI_MODEL, "messages": msgs, "max_tokens": 700,
-                       "temperature": 0.5, "tools": AI_TOOLS, "tool_choice": "auto"}
-            try:
-                r = await client.post(
-                    f"{AI_BASE_URL.rstrip('/')}/chat/completions",
-                    headers={"Authorization": f"Bearer {AI_API_KEY}", "Content-Type": "application/json"},
-                    json=payload)
-            except Exception as exc:  # noqa: BLE001
-                raise HTTPException(status_code=502, detail=f"AI error: {exc}")
-            if r.status_code >= 400:
-                raise HTTPException(status_code=502, detail=f"AI {r.status_code}: {r.text[:160]}")
+            r = None
+            last = ""
+            for m in models:
+                if time.time() >= deadline:
+                    break
+                payload = {"model": m, "messages": msgs, "max_tokens": 1500,
+                           "temperature": 0.5, "tools": AI_TOOLS, "tool_choice": "auto"}
+                try:
+                    r = await client.post(
+                        f"{AI_BASE_URL.rstrip('/')}/chat/completions",
+                        headers={"Authorization": f"Bearer {AI_API_KEY}", "Content-Type": "application/json"},
+                        json=payload,
+                        timeout=min(AI_HTTP_TIMEOUT, max(1.0, deadline - time.time())))
+                except Exception as exc:  # noqa: BLE001
+                    last = str(exc); r = None; continue
+                if r.status_code < 400:
+                    break
+                last = f"{r.status_code}: {r.text[:160]}"
+                if r.status_code not in (429, 503, 404, 500):
+                    break
+            if r is None or r.status_code >= 400:
+                raise HTTPException(status_code=502, detail=f"AI unavailable: {last}")
             choice = (r.json().get("choices", [{}])[0] or {})
             msg = choice.get("message", {}) or {}
             calls = msg.get("tool_calls") or []
             if not calls:
-                return {"reply": (msg.get("content") or "").strip(), "actions": actions}
+                content = (msg.get("content") or "").strip()
+                if content:
+                    return {"reply": content, "actions": actions}
+                # thinking-only / truncated to nothing — try the next model
+                last = "empty response"
+                continue
             msgs.append(msg)
             for call in calls:
                 fn = (call.get("function") or {})
@@ -2235,36 +2683,129 @@ async def api_ai_status() -> dict[str, Any]:
             "base_url": AI_BASE_URL}
 
 
+def _local_flori_reply(node_name: str, question: str, lang: str) -> str:
+    """Deterministic, sensor-grounded answer used when the AI provider is
+    unavailable (quota/busy) so FlorAI still answers the common questions."""
+    n = node(node_name)
+    m = n["metrics"]
+    cfg = get_config_for(node_name)
+    plant = get_plant(node_name) or {}
+    label = plant.get("nickname") or plant.get("name") or node_name
+
+    def fv(k: str, d: int = 0) -> str:
+        v = m.get(k)
+        return "?" if v is None else f"{v:.{d}f}"
+
+    thr = cfg.get("pump_threshold_pct")
+    mo = m.get("moisture_pct")
+    lines = [f"{label}: {fv('moisture_pct')}% soil, {fv('temp_c', 1)} \u00b0C, "
+             f"{fv('humidity')}% humidity, {fv('lux')} lx."]
+    q = question.lower()
+    if any(w in q for w in ("water", "gie", "wasser", "thirst", "durst", "dry",
+                            "trocken", "droog", "irrig", "voed", "wass")):
+        if mo is None or thr is None:
+            lines.append("The soil reading isn't available right now.")
+        elif mo < thr:
+            lines.append(f"Soil is below the {thr:g}% threshold \u2014 a drink would help.")
+        else:
+            lines.append(f"Soil is above the {thr:g}% threshold \u2014 no water needed yet.")
+    if any(w in q for w in ("light", "lux", "licht", "luz", "sun", "sonne", "zon")):
+        lines.append(f"Light is {fv('lux')} lx; automatic light is "
+                     f"{'on' if cfg.get('light_auto') else 'off'}.")
+    if any(w in q for w in ("temp", "warm", "cold", "kalt", "humid", "feucht", "vocht", "luft")):
+        lines.append(f"Temperature {fv('temp_c', 1)} \u00b0C, humidity {fv('humidity')}%.")
+    if not node_fresh(n):
+        lines.append("(The node isn't reporting fresh data right now.)")
+    return "\n".join(lines) + "\n\n" + _t("ai.local_note", lang)
+
+
 @app.post("/api/ai/chat")
 async def api_ai_chat(body: dict[str, Any], request: Request,
                       planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
     """Chat about a plant. Grounded in the live telemetry + species care data so
-    the answer is about *this* plant, not generic."""
-    require_user(request, planter_session)
+    the answer is about *this* plant, not generic. Falls back to a local,
+    sensor-grounded answer when the AI provider is unavailable."""
+    user = require_user(request, planter_session)
     node_name = str(body.get("node") or _primary_name())
     lang = _norm_lang(body.get("lang"))
     question = str(body.get("message", ""))[:1000]
     system = _t("chat.system", lang) + "\n\n" + _ai_tool_ctx(node_name, lang)
-    if body.get("tools", True):
-        level = str(get_config_for(node_name).get("ai_control", "off"))
-        result = await _ai_chat_with_tools(
-            [{"role": "system", "content": system},
-             {"role": "user", "content": question}],
-            node_name, user, client_ip(request), level)
-        reply = result.get("reply") or _t("chat.applied", lang)
+    # Circuit breaker: while the provider is known-down, answer locally at once.
+    if _AI_BREAKER["down_until"] > time.time() and body.get("tools", True):
+        audit("system", "ai_chat_local", f"{node_name}: {question[:80]} (breaker)", client_ip(request))
+        return {"node": node_name, "reply": _local_flori_reply(node_name, question, lang),
+                "actions": [], "local": True}
+    try:
+        if body.get("tools", True):
+            level = str(get_config_for(node_name).get("ai_control", "off"))
+            result = await _ai_chat_with_tools(
+                [{"role": "system", "content": system},
+                 {"role": "user", "content": question}],
+                node_name, user, client_ip(request), level)
+            reply = result.get("reply") or _t("chat.applied", lang)
+            audit("system", "ai_chat", f"{node_name}: {question[:80]}", client_ip(request))
+            _AI_BREAKER["down_until"] = 0.0
+            return {"node": node_name, "reply": reply, "actions": result.get("actions", []),
+                    "ai_control": level, "local": False}
+        reply = await _ai_chat([{"role": "system", "content": system},
+                                {"role": "user", "content": question}], max_tokens=900)
         audit("system", "ai_chat", f"{node_name}: {question[:80]}", client_ip(request))
-        return {"node": node_name, "reply": reply, "actions": result.get("actions", []),
-                "ai_control": level}
-    reply = await _ai_chat([{"role": "system", "content": system},
-                            {"role": "user", "content": question}], max_tokens=900)
-    audit("system", "ai_chat", f"{node_name}: {question[:80]}", client_ip(request))
-    return {"node": node_name, "reply": reply, "actions": []}
+        _AI_BREAKER["down_until"] = 0.0
+        return {"node": node_name, "reply": reply, "actions": [], "local": False}
+    except HTTPException as exc:
+        if exc.status_code not in (502, 503):
+            raise
+        # Fallback 1: same provider, plain answer (no tools) -- often survives when
+        # the tool-calling path is unhappy with the model.
+        try:
+            plain = await _ai_chat(
+                [{"role": "system",
+                  "content": _t("chat.system", lang) + "\n\n" + _plant_context(node_name, lang)},
+                 {"role": "user", "content": question}], max_tokens=900)
+            if plain:
+                _AI_BREAKER["down_until"] = 0.0
+                audit("system", "ai_chat_plain", f"{node_name}: {question[:80]}", client_ip(request))
+                return {"node": node_name, "reply": plain, "actions": [],
+                        "ai_control": "off", "local": False}
+        except HTTPException:
+            pass
+        # Fallback 2: deterministic, sensor-grounded answer (no AI needed).
+        _AI_BREAKER["down_until"] = time.time() + AI_COOLDOWN_SEC
+        log.warning("AI unavailable -> local reply (%s)", getattr(exc, "detail", exc))
+        audit("system", "ai_chat_local", f"{node_name}: {question[:80]}", client_ip(request))
+        return {"node": node_name, "reply": _local_flori_reply(node_name, question, lang),
+                "actions": [], "local": True}
+
+
+CARE_KEYS = ("moisture_min_pct", "moisture_max_pct", "temp_min_c", "temp_max_c",
+             "humidity_min_pct", "light_min_lux", "light_max_lux",
+             "watering_interval_days")
+
+
+def _coerce_care(raw: Any) -> dict[str, Any]:
+    """Keep only the numeric care fields we understand, rounded sensibly, with a
+    difficulty string. Used to sanitise whatever the vision model returns."""
+    care: dict[str, Any] = {}
+    if not isinstance(raw, dict):
+        return care
+    for k in CARE_KEYS:
+        try:
+            care[k] = round(float(raw[k]), 1)
+        except (KeyError, TypeError, ValueError):
+            continue
+    diff = str(raw.get("difficulty") or "").strip().lower()
+    if diff in ("very easy", "easy", "medium", "hard", "very hard"):
+        care["difficulty"] = diff
+    return care
 
 
 @app.post("/api/ai/identify")
 async def api_ai_identify(body: dict[str, Any], request: Request,
                           planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
-    """Photo -> species guess + profile draft. `image` is a base64 data URL."""
+    """Photo -> species guess + a ready-to-apply profile with proposed care
+    stats. `image` is a base64 data URL. The vision model is asked for a strict
+    JSON draft; if the species is in our curated catalogue we prefer its care
+    numbers, otherwise we fall back to the model's estimate."""
     require_user(request, planter_session)
     lang = _norm_lang(body.get("lang"))
     image = str(body.get("image", ""))
@@ -2278,7 +2819,7 @@ async def api_ai_identify(body: dict[str, Any], request: Request,
     ]
     reply = await _ai_chat([{"role": "system", "content": system},
                             {"role": "user", "content": content}],
-                           model=AI_VISION_MODEL, max_tokens=300)
+                           model=AI_VISION_MODEL, max_tokens=600)
     guess: dict[str, Any] = {}
     try:
         start = reply.find("{"); end = reply.rfind("}")
@@ -2287,13 +2828,36 @@ async def api_ai_identify(body: dict[str, Any], request: Request,
         guess = {"common": reply[:120]}
     # match the guess to our catalog (best effort)
     match = None
+    match_p = None
     common = str(guess.get("common", "")).lower()
+    common_de = str(guess.get("common_de", "")).lower()
     for p in load_plant_db().values():
-        if common and (common in p["common"].lower() or common in (p.get("common_de") or "").lower()
-                       or p["common"].lower() in common):
-            match = p["id"]; break
-    audit("system", "ai_identify", f"{guess.get('common','?')} -> {match}", client_ip(request))
-    return {"guess": guess, "species_id": match}
+        names = [p["common"].lower(), (p.get("common_de") or "").lower()]
+        if any(n and (n in common or n in common_de or common in n or common_de in n)
+               for n in names):
+            match = p["id"]; match_p = p; break
+    # Proposed profile: catalogue wins when we have it, otherwise trust the AI.
+    ai_care = _coerce_care(guess.get("care"))
+    if match_p:
+        care = match_p.get("care") or ai_care
+        proposed: dict[str, Any] = {
+            "name": match_p.get("common"), "species": match_p.get("scientific"),
+            "emoji": match_p.get("emoji"), "color": match_p.get("color"),
+            "notes": match_p.get("notes"), "care": care, "source": "catalog",
+        }
+    else:
+        proposed = {
+            "name": guess.get("common") or guess.get("common_de"),
+            "species": guess.get("scientific"),
+            "emoji": guess.get("emoji") or "\U0001FAB4",
+            "color": guess.get("color") or "#5fd08a",
+            "notes": guess.get("notes") or guess.get("care_hint"),
+            "care": ai_care, "source": "ai" if ai_care else "guess",
+        }
+    audit("system", "ai_identify",
+          f"{guess.get('common','?')} -> {match or proposed.get('name')} ({proposed['source']})",
+          client_ip(request))
+    return {"guess": guess, "species_id": match, "proposed": proposed}
 
 
 # ---- hotspot / Wi-Fi settings (applied via the host helper) ----------------- #
@@ -2601,6 +3165,12 @@ async def api_history(field: str = "moisture_pct", hours: float = 6, every: str 
     node_name = node or _primary_name()
     try:
         points = await influx_history(field, hours, every, node_name)
+        if points:
+            return {"source": "influxdb", "field": field, "node": node_name, "points": points}
+        # Influx has nothing for this node (e.g. a demo node) — use memory.
+        mem = memory_history(field, hours, node_name, every)
+        if mem:
+            return {"source": "memory", "field": field, "node": node_name, "points": mem}
         return {"source": "influxdb", "field": field, "node": node_name, "points": points}
     except Exception as exc:
         log.warning("history fell back to memory: %s", exc)
@@ -2658,8 +3228,12 @@ async def api_logout(planter_session: str | None = Cookie(default=None), respons
 
 @app.get("/api/me")
 async def api_me(planter_session: str | None = Cookie(default=None)) -> dict[str, Any]:
+    if AUTH_DISABLED:
+        return {"authenticated": True, "user": "open", "read_only": False,
+                "auth_disabled": True}
     user = verify(planter_session)
-    return {"authenticated": bool(user), "user": user, "read_only": not user}
+    return {"authenticated": bool(user), "user": user, "read_only": not user,
+            "auth_disabled": False}
 
 
 @app.get("/api/stream")

@@ -23,30 +23,21 @@ sudo mkdir -p /etc/chromium/policies/managed
 printf '%s\n' '{"TranslateEnabled": false}' \
   | sudo tee /etc/chromium/policies/managed/florahome.json >/dev/null
 
-# 3. Autostart on desktop login.
-#    The labwc session runs /usr/bin/lxsession-xdg-autostart, which honours
-#    ~/.config/autostart/*.desktop.
-mkdir -p "$HOME/.config/autostart"
-cat > "$HOME/.config/autostart/planter-kiosk.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=FloraHome Kiosk
-Comment=Full-screen plant dashboard
-Exec=$HERE/kiosk.sh
-Terminal=false
-X-GNOME-Autostart-enabled=true
-EOF
-
-# 4. labwc session autostart (the reliable hook on Pi OS Bookworm/Trixie, where
-#    the XDG autostart list is not always run). Harmless if the file exists.
+# 3. Autostart on desktop login. Single source of truth: the labwc session
+#    autostart, invoked via /bin/bash so it does NOT depend on the executable
+#    bit surviving an rsync/deploy (the usual reason the kiosk "stops working").
 mkdir -p "$HOME/.config/labwc"
-MARK="# FloraHome kiosk"
-if ! grep -qF "$MARK" "$HOME/.config/labwc/autostart" 2>/dev/null; then
-  printf '%s\n' "$MARK" "$HERE/kiosk.sh &" >> "$HOME/.config/labwc/autostart"
-fi
+AUTOSTART="$HOME/.config/labwc/autostart"
+touch "$AUTOSTART"
+grep -v 'smartplanter/deploy/kiosk.sh' "$AUTOSTART" > "$AUTOSTART.tmp" 2>/dev/null || true
+printf '%s\n' "# FloraHome kiosk" "/bin/bash $HERE/kiosk.sh &" >> "$AUTOSTART.tmp"
+mv "$AUTOSTART.tmp" "$AUTOSTART"
 
-# 5. Watchdog: a systemd user service that (re)starts the kiosk and keeps it
-#    running even if Chromium crashes. Enabled for the desktop user.
+# 3b. Drop any XDG autostart entry — it would launch a second kiosk instance.
+rm -f "$HOME/.config/autostart/planter-kiosk.desktop"
+
+# 4. Watchdog: a systemd user service that (re)starts the kiosk if Chromium
+#    crashes. Optional (the launcher already self-restarts); also bash-invoked.
 mkdir -p "$HOME/.config/systemd/user"
 cat > "$HOME/.config/systemd/user/florahome-kiosk.service" <<EOF
 [Unit]
@@ -56,7 +47,7 @@ PartOf=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=$HERE/kiosk.sh
+ExecStart=/bin/bash $HERE/kiosk.sh
 Restart=always
 RestartSec=5
 

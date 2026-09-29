@@ -29,6 +29,13 @@ fi
 BROWSER="$(command -v chromium || command -v chromium-browser || true)"
 [ -z "$BROWSER" ] && { log "no chromium found"; exit 1; }
 
+# Clear a stale Chromium profile lock and any leftover kiosk instance. Without
+# this, a crash — or a hostname change — makes Chromium think the profile is
+# "in use by another computer" and it shows a lock prompt instead of the page.
+pkill -f "chromium.*--user-data-dir=$PROFILE" 2>/dev/null || true
+sleep 1
+rm -f "$PROFILE"/Singleton* 2>/dev/null || true
+
 SCALE="${PLANTER_SCALE:-1.0}"
 OZONE="${PLANTER_OZONE:-auto}"
 
@@ -58,26 +65,48 @@ launch() {
     --kiosk \
     --touch-events=enabled \
     --overscroll-history-navigation=0 \
-    --enable-features=TouchpadOverscrollHistoryNavigation:disabled \
     --ozone-platform="$OZONE" \
-    --enable-features=UseOzonePlatform \
+    --enable-features=UseOzonePlatform,TouchpadOverscrollHistoryNavigation:disabled \
     --disable-features=Translate,TranslateUI,MediaRouter,OptimizationHints \
     --disable-translate \
     --noerrdialogs \
     --disable-infobars \
     --disable-session-crashed-bubble \
+    --disable-background-networking \
+    --disable-sync \
+    --disable-component-update \
+    --disable-domain-reliability \
+    --disable-breakpad \
+    --no-service-autorun \
     --lang=de \
     --accept-lang=de-DE,de \
     --force-device-scale-factor="$SCALE" \
     --no-first-run \
     --password-store=basic \
     --check-for-update-interval=31536000 \
+    --remote-debugging-port=9222 \
     --user-data-dir="$PROFILE" \
     "$URL"
 }
 
+# Watchdog: if the tab ever lands on an error/blank page (e.g. after a
+# network-service hiccup), kill Chromium so the loop below relaunches it.
+watchdog() {
+  while true; do
+    sleep 60
+    info="$(curl -s --max-time 5 http://127.0.0.1:9222/json/list 2>/dev/null || true)"
+    if [ -n "$info" ] && ! printf '%s' "$info" | grep -q '8098'; then
+      log "watchdog: dashboard tab missing -> restarting chromium"
+      pkill -f "chromium.*--user-data-dir=$PROFILE" 2>/dev/null || true
+      sleep 10
+    fi
+  done
+}
+watchdog &
+
 # Relaunch forever if Chromium exits unexpectedly.
 while true; do
+  rm -f "$PROFILE"/Singleton* 2>/dev/null || true
   log "starting chromium (ozone=$OZONE, scale=$SCALE) -> $URL"
   launch >>"$LOG" 2>&1
   rc=$?

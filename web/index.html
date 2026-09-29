@@ -143,6 +143,8 @@
   .diary{display:flex;flex-direction:column;gap:10px}
   .diary-entry{background:var(--card2);border:1px solid var(--line);border-radius:12px;
     padding:12px 14px;line-height:1.5}
+  .diary-bullets{margin:8px 0 0;padding-left:22px;display:grid;gap:5px;list-style:disc}
+  .diary-bullets li{padding-left:2px}
   .diary-settings{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
   .diary-settings>summary{cursor:pointer;font-weight:700;color:var(--muted);list-style:none}
   .diary-settings>summary::-webkit-details-marker{display:none}
@@ -286,6 +288,86 @@
     .flori .flori-bot,.flori .flori-sprout,.flori .flori-led,
     .flori .flori-eyes,.flori .flori-shadow{animation:none}
   }
+
+  /* plant switching tiles */
+  .plant-switch{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 6px;margin-bottom:2px;scrollbar-width:thin}
+  .pchip{display:inline-flex;align-items:center;gap:8px;flex:none;background:var(--card2);
+    border:2px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--ink);
+    font:inherit;font-weight:700;cursor:pointer;min-height:var(--tap)}
+  .pchip:hover{border-color:var(--accent)}
+  .pchip.active{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+  .pchip .pemoji{font-size:1.25rem;line-height:1}
+  .pchip .pdot{width:9px;height:9px;border-radius:50%;background:var(--crit);flex:none}
+  .pchip .pdot.on{background:var(--ok)}
+
+  /* FlorAI quick-action chips */
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .chip{background:var(--card2);border:1px solid var(--line);border-radius:999px;
+    padding:7px 13px;font:inherit;font-size:.9rem;font-weight:700;color:var(--ink);
+    cursor:pointer;min-height:38px}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* sensor troubleshooting dialog */
+  .diag-status{display:inline-flex;align-items:center;gap:8px;font-weight:800;padding:6px 12px;
+    border-radius:999px;border:2px solid var(--line);margin-bottom:12px}
+  .diag-status.ok{border-color:var(--ok);color:var(--ok)}
+  .diag-status.fault{border-color:var(--crit);color:var(--crit)}
+  .diag-status.missing{border-color:var(--warn);color:var(--warn)}
+  .diag-status.off{border-color:var(--line);color:var(--muted)}
+  .diag-read{margin:0 0 12px;font-size:1.05rem}
+  .diag-read b{font-size:1.3rem}
+  .diag-steps{margin:0;padding-left:20px;display:grid;gap:8px}
+  .diag-steps li{padding-left:2px}
+  .diag-wire{background:var(--card2);border:1px solid var(--line);border-radius:12px;
+    padding:10px 12px;margin-top:12px;font-size:.88rem;color:var(--muted)}
+  .diag-wire code{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+
+  /* FlorAI attention wiggle */
+  .flori.wiggle .flori-bot{animation:floriWiggle .34s ease 3}
+  @keyframes floriWiggle{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-6px) rotate(-7deg)}75%{transform:translateY(-4px) rotate(7deg)}}
+
+  /* phone / small screen polish */
+  @media (max-width:560px){
+    header{gap:8px;padding:10px 12px}
+    header .nodefilter{display:none}          /* switch plants via the tiles */
+    header .scalebar{display:none}
+    h1{font-size:1.12rem}
+    .pill{font-size:.78rem;padding:5px 10px}
+    #floriToggle,#authBtn{padding:8px 11px;font-size:.82rem}
+    main{padding:12px 12px 100px;gap:12px}    /* bottom room for the mascot */
+    .card{padding:13px;border-radius:15px}
+    h2{font-size:1rem}
+    nav#tabs{padding:8px 10px;gap:5px}
+    nav#tabs .tab{padding:9px 12px;font-size:.9rem;min-height:44px}
+    .plant-switch{gap:8px}
+    .pchip{padding:7px 12px}
+    dialog{width:96%;max-width:96vw}
+    .dlg-body{max-height:86vh;padding:16px}
+    .field{grid-template-columns:1fr 96px}     /* keep labels + inputs on one line */
+    .row-metrics{grid-template-columns:repeat(2,1fr)}
+    .flori{width:80px;height:80px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom))}
+    .flori-bubble{right:10px;bottom:calc(100px + env(safe-area-inset-bottom));max-width:86vw}
+  }
+
+  /* plant avatar / photo */
+  .pavatar{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none;
+    background:var(--card2);border:1px solid var(--line)}
+  .pavatar.big{width:44px;height:44px}
+  .photorow{display:flex;gap:10px;align-items:center}
+  .photorow input[type=file]{flex:1;min-width:0;font-size:.85rem}
+  .pchip img{width:22px;height:22px;border-radius:50%;object-fit:cover}
+
+  /* per-plant actions */
+  .plant-actions{display:flex;gap:8px;margin-top:10px}
+  .plant-actions button{flex:1}
+  .plant-actions button.danger{border-color:var(--crit);color:var(--crit)}
+
+  /* new-plant photo flow */
+  .np-preview{margin-top:10px}
+  .np-preview img{max-width:100%;border-radius:12px}
+  .np-care{margin-top:10px;background:var(--card2);border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px;font-size:.92rem;display:none}
+  .np-care.show{display:block}
 </style>
 </head>
 <body>
@@ -295,9 +377,6 @@
     <span id="conn" class="pill off" role="status">◌ <span id="connText" data-i18n="conn.connecting">Connecting…</span></span>
     <span id="nodeState" class="pill off">◌ <span id="nodeText" data-i18n="node.unknown">Node unknown</span></span>
   </div>
-  <label class="nodefilter" for="nodeSelect">🌱
-    <select id="nodeSelect" aria-label="Pflanze wählen"></select>
-  </label>
   <span class="scalebar" role="group" aria-label="Schriftgröße">
     <button id="uiSmaller" class="ghost" type="button" title="Smaller" data-i18n-title="scale.smaller">A−</button>
     <button id="uiLarger" class="ghost" type="button" title="Bigger" data-i18n-title="scale.larger">A+</button>
@@ -322,6 +401,7 @@
 </nav>
 
 <main>
+  <div id="plantSwitch" class="plant-switch" hidden></div>
   <section id="estopBanner" class="card banner" hidden>
     <h2 data-i18n="estop.active.title">🛑 EMERGENCY STOP ACTIVE</h2>
     <div data-i18n="estop.active.body">Pump and light are off; automatic watering is blocked – also after a restart, until released.</div>
@@ -337,6 +417,7 @@
       <span class="muted" style="font-size:.85rem;margin-left:auto" id="floriWho"></span>
     </h2>
     <div id="chatlog" aria-live="polite"></div>
+    <div id="chatChips" class="chips" role="group" aria-label="Quick actions"></div>
     <div class="row" style="display:flex;gap:8px">
       <input id="chatInput" type="text" data-i18n-ph="flori.chat.placeholder" placeholder="How is my plant doing?" style="flex:1" disabled>
       <button id="btnMic" type="button" disabled data-i18n-title="flori.chat.mic" title="Speak">🎤</button>
@@ -387,6 +468,7 @@
     <h2><span class="icon">🪴</span> <span data-i18n="plants.title">Plants</span>
       <button id="btnEditPlant" class="ghost" style="margin-left:auto" type="button" disabled data-i18n="plants.edit">Edit profile</button>
       <button id="btnNewPlant" class="ghost" type="button" disabled data-i18n="plants.new">📷 New plant</button>
+      <button id="btnPlantsAll" class="ghost" type="button">Show all</button>
       <button id="btnManual" class="ghost" type="button" data-i18n="plants.help">Help</button>
     </h2>
     <div id="plants" class="plants"></div>
@@ -397,7 +479,7 @@
   <div class="page" data-page="control">
   <section class="card">
     <h2><span class="icon">🎛️</span> <span data-i18n="control.title">Control</span>
-      <span class="muted" style="font-size:.85rem;margin-left:auto" data-i18n="control.pick">Pick a plant in the header 🌱</span>
+      <span class="muted" style="font-size:.85rem;margin-left:auto" data-i18n="control.pick">Pick a plant at the top 🌱</span>
     </h2>
     <div class="controls">
       <button id="btnWater" class="primary" type="button" disabled data-i18n="btn.water">💧 Water</button>
@@ -482,7 +564,8 @@
 
   <section class="card" id="sensorsCard">
     <h2><span class="icon">🧩</span> <span data-i18n="sensors.title">Sensors (modular)</span>
-      <span class="muted" style="font-size:.85rem;margin-left:auto" id="sensorsWho"></span>
+      <button id="btnSensorsAll" class="ghost" style="margin-left:auto" type="button">Show all</button>
+      <span class="muted" style="font-size:.85rem" id="sensorsWho"></span>
     </h2>
     <p class="note" data-i18n="sensors.intro">A node only needs the sensors you actually connect. Toggle each one on or off and follow the wiring guide. Turned-off sensors are ignored in the dashboard and in FlorAI's advice.</p>
     <div id="sensors" class="sensors"></div>
@@ -504,6 +587,15 @@
     <summary><span class="icon">🧭</span> <span data-i18n="backend.system.title">System & status</span></summary>
     <div id="systemBox" style="margin-top:12px"><p class="muted" data-i18n="common.loading">Loading…</p></div>
   </details>
+
+  <section class="card" id="demoCard">
+    <h2><span class="icon">🎬</span> <span data-i18n="demo.title">Demo mode</span>
+      <span class="muted" id="demoStatus" style="margin-left:auto;font-size:.85rem"></span></h2>
+    <p class="note" data-i18n="demo.help">One switch fills the whole dashboard with 5 example plants — varied readings, moods, a rich diary and 36 h of history charts — no hardware needed. Switch it off to remove them.</p>
+    <div class="controls" style="grid-template-columns:1fr">
+      <button id="btnDemoToggle" class="primary" type="button" disabled>🎬 Demo mode</button>
+    </div>
+  </section>
 
   <details class="card" open>
     <summary><span class="icon">🔌</span> <span data-i18n="backend.devices.title">Devices & flashing</span></summary>
@@ -542,16 +634,32 @@
   </form>
 </dialog>
 
+<dialog id="diagDlg" aria-labelledby="diagH">
+  <form method="dialog" class="dlg-body">
+    <h2 id="diagH"><span data-i18n="diag.title">🩺 Sensor troubleshooting</span> — <span id="diagWho"></span></h2>
+    <div id="diagBody"></div>
+    <div class="controls" style="grid-template-columns:1fr">
+      <button class="primary" value="ok" type="submit" data-i18n="common.close">Close</button></div>
+  </form>
+</dialog>
+
 <dialog id="newPlantDlg" aria-labelledby="newPlantH">
   <form method="dialog" class="dlg-body">
-    <h2 id="newPlantH" data-i18n="newplant.title">📷 New plant from photo</h2>
-    <p class="note" data-i18n="newplant.help">Take a photo of the plant — the AI identifies the species and creates a profile. Then you can flash a spare ESP.</p>
-    <input id="npFile" type="file" accept="image/*" capture="environment"
-           style="font:inherit;padding:10px;border:1px dashed var(--line);border-radius:12px;width:100%">
-    <div id="npPreview" style="margin-top:10px"></div>
-    <div class="field"><label for="np-node" data-i18n="common.node_config">Node (config)</label>
+    <h2 id="newPlantH" data-i18n="newplant.title">📷 New plant</h2>
+    <p class="note" data-i18n="newplant.help">Give it a name, then snap a photo with your phone. FlorAI identifies the species and proposes the right care values.</p>
+    <div class="field"><label for="np-name" data-i18n="newplant.name">Plant name</label>
+      <input id="np-name" type="text" data-i18n-ph="newplant.name_ph" placeholder="e.g. Moni"></div>
+    <input id="npFile" type="file" accept="image/*" capture="environment" hidden>
+    <button id="npShoot" class="primary" type="button" style="width:100%" data-i18n="newplant.shoot">📷 Take / choose a photo</button>
+    <div id="npPreview" class="np-preview"></div>
+    <div class="field"><label for="np-node" data-i18n="newplant.node_label">Which ESP board?</label>
       <select id="np-node" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)"></select></div>
+    <p class="note" data-i18n="newplant.node_help">plant-a / plant-b / plant-c are the board profiles in the ESPHome folder. Pick the board this plant lives on — if it isn't flashed yet, the plant shows up once that board comes online.</p>
+    <div class="field"><label for="np-species" data-i18n="newplant.species_label">Species (optional)</label>
+      <select id="np-species" style="font:inherit;padding:10px;border-radius:10px;background:var(--card2);color:var(--ink);border:1px solid var(--line)">
+        <option value="" data-i18n="newplant.species_auto">— let the AI detect —</option></select></div>
     <p class="note" id="npResult" data-i18n="newplant.nofoto">No photo yet.</p>
+    <div id="npCare" class="np-care"></div>
     <div class="controls" style="grid-template-columns:1fr 1fr">
       <button value="cancel" type="submit" data-i18n="common.close">Close</button>
       <button id="np-confirm" class="primary" type="button" disabled data-i18n="newplant.create">Create profile</button>
@@ -575,6 +683,12 @@
         <option>🌿🌱🪴🌵🌳🌸🍃🌺🌴🌾🎨🪙💧</option>
       </datalist></div>
     <div class="field"><label for="pl-color" data-i18n="plant.color">Color</label><input id="pl-color" type="color" value="#5fd08a"></div>
+    <div class="field"><label data-i18n="plant.photo">Profile picture</label>
+      <div class="photorow">
+        <img id="pl-photo-prev" class="pavatar" alt="">
+        <input id="pl-photo" type="file" accept="image/*" capture="environment" aria-label="Photo">
+        <button id="pl-photo-clear" class="ghost" type="button" data-i18n="plant.photo_clear">Remove</button>
+      </div></div>
     <div class="sw"><label for="pl-notes" data-i18n="plant.notes">Note</label><input id="pl-notes" type="text"></div>
     <div class="controls" style="grid-template-columns:1fr 1fr">
       <button value="cancel" type="submit" data-i18n="common.cancel">Cancel</button>
@@ -585,20 +699,16 @@
 
 <dialog id="manualDlg" aria-labelledby="manualH2">
   <form method="dialog" class="dlg-body">
-    <h2 id="manualH2" data-i18n="manual.title">📖 Quick guide</h2>
-    <h3 data-i18n="manual.h1">1 · Watering your plant</h3>
-    <p class="note" data-i18n="manual.p1">“💧 Water” runs as a single dose (default ~20 s, hard-capped at 45 s on the device). For automatic watering: Settings → Watering.</p>
-    <h3 data-i18n="manual.h2">2 · Calibrating soil moisture</h3>
-    <p class="note" data-i18n="manual.p2">Probe in air → enter the raw voltage on the left; probe in a glass of water → value on the right. “Apply values” sends the calibration to the device (it stays saved).</p>
-    <h3 data-i18n="manual.h3">3 · Setting up a plant</h3>
-    <p class="note" data-i18n="manual.p3">“Edit profile” → choose the species (soil moisture, temperature and light ranges are applied) and set nickname/emoji/colour.</p>
-    <h3 data-i18n="manual.h4">4 · Adding a new node</h3>
-    <pre style="white-space:pre-wrap;font-size:.85rem">deploy/add-node.sh new plant-d "Monstera"
-deploy/add-node.sh discover        # welcher ESP auf welchem Port
-deploy/add-node.sh compile plant-d
-deploy/add-node.sh flash  plant-d /dev/ttyUSB0
-deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
-    <p class="note" data-i18n="manual.p5">OTA also works from the browser: ESPHome on :6052. Full guides: TUTORIALS.md in the repo.</p>
+    <h2 id="manualH2" data-i18n="manual.title">📖 How it works</h2>
+    <h3 data-i18n="manual.h1">1 · Sign in</h3>
+    <p class="note" data-i18n="manual.p1">Sign in at the top right — it unlocks adding, editing and deleting plants, watering and flashing.</p>
+    <h3 data-i18n="manual.h2">2 · Add a plant from a photo</h3>
+    <p class="note" data-i18n="manual.p2">Plants → “📷 New plant”: give it a name and take/choose a photo. The AI identifies the species and proposes the natural care values — confirm to create the profile.</p>
+    <h3 data-i18n="manual.h3">3 · Assign it to an ESP board</h3>
+    <p class="note" data-i18n="manual.p3">In the same dialog pick the board this plant lives on. plant-a / plant-b / plant-c are the board profiles in the ESPHome folder. Not flashed yet? Flash it under Backend → Devices &amp; flashing (or ESPHome on :6052) — the plant then appears with live data as soon as that board comes online.</p>
+    <h3 data-i18n="manual.h4">4 · Manage &amp; fine-tune</h3>
+    <p class="note" data-i18n="manual.p4">Every plant card has ✏️ Edit and 🗑️ Delete. Set watering and light under Control → ⚙️ Watering, and choose how much FlorAI may change.</p>
+    <p class="note" data-i18n="manual.p5">Everything runs on the Pi already — no PC needed. Full guides live in the repo's docs/ folder.</p>
     <div class="controls" style="grid-template-columns:1fr">
       <button class="primary" value="ok" type="submit" data-i18n="common.ok">Got it</button></div>
   </form>
@@ -626,6 +736,9 @@ deploy/add-node.sh ota    plant-d 10.42.0.x</pre>
       <div class="sw"><label for="cfg-pump_auto" data-i18n="settings.pump_auto">Water automatically</label><input id="cfg-pump_auto" type="checkbox"></div>
       <div class="field"><label for="cfg-pump_threshold_pct" data-i18n="settings.pump_threshold">Water below (%)</label><input id="cfg-pump_threshold_pct" type="number" min="0" max="100"></div>
       <div class="field"><label for="cfg-pump_seconds" data-i18n="settings.pump_seconds">Duration per dose (s)</label><input id="cfg-pump_seconds" type="number" min="1" max="45"></div>
+      <div class="field"><label for="cfg-pump_ml_per_s" data-i18n="settings.ml_per_s">Pump flow rate (mL/s)</label><input id="cfg-pump_ml_per_s" type="number" min="1" step="1"></div>
+      <div class="field"><label for="cfg-pot_ml" data-i18n="settings.pot_ml">Substrate water capacity (mL)</label><input id="cfg-pot_ml" type="number" min="10" step="50"></div>
+      <p class="note" data-i18n="settings.dose_hint">Smart dosing: FlorAI waters by volume (soil deficit × capacity ÷ flow) instead of a fixed time. R385 ≈ 30 mL/s at 12 V.</p>
       <div class="field"><label for="cfg-pump_cooldown_min" data-i18n="settings.pump_cooldown">Cooldown (min)</label><input id="cfg-pump_cooldown_min" type="number" min="0"></div>
       <div class="field"><label for="cfg-pump_max_per_day" data-i18n="settings.pump_max">Max. doses per day</label><input id="cfg-pump_max_per_day" type="number" min="0"></div>
     </fieldset>
@@ -713,6 +826,7 @@ const I18N = {
     "flori.chat.placeholder": "How is my plant doing?",
     "flori.chat.send": "Ask", "flori.chat.mic": "Speak",
     "flori.thinking": "FlorAI is thinking…",
+    "flori.thinking.slow": "Still on it - the AI is a little busy right now. One moment...",
     "alerts.title": "Notifications",
     "onboard.title": "Getting started",
     "onboard.hide": "Hide",
@@ -732,7 +846,25 @@ const I18N = {
     "alerts.since": "since {ago}",
     "plants.title": "Plants", "plants.edit": "Edit profile",
     "plants.new": "📷 New plant", "plants.help": "Help",
-    "control.title": "Control", "control.pick": "Pick a plant in the header 🌱",
+    "plants.delete": "Delete",
+    "plants.del_confirm": "Delete the plant profile for {plant}? The board keeps running.",
+    "plants.deleted": "Plant {plant} deleted",
+    "plants.show_all": "Show all plants",
+    "plants.show_selected": "Selected plant only",
+    "plant.photo": "Profile picture",
+    "plant.photo_clear": "Remove",
+    "demo.title": "Demo mode",
+    "demo.help": "Fill the dashboard with 5 example plants (varied readings, moods and a rich diary) to show how it looks - no hardware needed. Remove demo deletes them again.",
+    "demo.seed": "Load demo plants",
+    "demo.clear": "Remove demo",
+    "demo.active": "{n} demo plants loaded",
+    "demo.inactive": "No demo plants",
+    "demo.on": "🎬 Demo mode: ON ({n} plants)",
+    "demo.off": "🎬 Demo mode: OFF",
+    "demo.loaded": "Demo plants loaded",
+    "demo.cleared": "Demo plants removed",
+    "demo.confirm": "Remove all demo plants and their diary entries?",
+    "control.title": "Control", "control.pick": "Pick a plant at the top 🌱",
     "btn.water": "💧 Water", "btn.light": "💡 Light on/off", "btn.buzzer": "🔊 Buzzer",
     "btn.voice": "🎤 Talk to me", "btn.stop": "⏹️ Stop", "btn.estop": "🛑 EMERGENCY STOP",
     "btn.estop.armed": "🛑 Sure? Tap again", "btn.settings": "⚙️ Watering",
@@ -763,6 +895,9 @@ const I18N = {
     "sensors.enabled": "Enabled", "sensors.pins": "Pins",
     "sensors.none": "No sensors defined.",
     "sensors.on_toast": "Sensor {s} enabled", "sensors.off_toast": "Sensor {s} disabled",
+    "sensors.show_all": "Show all",
+    "sensors.show_connected": "Connected only",
+    "sensors.none_connected": "No sensors connected yet.",
     "backend.keys.locked": "Sign in to view and change keys.",
     "backend.keys.save": "Save keys", "backend.keys.reload": "↻ Reload",
     "backend.keys.note": "Values are stored server-side and applied <b>immediately</b>. An empty field = unchanged. “Reset” restores the .env value.",
@@ -785,6 +920,42 @@ const I18N = {
     "flori.control.setup": "🌿 Set up this plant from its species",
     "flori.control.saved": "🌱 FlorAI's control level saved",
     "flori.did_applied": "applied",
+    "chat.chip.how": "How is it?", "chat.chip.water": "Water now",
+    "chat.chip.setup": "Set up for species", "chat.chip.diary": "Write diary",
+    "chat.prompt.how": "How is my plant doing right now?",
+    "chat.prompt.water": "Check whether it needs water and water it if appropriate.",
+    "chat.prompt.setup": "Set up this plant from its species care and explain briefly what you changed.",
+    "chat.prompt.diary": "Write a short diary entry for this plant now.",
+    "sensors.troubleshoot": "🩺 Troubleshoot",
+    "diag.title": "🩺 Sensor troubleshooting",
+    "diag.status.ok": "working", "diag.status.fault": "sensor fault",
+    "diag.status.missing": "not detected", "diag.status.off": "disabled",
+    "diag.reading": "Current reading", "diag.steps": "Check step by step",
+    "diag.nosteps": "No specific steps — the wiring looks fine.",
+    "diag.cause.soil": "The probe is out of range or not powered.",
+    "diag.cause.dht11": "No valid reading from the DHT — usually a missing 10 kΩ pull-up.",
+    "diag.cause.ldr": "The LDR divider gives no usable voltage.",
+    "diag.cause.tank": "No tank level signal.", "diag.cause.batt": "No battery signal.",
+    "diag.soil.raw": "Is the raw voltage between ~0.3 V and ~3.0 V? (see soil_v)",
+    "diag.soil.power": "Check AOUT → GPIO34 and that the probe's VCC is on GPIO25.",
+    "diag.soil.cal": "Dry and wet the probe, then recalibrate in the Control tab.",
+    "diag.dht.pullup": "Fit a 10 kΩ resistor from DATA to 3.3 V.",
+    "diag.dht.power": "Power the DHT from 3.3 V and GND (not 5 V).",
+    "diag.dht.data": "Check DATA → GPIO27; avoid long wires.",
+    "diag.lux.divider": "LDR from 3.3 V to the midpoint, 10 kΩ from the midpoint to GND.",
+    "diag.lux.midpoint": "Measure the midpoint voltage; it should change with light.",
+    "diag.tank.signal": "Connect the level signal to GPIO32 and set the pin in the node config.",
+    "diag.batt.signal": "Connect the battery divider to GPIO32 (see BATTERY.md).",
+    "newplant.name": "Plant name", "newplant.name_ph": "e.g. Moni",
+    "newplant.shoot": "📷 Take / choose a photo",
+    "newplant.node_label": "Which ESP board?",
+    "newplant.node_help": "plant-a / plant-b / plant-c are the board profiles in the ESPHome folder. Pick the board this plant lives on - if it is not flashed yet, the plant shows up once that board comes online.",
+    "newplant.species_label": "Species (optional)",
+    "newplant.species_auto": "- let the AI detect -",
+    "newplant.manual_hint": "You can also just pick a species and create the profile without AI.",
+    "newplant.care_source.catalog": "Care values from the FloraHome plant database.",
+    "newplant.care_source.ai": "Care values proposed by AI — adjust any time.",
+    "newplant.care_source.guess": "Rough estimate — check and adjust in Edit profile.",
     "tool.get_plant_state": "Read plant state", "tool.set_watering": "Change watering",
     "tool.set_light": "Change light", "tool.apply_species_care": "Apply species care",
     "tool.water_now": "Water now", "tool.write_diary": "Write diary entry",
@@ -832,6 +1003,8 @@ const I18N = {
     "settings.title": "⚙️ Watering & notifications", "settings.watering": "Watering",
     "settings.light": "Light", "settings.pump_auto": "Water automatically",
     "settings.pump_threshold": "Water below (%)", "settings.pump_seconds": "Duration per dose (s)",
+    "settings.ml_per_s": "Pump flow rate (mL/s)", "settings.pot_ml": "Substrate water capacity (mL)",
+    "settings.dose_hint": "Smart dosing: FlorAI waters by volume (soil deficit × capacity ÷ flow) instead of a fixed time. R385 ≈ 30 mL/s at 12 V.",
     "settings.pump_cooldown": "Cooldown (min)", "settings.pump_max": "Max. doses per day",
     "settings.alert_dry": "Dry warning below (%)", "settings.alert_dry_min": "… for (min)",
     "settings.alert_silent": "Silence after (min)", "settings.alert_tank": "Tank warning below (%)",
@@ -861,14 +1034,15 @@ const I18N = {
     "newplant.identify_failed": "Identification failed: {msg}",
     "newplant.create": "Create profile", "newplant.created": "🌱 Profile for {node} created",
     "newplant.create_failed": "Creating failed: {msg}",
-    "manual.title": "📖 Quick guide", "manual.h1": "1 · Watering your plant",
-    "manual.p1": "“💧 Water” runs as a single dose (default ~20 s, hard-capped at 45 s on the device). For automatic watering: Settings → Watering.",
-    "manual.h2": "2 · Calibrating soil moisture",
-    "manual.p2": "Probe in air → enter the raw voltage on the left; probe in a glass of water → value on the right. “Apply values” sends the calibration to the device (it stays saved).",
-    "manual.h3": "3 · Setting up a plant",
-    "manual.p3": "“Edit profile” → choose the species (soil moisture, temperature and light ranges are applied) and set nickname/emoji/colour.",
-    "manual.h4": "4 · Adding a new node",
-    "manual.p5": "OTA also works from the browser: ESPHome on :6052. Full guides: TUTORIALS.md in the repo.",
+    "manual.title": "How it works", "manual.h1": "1 · Sign in",
+    "manual.p1": "Sign in at the top right — it unlocks adding, editing and deleting plants, watering and flashing.",
+    "manual.h2": "2 · Add a plant from a photo",
+    "manual.p2": "Plants → “New plant”: give it a name and take/choose a photo. The AI identifies the species and proposes the natural care values — confirm to create the profile.",
+    "manual.h3": "3 · Assign it to an ESP board",
+    "manual.p3": "Pick the board this plant lives on. plant-a / plant-b / plant-c are the board profiles in the ESPHome folder. Not flashed yet? Flash it under Backend → Devices & flashing (or ESPHome on :6052) — the plant appears with live data once that board comes online.",
+    "manual.h4": "4 · Manage & fine-tune",
+    "manual.p4": "Every plant card has Edit and Delete. Set watering and light under Control → Watering, and choose how much FlorAI may change.",
+    "manual.p5": "Everything runs on the Pi already — no PC needed. Full guides live in the repo docs/ folder.",
     "backend.devices.title": "Devices & flashing", "backend.flash.port": "Port",
     "backend.flash.run": "⚡ Flash",
     "backend.flash.note": "First flash over USB. Afterwards OTA (ESPHome :6052 or deploy/add-node.sh ota).",
@@ -908,11 +1082,28 @@ const I18N = {
     "flori.tip.wet": "🌊 <b>{plant}</b> is well watered ({pct}%). Let it dry out for now.",
     "flori.tip.warm": "🥵 <b>{plant}</b> is warm ({temp} °C). Shade or airing helps.",
     "flori.tip.watering": "💦 I'm watering <b>{plant}</b> right now.",
-    "flori.tip.multi": "🌱 You have <b>{n} plants</b>. Switch between them at the top of the header.",
+    "flori.tip.multi": "🌱 You have <b>{n} plants</b>. Switch between them at the top.",
     "flori.tip.intro": "👋 I'm <b>FlorAI</b>. Ask me e.g. “How is my plant doing?” or “When should I water?”",
     "flori.tip.diary": "📝 In the <b>plant diary</b> (Control tab) I record how your plant is developing.",
     "flori.tip.cal": "🧪 Wobbly soil moisture? Recalibrate once — Control tab → calibration.",
     "flori.tip.login": "🔔 Signing in at the top right unlocks control, watering and the diary.",
+    "flori.tip.cold": "🥶 <b>{plant}</b> is a bit cold ({temp} °C). A warmer spot helps.",
+    "flori.tip.night": "🌙 It's dark — <b>{plant}</b> is resting. Sweet dreams!",
+    "flori.tip.bright": "😎 Lots of light on <b>{plant}</b> right now — great for sun-lovers.",
+    "flori.tip.batt": "🔋 <b>{plant}</b>'s battery is low ({pct}%). Time for a charge.",
+    "flori.egg.party": "🎉 Debug mode: party! Turn the lights on.",
+    "flori.egg.party_off": "Party's over — the plants are sleeping again.",
+    "flori.egg.rain": "🌧️ A little rain for you!",
+    "flori.egg.sing": "🎶 La la la — here's my little song for you.",
+    "flori.egg.love": "💚 Right back at you!",
+    "flori.egg.konami": "🎮 Growth booster activated!",
+    "flori.egg.birthday": "🎂 Happy plant-day, <b>{plant}</b>! One year wiser.",
+    "flori.quip.1": "Psst — I'm watching your plants. 👀",
+    "flori.quip.2": "Water me? Wait, I'm a robot. 🤖",
+    "flori.quip.3": "Talking to plants helps. I love talking!",
+    "flori.quip.4": "Your plants say hi. 🌱",
+    "flori.quip.5": "Tap me any time for a chat!",
+    "flori.quip.6": "I never sleep — I photosynthesise vibes. ✨",
   },
   de: {
     "app.title": "FloraHome", "brand.tagline": "KI-gestütztes Smart-Plant-Dashboard",
@@ -932,6 +1123,7 @@ const I18N = {
     "flori.chat.placeholder": "Wie geht es meiner Pflanze?",
     "flori.chat.send": "Fragen", "flori.chat.mic": "Sprechen",
     "flori.thinking": "FlorAI denkt nach…",
+    "flori.thinking.slow": "Bin noch dran - die KI ist gerade etwas beschaeftigt. Einen Moment...",
     "alerts.title": "Meldungen",
     "onboard.title": "Erste Schritte",
     "onboard.hide": "Ausblenden",
@@ -951,7 +1143,25 @@ const I18N = {
     "alerts.since": "seit {ago}",
     "plants.title": "Pflanzen", "plants.edit": "Profil bearbeiten",
     "plants.new": "📷 Neue Pflanze", "plants.help": "Hilfe",
-    "control.title": "Steuerung", "control.pick": "Pflanze oben im Kopf wählen 🌱",
+    "plants.delete": "Löschen",
+    "plants.del_confirm": "Pflanzenprofil für {plant} löschen? Das Board läuft weiter.",
+    "plants.deleted": "Pflanze {plant} gelöscht",
+    "plants.show_all": "Alle Pflanzen",
+    "plants.show_selected": "Nur gewählte Pflanze",
+    "plant.photo": "Profilbild",
+    "plant.photo_clear": "Entfernen",
+    "demo.title": "Demo-Modus",
+    "demo.help": "Füllt das Dashboard mit 5 Beispielpflanzen (verschiedene Werte, Stimmungen und ein reiches Tagebuch) - ganz ohne Hardware. Entfernen löscht sie wieder.",
+    "demo.seed": "Demo-Pflanzen laden",
+    "demo.clear": "Demo entfernen",
+    "demo.active": "{n} Demo-Pflanzen geladen",
+    "demo.inactive": "Keine Demo-Pflanzen",
+    "demo.on": "🎬 Demo-Modus: AN ({n} Pflanzen)",
+    "demo.off": "🎬 Demo-Modus: AUS",
+    "demo.loaded": "Demo-Pflanzen geladen",
+    "demo.cleared": "Demo-Pflanzen entfernt",
+    "demo.confirm": "Alle Demo-Pflanzen und ihre Tagebucheinträge entfernen?",
+    "control.title": "Steuerung", "control.pick": "Pflanze oben wählen 🌱",
     "btn.water": "💧 Bewässern", "btn.light": "💡 Licht an/aus", "btn.buzzer": "🔊 Buzzer",
     "btn.voice": "🎤 Sprich mit mir", "btn.stop": "⏹️ Stop", "btn.estop": "🛑 NOT-AUS",
     "btn.estop.armed": "🛑 Sicher? Nochmal tippen", "btn.settings": "⚙️ Bewässerung",
@@ -982,6 +1192,9 @@ const I18N = {
     "sensors.enabled": "Aktiv", "sensors.pins": "Pins",
     "sensors.none": "Keine Sensoren definiert.",
     "sensors.on_toast": "Sensor {s} aktiviert", "sensors.off_toast": "Sensor {s} deaktiviert",
+    "sensors.show_all": "Alle anzeigen",
+    "sensors.show_connected": "Nur verbundene",
+    "sensors.none_connected": "Noch keine Sensoren verbunden.",
     "backend.keys.locked": "Anmelden, um Schlüssel zu sehen und zu ändern.",
     "backend.keys.save": "Schlüssel speichern", "backend.keys.reload": "↻ Neu laden",
     "backend.keys.note": "Werte werden serverseitig gespeichert und <b>sofort</b> übernommen. Leeres Feld = unverändert. „Zurücksetzen“ stellt den .env-Wert wieder her.",
@@ -1004,6 +1217,42 @@ const I18N = {
     "flori.control.setup": "🌿 Diese Pflanze nach ihrer Art einrichten",
     "flori.control.saved": "🌱 FlorAIs Kontrollstufe gespeichert",
     "flori.did_applied": "angewendet",
+    "chat.chip.how": "Wie geht's?", "chat.chip.water": "Jetzt gießen",
+    "chat.chip.setup": "Nach Art einrichten", "chat.chip.diary": "Tagebuch schreiben",
+    "chat.prompt.how": "Wie geht es meiner Pflanze gerade?",
+    "chat.prompt.water": "Prüfe, ob sie Wasser braucht, und gieße sie wenn nötig.",
+    "chat.prompt.setup": "Richte diese Pflanze nach der Pflege ihrer Art ein und erkläre kurz, was du geändert hast.",
+    "chat.prompt.diary": "Schreibe jetzt einen kurzen Tagebucheintrag für diese Pflanze.",
+    "sensors.troubleshoot": "🩺 Fehlersuche",
+    "diag.title": "🩺 Sensor-Fehlersuche",
+    "diag.status.ok": "funktioniert", "diag.status.fault": "Sensorfehler",
+    "diag.status.missing": "nicht erkannt", "diag.status.off": "deaktiviert",
+    "diag.reading": "Aktueller Wert", "diag.steps": "Schritt für Schritt prüfen",
+    "diag.nosteps": "Keine besonderen Schritte — die Verkabelung sieht gut aus.",
+    "diag.cause.soil": "Die Sonde ist außerhalb des Bereichs oder nicht versorgt.",
+    "diag.cause.dht11": "Kein gültiger DHT-Wert — meist fehlt der 10-kΩ-Pull-up.",
+    "diag.cause.ldr": "Der LDR-Spannungsteiler liefert keine brauchbare Spannung.",
+    "diag.cause.tank": "Kein Wasserstandssignal.", "diag.cause.batt": "Kein Batteriesignal.",
+    "diag.soil.raw": "Liegt die Rohspannung zwischen ~0,3 V und ~3,0 V? (siehe soil_v)",
+    "diag.soil.power": "AOUT → GPIO34 prüfen und VCC der Sonde an GPIO25.",
+    "diag.soil.cal": "Sonde trocken und nass messen, dann im Tab Steuern neu kalibrieren.",
+    "diag.dht.pullup": "10-kΩ-Widerstand von DATA nach 3,3 V einbauen.",
+    "diag.dht.power": "DHT mit 3,3 V und GND versorgen (nicht 5 V).",
+    "diag.dht.data": "DATA → GPIO27 prüfen; lange Kabel vermeiden.",
+    "diag.lux.divider": "LDR von 3,3 V zur Mitte, 10 kΩ von der Mitte nach GND.",
+    "diag.lux.midpoint": "Spannung in der Mitte messen; sie sollte sich mit dem Licht ändern.",
+    "diag.tank.signal": "Füllstandssignal an GPIO32 anschließen und Pin in der Node-Konfig setzen.",
+    "diag.batt.signal": "Batterie-Teiler an GPIO32 anschließen (siehe BATTERY.md).",
+    "newplant.name": "Pflanzenname", "newplant.name_ph": "z. B. Moni",
+    "newplant.shoot": "📷 Foto aufnehmen / wählen",
+    "newplant.node_label": "Welches ESP-Board?",
+    "newplant.node_help": "plant-a / plant-b / plant-c sind die Board-Profile im ESPHome-Ordner. Waehle das Board, auf dem diese Pflanze steht - ist es noch nicht geflasht, erscheint die Pflanze, sobald das Board online ist.",
+    "newplant.species_label": "Art (optional)",
+    "newplant.species_auto": "- die KI erkennen lassen -",
+    "newplant.manual_hint": "Du kannst auch einfach eine Art waehlen und das Profil ohne KI anlegen.",
+    "newplant.care_source.catalog": "Pflegewerte aus der FloraHome-Pflanzendatenbank.",
+    "newplant.care_source.ai": "Von der KI vorgeschlagene Pflegewerte — jederzeit anpassbar.",
+    "newplant.care_source.guess": "Grobe Schätzung — im Profil prüfen und anpassen.",
     "tool.get_plant_state": "Pflanzenstatus lesen", "tool.set_watering": "Bewässerung ändern",
     "tool.set_light": "Licht ändern", "tool.apply_species_care": "Artenpflege anwenden",
     "tool.water_now": "Jetzt bewässern", "tool.write_diary": "Tagebucheintrag schreiben",
@@ -1051,6 +1300,8 @@ const I18N = {
     "settings.title": "⚙️ Bewässerung & Meldungen", "settings.watering": "Bewässerung",
     "settings.light": "Licht", "settings.pump_auto": "Automatisch bewässern",
     "settings.pump_threshold": "Bewässern unter (%)", "settings.pump_seconds": "Dauer pro Gabe (s)",
+    "settings.ml_per_s": "Pumpleistung (mL/s)", "settings.pot_ml": "Substrat-Wasserkapazität (mL)",
+    "settings.dose_hint": "Intelligente Dosierung: FlorAI bewässert nach Volumen (Defizit × Kapazität ÷ Durchfluss) statt fester Zeit. R385 ≈ 30 mL/s bei 12 V.",
     "settings.pump_cooldown": "Sperrzeit (min)", "settings.pump_max": "Max. Gaben pro Tag",
     "settings.alert_dry": "Trocken-Warnung unter (%)", "settings.alert_dry_min": "… für (min)",
     "settings.alert_silent": "Funkstille nach (min)", "settings.alert_tank": "Tank-Warnung unter (%)",
@@ -1080,14 +1331,15 @@ const I18N = {
     "newplant.identify_failed": "Bestimmung fehlgeschlagen: {msg}",
     "newplant.create": "Profil anlegen", "newplant.created": "🌱 Profil für {node} angelegt",
     "newplant.create_failed": "Anlegen fehlgeschlagen: {msg}",
-    "manual.title": "📖 Kurzanleitung", "manual.h1": "1 · Pflanze bewässern",
-    "manual.p1": "„💧 Bewässern“ läuft als einmalige Gabe (Standard ~20 s, im Gerät hart auf 45 s begrenzt). Für die Automatik: Einstellungen → Bewässerung.",
-    "manual.h2": "2 · Bodenfeuchte kalibrieren",
-    "manual.p2": "Sonde in Luft → Rohspannung links eintragen; Sonde in ein Glas Wasser → Wert rechts. „Werte übernehmen“ sendet die Kalibrierung ans Gerät (bleibt gespeichert).",
-    "manual.h3": "3 · Pflanze einrichten",
-    "manual.p3": "„Profil bearbeiten“ → Art wählen (Bodenfeuchte-, Temperatur- und Lichtbereich werden übernommen) und Spitzname/Emoji/Farbe festlegen.",
-    "manual.h4": "4 · Neuen Knoten anlegen",
-    "manual.p5": "OTA geht auch aus dem Browser: ESPHome auf :6052. Volle Anleitungen: TUTORIALS.md im Repo.",
+    "manual.title": "So funktioniert es", "manual.h1": "1 · Anmelden",
+    "manual.p1": "Oben rechts anmelden — das schaltet Anlegen, Bearbeiten und Löschen von Pflanzen, Gießen und Flashen frei.",
+    "manual.h2": "2 · Pflanze per Foto anlegen",
+    "manual.p2": "Pflanzen → „Neue Pflanze“: Namen vergeben und ein Foto aufnehmen/auswählen. Die KI bestimmt die Art und schlägt passende Pflegewerte vor — bestätigen legt das Profil an.",
+    "manual.h3": "3 · Einem ESP-Board zuweisen",
+    "manual.p3": "Im selben Dialog das Board wählen, auf dem die Pflanze steht. plant-a / plant-b / plant-c sind die Board-Profile im ESPHome-Ordner. Noch nicht geflasht? Unter Backend → Geräte & Flashen (oder ESPHome auf :6052) flashen — danach erscheint die Pflanze mit Live-Daten.",
+    "manual.h4": "4 · Verwalten & feinjustieren",
+    "manual.p4": "Jede Pflanzenkarte hat Bearbeiten und Löschen. Giessen und Licht unter Steuern → Wasser einstellen und festlegen, wie viel FlorAI ändern darf.",
+    "manual.p5": "Alles läuft bereits auf dem Pi — kein PC nötig. Vollständige Anleitungen im docs/-Ordner des Repos.",
     "backend.devices.title": "Geräte & Flashen", "backend.flash.port": "Port",
     "backend.flash.run": "⚡ Flashen",
     "backend.flash.note": "Erstes Flashen per USB. Danach OTA (ESPHome :6052 oder deploy/add-node.sh ota).",
@@ -1127,11 +1379,28 @@ const I18N = {
     "flori.tip.wet": "🌊 <b>{plant}</b> ist gut gewässert ({pct} %). Erst mal abtrocknen lassen.",
     "flori.tip.warm": "🥵 <b>{plant}</b> ist warm ({temp} °C). Schatten oder Lüften tut gut.",
     "flori.tip.watering": "💦 Ich gieße <b>{plant}</b> gerade.",
-    "flori.tip.multi": "🌱 Du hast <b>{n} Pflanzen</b>. Oben im Kopf schaltest du zwischen ihnen um.",
+    "flori.tip.multi": "🌱 Du hast <b>{n} Pflanzen</b>. Oben schaltest du zwischen ihnen um.",
     "flori.tip.intro": "👋 Ich bin <b>FlorAI</b>. Frag mich z. B. „Wie geht es meiner Pflanze?“ oder „Wann soll ich gießen?“",
     "flori.tip.diary": "📝 Im <b>Pflanzentagebuch</b> (Tab „Steuern“) halte ich fest, wie sich deine Pflanze entwickelt.",
     "flori.tip.cal": "🧪 Wackelige Bodenfeuchte? Einmal neu kalibrieren – Tab „Steuern“ → Kalibrierung.",
     "flori.tip.login": "🔔 Anmelden oben rechts schaltet Steuern, Gießen und das Tagebuch frei.",
+    "flori.tip.cold": "🥶 <b>{plant}</b> ist etwas kalt ({temp} °C). Ein wärmerer Platz hilft.",
+    "flori.tip.night": "🌙 Es ist dunkel — <b>{plant}</b> ruht sich aus. Gute Nacht!",
+    "flori.tip.bright": "😎 Viel Licht auf <b>{plant}</b> — perfekt für Sonnenanbeter.",
+    "flori.tip.batt": "🔋 Der Akku von <b>{plant}</b> ist schwach ({pct}%). Zeit zu laden.",
+    "flori.egg.party": "🎉 Debug-Modus: Party! Licht an.",
+    "flori.egg.party_off": "Party vorbei — die Pflanzen schlafen weiter.",
+    "flori.egg.rain": "🌧️ Ein bisschen Regen für dich!",
+    "flori.egg.sing": "🎶 La la la — hier ist mein kleines Lied für dich.",
+    "flori.egg.love": "💚 Zurück gegeben!",
+    "flori.egg.konami": "🎮 Wachstumsbooster aktiviert!",
+    "flori.egg.birthday": "🎂 Alles Gute zum Pflanzentag, <b>{plant}</b>!",
+    "flori.quip.1": "Pssst — ich beobachte deine Pflanzen. 👀",
+    "flori.quip.2": "Mich gießen? Moment, ich bin ein Roboter. 🤖",
+    "flori.quip.3": "Mit Pflanzen reden hilft. Ich rede gern!",
+    "flori.quip.4": "Deine Pflanzen sagen Hallo. 🌱",
+    "flori.quip.5": "Tippe mich jederzeit für ein Pläuschchen an!",
+    "flori.quip.6": "Ich schlafe nie — ich photosynthetisiere Vibes. ✨",
   },
   nl: {
     "app.title": "FloraHome", "brand.tagline": "AI-aangedreven smart plant-dashboard",
@@ -1151,6 +1420,7 @@ const I18N = {
     "flori.chat.placeholder": "Hoe gaat het met mijn plant?",
     "flori.chat.send": "Vragen", "flori.chat.mic": "Spreken",
     "flori.thinking": "FlorAI denkt na…",
+    "flori.thinking.slow": "Nog bezig - de AI is even druk. Een momentje...",
     "alerts.title": "Meldingen",
     "onboard.title": "Aan de slag",
     "onboard.hide": "Verbergen",
@@ -1170,7 +1440,25 @@ const I18N = {
     "alerts.since": "sinds {ago}",
     "plants.title": "Planten", "plants.edit": "Profiel bewerken",
     "plants.new": "📷 Nieuwe plant", "plants.help": "Help",
-    "control.title": "Bediening", "control.pick": "Kies een plant bovenin 🌱",
+    "plants.delete": "Verwijderen",
+    "plants.del_confirm": "Plantprofiel van {plant} verwijderen? Het board blijft draaien.",
+    "plants.deleted": "Plant {plant} verwijderd",
+    "plants.show_all": "Alle planten",
+    "plants.show_selected": "Alleen gekozen plant",
+    "plant.photo": "Profielfoto",
+    "plant.photo_clear": "Verwijderen",
+    "demo.title": "Demomodus",
+    "demo.help": "Vult het dashboard met 5 voorbeeldplanten (gevarieerde waarden, stemmingen en een uitgebreid dagboek) - zonder hardware. Verwijderen haalt ze weer weg.",
+    "demo.seed": "Demoplanten laden",
+    "demo.clear": "Demo verwijderen",
+    "demo.active": "{n} demoplanten geladen",
+    "demo.inactive": "Geen demoplanten",
+    "demo.on": "🎬 Demomodus: AAN ({n} planten)",
+    "demo.off": "🎬 Demomodus: UIT",
+    "demo.loaded": "Demoplanten geladen",
+    "demo.cleared": "Demoplanten verwijderd",
+    "demo.confirm": "Alle demoplanten en hun dagboekitems verwijderen?",
+    "control.title": "Bediening", "control.pick": "Kies een plant bovenaan 🌱",
     "btn.water": "💧 Water geven", "btn.light": "💡 Licht aan/uit", "btn.buzzer": "🔊 Zoemer",
     "btn.voice": "🎤 Praat met me", "btn.stop": "⏹️ Stop", "btn.estop": "🛑 NOODSTOP",
     "btn.estop.armed": "🛑 Zeker? Nogmaals tikken", "btn.settings": "⚙️ Water geven",
@@ -1201,6 +1489,9 @@ const I18N = {
     "sensors.enabled": "Actief", "sensors.pins": "Pinnen",
     "sensors.none": "Geen sensoren gedefinieerd.",
     "sensors.on_toast": "Sensor {s} geactiveerd", "sensors.off_toast": "Sensor {s} gedeactiveerd",
+    "sensors.show_all": "Alles tonen",
+    "sensors.show_connected": "Alleen verbonden",
+    "sensors.none_connected": "Nog geen sensoren aangesloten.",
     "backend.keys.locked": "Log in om sleutels te bekijken en te wijzigen.",
     "backend.keys.save": "Sleutels opslaan", "backend.keys.reload": "↻ Herladen",
     "backend.keys.note": "Waarden worden server-side opgeslagen en <b>direct</b> toegepast. Leeg veld = ongewijzigd. “Resetten” herstelt de .env-waarde.",
@@ -1223,6 +1514,42 @@ const I18N = {
     "flori.control.setup": "🌿 Deze plant instellen op basis van zijn soort",
     "flori.control.saved": "🌱 FlorAI's controleniveau opgeslagen",
     "flori.did_applied": "toegepast",
+    "chat.chip.how": "Hoe gaat het?", "chat.chip.water": "Nu water",
+    "chat.chip.setup": "Instellen op soort", "chat.chip.diary": "Dagboek schrijven",
+    "chat.prompt.how": "Hoe gaat het nu met mijn plant?",
+    "chat.prompt.water": "Controleer of hij water nodig heeft en geef water als dat nodig is.",
+    "chat.prompt.setup": "Stel deze plant in op basis van de zorg van zijn soort en leg kort uit wat je wijzigde.",
+    "chat.prompt.diary": "Schrijf nu een kort dagboekbericht voor deze plant.",
+    "sensors.troubleshoot": "🩺 Problemen oplossen",
+    "diag.title": "🩺 Sensorproblemen oplossen",
+    "diag.status.ok": "werkt", "diag.status.fault": "sensorfout",
+    "diag.status.missing": "niet gedetecteerd", "diag.status.off": "uitgeschakeld",
+    "diag.reading": "Huidige waarde", "diag.steps": "Stap voor stap controleren",
+    "diag.nosteps": "Geen speciale stappen — de bedrading ziet er goed uit.",
+    "diag.cause.soil": "De sonde zit buiten bereik of krijgt geen voeding.",
+    "diag.cause.dht11": "Geen geldige DHT-waarde — meestal ontbreekt de 10 kΩ pull-up.",
+    "diag.cause.ldr": "De LDR-spanningsdeler geeft geen bruikbare spanning.",
+    "diag.cause.tank": "Geen waterniveausignaal.", "diag.cause.batt": "Geen batterijsignaal.",
+    "diag.soil.raw": "Ligt de ruwe spanning tussen ~0,3 V en ~3,0 V? (zie soil_v)",
+    "diag.soil.power": "Controleer AOUT → GPIO34 en of VCC van de sonde op GPIO25 zit.",
+    "diag.soil.cal": "Meet de sonde droog en nat en kalibreer opnieuw in het tabblad Bediening.",
+    "diag.dht.pullup": "Plaats een 10 kΩ-weerstand van DATA naar 3,3 V.",
+    "diag.dht.power": "Voed de DHT met 3,3 V en GND (niet 5 V).",
+    "diag.dht.data": "Controleer DATA → GPIO27; vermijd lange draden.",
+    "diag.lux.divider": "LDR van 3,3 V naar het midden, 10 kΩ van het midden naar GND.",
+    "diag.lux.midpoint": "Meet de spanning in het midden; die moet met licht veranderen.",
+    "diag.tank.signal": "Sluit het niveausignaal aan op GPIO32 en stel de pin in de node-config in.",
+    "diag.batt.signal": "Sluit de batterijdeler aan op GPIO32 (zie BATTERY.md).",
+    "newplant.name": "Plantnaam", "newplant.name_ph": "bv. Moni",
+    "newplant.shoot": "📷 Foto nemen / kiezen",
+    "newplant.node_label": "Welk ESP-board?",
+    "newplant.node_help": "plant-a / plant-b / plant-c zijn de boardprofielen in de ESPHome-map. Kies het board waar deze plant staat - is het nog niet geflasht, dan verschijnt de plant zodra dat board online komt.",
+    "newplant.species_label": "Soort (optioneel)",
+    "newplant.species_auto": "- door de AI laten herkennen -",
+    "newplant.manual_hint": "Je kunt ook gewoon een soort kiezen en het profiel zonder AI aanmaken.",
+    "newplant.care_source.catalog": "Zorgwaarden uit de FloraHome-plantendatabase.",
+    "newplant.care_source.ai": "Door AI voorgestelde zorgwaarden — altijd aanpasbaar.",
+    "newplant.care_source.guess": "Grove schatting — controleer en pas aan in het profiel.",
     "tool.get_plant_state": "Plantstatus lezen", "tool.set_watering": "Water geven wijzigen",
     "tool.set_light": "Licht wijzigen", "tool.apply_species_care": "Soortverzorging toepassen",
     "tool.water_now": "Nu water geven", "tool.write_diary": "Dagboekitem schrijven",
@@ -1270,6 +1597,8 @@ const I18N = {
     "settings.title": "⚙️ Water geven & meldingen", "settings.watering": "Water geven",
     "settings.light": "Licht", "settings.pump_auto": "Automatisch water geven",
     "settings.pump_threshold": "Water geven onder (%)", "settings.pump_seconds": "Duur per dosis (s)",
+    "settings.ml_per_s": "Pompdebiet (mL/s)", "settings.pot_ml": "Watercapaciteit substraat (mL)",
+    "settings.dose_hint": "Slim doseren: FlorAI geeft water op volume (tekort × capaciteit ÷ debiet) in plaats van vaste tijd. R385 ≈ 30 mL/s bij 12 V.",
     "settings.pump_cooldown": "Wachttijd (min)", "settings.pump_max": "Max. doses per dag",
     "settings.alert_dry": "Droogwaarschuwing onder (%)", "settings.alert_dry_min": "… gedurende (min)",
     "settings.alert_silent": "Stilte na (min)", "settings.alert_tank": "Tankwaarschuwing onder (%)",
@@ -1299,14 +1628,15 @@ const I18N = {
     "newplant.identify_failed": "Bepaling mislukt: {msg}",
     "newplant.create": "Profiel aanmaken", "newplant.created": "🌱 Profiel voor {node} aangemaakt",
     "newplant.create_failed": "Aanmaken mislukt: {msg}",
-    "manual.title": "📖 Beknopte handleiding", "manual.h1": "1 · Je plant water geven",
-    "manual.p1": "“💧 Water geven” loopt als eenmalige dosis (standaard ~20 s, op het apparaat hard begrensd op 45 s). Voor automatisering: Instellingen → Water geven.",
-    "manual.h2": "2 · Bodemvocht kalibreren",
-    "manual.p2": "Sonde in lucht → vul de ruwe spanning links in; sonde in een glas water → waarde rechts. “Waarden toepassen” stuurt de kalibratie naar het apparaat (blijft opgeslagen).",
-    "manual.h3": "3 · Een plant instellen",
-    "manual.p3": "“Profiel bewerken” → kies de soort (bodemvocht-, temperatuur- en lichtbereik worden overgenomen) en stel bijnaam/emoji/kleur in.",
-    "manual.h4": "4 · Een nieuwe node toevoegen",
-    "manual.p5": "OTA werkt ook vanuit de browser: ESPHome op :6052. Volledige handleidingen: TUTORIALS.md in de repo.",
+    "manual.title": "Hoe het werkt", "manual.h1": "1 · Inloggen",
+    "manual.p1": "Log rechtsboven in — dat ontgrendelt toevoegen, bewerken en verwijderen van planten, water geven en flashen.",
+    "manual.h2": "2 · Plant toevoegen vanaf een foto",
+    "manual.p2": "Planten → “Nieuwe plant”: geef een naam en neem/kies een foto. De AI herkent de soort en stelt passende verzorgingswaarden voor — bevestig om het profiel aan te maken.",
+    "manual.h3": "3 · Aan een ESP-board toewijzen",
+    "manual.p3": "Kies in dezelfde dialoog het board waar deze plant staat. plant-a / plant-b / plant-c zijn de boardprofielen in de ESPHome-map. Nog niet geflasht? Flash het onder Backend → Apparaten & flashen (of ESPHome op :6052) — daarna verschijnt de plant met live data.",
+    "manual.h4": "4 · Beheren & bijstellen",
+    "manual.p4": "Elke plantkaart heeft Bewerken en Verwijderen. Stel water en licht in onder Bediening → Water geven en kies hoeveel FlorAI mag wijzigen.",
+    "manual.p5": "Alles draait al op de Pi — geen pc nodig. Volledige gidsen staan in de docs/-map van de repo.",
     "backend.devices.title": "Apparaten & flashen", "backend.flash.port": "Poort",
     "backend.flash.run": "⚡ Flashen",
     "backend.flash.note": "Eerste keer flashen via USB. Daarna OTA (ESPHome :6052 of deploy/add-node.sh ota).",
@@ -1351,6 +1681,23 @@ const I18N = {
     "flori.tip.diary": "📝 In het <b>plantendagboek</b> (tab Bediening) houd ik bij hoe je plant zich ontwikkelt.",
     "flori.tip.cal": "🧪 Wisselend bodemvocht? Kalibreer opnieuw – tab Bediening → kalibratie.",
     "flori.tip.login": "🔔 Inloggen rechtsboven ontgrendelt bediening, water geven en het dagboek.",
+    "flori.tip.cold": "🥶 <b>{plant}</b> heeft het wat koud ({temp} °C). Een warmere plek helpt.",
+    "flori.tip.night": "🌙 Het is donker — <b>{plant}</b> rust. Welterusten!",
+    "flori.tip.bright": "😎 Veel licht op <b>{plant}</b> — heerlijk voor zonaanbidders.",
+    "flori.tip.batt": "🔋 De batterij van <b>{plant}</b> is laag ({pct}%). Tijd om te laden.",
+    "flori.egg.party": "🎉 Debugmodus: feest! Licht aan.",
+    "flori.egg.party_off": "Feest voorbij — de planten slapen verder.",
+    "flori.egg.rain": "🌧️ Een beetje regen voor jou!",
+    "flori.egg.sing": "🎶 La la la — hier is mijn liedje voor jou.",
+    "flori.egg.love": "💚 Teruggegeven!",
+    "flori.egg.konami": "🎮 Groeibooster geactiveerd!",
+    "flori.egg.birthday": "🎂 Fijne plantendag, <b>{plant}</b>!",
+    "flori.quip.1": "Psst — ik kijk naar je planten. 👀",
+    "flori.quip.2": "Mij water geven? Ik ben een robot. 🤖",
+    "flori.quip.3": "Praten met planten helpt. Ik praat graag!",
+    "flori.quip.4": "Je planten zeggen hallo. 🌱",
+    "flori.quip.5": "Tik me altijd aan voor een praatje!",
+    "flori.quip.6": "Ik slaap nooit — ik fotosynthetiseer vibes. ✨",
   },
 };
 
@@ -1385,6 +1732,7 @@ function setLang(lang, save=true){
   if(save) localStorage.setItem("fhLang", LANG);
   const sel = $("langSelect"); if(sel) sel.value = LANG;
   applyI18n();
+  if(typeof renderChatChips === "function") renderChatChips();
   if(typeof render === "function" && lastPayload) { try{ render(lastPayload); }catch(e){} }
   if(typeof refreshHalted === "function") refreshHalted();
   if(typeof loadKeys === "function") loadKeys();
@@ -1448,14 +1796,25 @@ function mood(s){
   return ["😊",t("mood.happy"),"var(--ok)"];
 }
 
+let plantsShowAll = false;
+try{ plantsShowAll = localStorage.getItem("fhPlantsAll") === "1"; }catch(e){}
+function refreshPlantsToggle(){
+  const b = $("btnPlantsAll"); if(!b) return;
+  b.textContent = t(plantsShowAll ? "plants.show_selected" : "plants.show_all");
+}
 function renderPlants(states){
-  const box = $("plants");
-  box.innerHTML = states.map(s => {
+  const box = $("plants"); if(!box) return;
+  const sel = selectedNode();
+  const list = plantsShowAll ? states : states.filter(s => !sel || (s.device || s.node) === sel);
+  box.innerHTML = list.map(s => {
     const m = s.metrics || {};
     const online = !!s.online;
     const plant = s.plant || {};
     const name = plant.nickname || plant.name || s.device || "smartplanter";
     const emoji = plant.emoji || "🪴";
+    const avatar = plant.photo
+      ? `<img class="pavatar" src="${esc(plant.photo)}" alt="">`
+      : `<span aria-hidden="true">${emoji}</span>`;
     const pump = s.pump === "watering" ? ["watering",t("plantstate.watering")]
                : s.pump === "cooldown" ? ["cooldown",t("plantstate.cooldown")] : ["idle",t("plantstate.idle")];
     const fault = (s.fault && s.fault !== "ok")
@@ -1464,7 +1823,7 @@ function renderPlants(states){
     const cfg = (window.MOODBOARD && window.MOODBOARD.plant) || {};
     return `<div class="plant" style="--plant:${plant.color||"#5fd08a"}">
       <div class="top"><span class="dot ${online?"on":""}"></span>
-        <span class="name">${emoji} ${esc(name)}</span>
+        <span class="name">${avatar} ${esc(name)}</span>
         <span class="muted" style="font-size:.85rem">${online?t("plant.online",{ago:rel(s.last_seen)}):t("plant.offline")}</span></div>
       <div class="pump-state" style="margin:0 0 8px"><span class="tag" style="border-color:${cfg[6]||"var(--line)"}">${me} ${esc(mtext)}</span>
         <span class="muted" style="font-size:.85rem">${esc(plant.species||"")}</span></div>
@@ -1479,13 +1838,27 @@ function renderPlants(states){
         <span class="muted" style="font-size:.85rem">${t("plant.pump_today",{n:s.pump_count_today??0})}</span></div>
       ${plant.notes?`<div class="note" style="margin-top:6px">💡 ${esc(plant.notes)}</div>`:""}
       ${fault}
+      <div class="plant-actions">
+        <button class="ghost" type="button" data-plant-edit="${s.device||""}">✏️ ${t("plants.edit")}</button>
+        <button class="ghost danger" type="button" data-plant-del="${s.device||""}">🗑️ ${t("plants.delete")}</button>
+      </div>
     </div>`;
   }).join("");
   box.querySelectorAll(".plant").forEach((el,i)=>{
-    const s = states[i];
+    const s = list[i];
     el.classList.toggle("stale", !(s && s.online));
   });
+  box.querySelectorAll("[data-plant-edit]").forEach(b =>
+    b.onclick = () => editPlant(b.dataset.plantEdit));
+  box.querySelectorAll("[data-plant-del]").forEach(b =>
+    b.onclick = () => deletePlant(b.dataset.plantDel));
 }
+$("btnPlantsAll").onclick = () => {
+  plantsShowAll = !plantsShowAll;
+  try{ localStorage.setItem("fhPlantsAll", plantsShowAll ? "1" : "0"); }catch(e){}
+  refreshPlantsToggle();
+  renderPlants(Object.values(lastPayload.nodes || {}));
+};
 
 let lastPayload = {nodes:{}, primary:null};
 
@@ -1493,11 +1866,14 @@ function render(payload){
   lastPayload = payload || {nodes:{}, primary:null};
   const nodes = Object.values(lastPayload.nodes || {});
   renderPlants(nodes);
+  refreshPlantsToggle();
   renderNodeSelect();
   refreshCal();
   floriRefreshWho();
   renderOnboarding(nodes);
   renderSensors();
+  refreshSensorsToggle();
+  if(typeof checkBirthdays === "function") checkBirthdays();
 
   const n = nodes.length, online = nodes.filter(x => x.online).length;
   $("nodeState").className = "pill " + (online ? "on" : "off");
@@ -1632,14 +2008,26 @@ function drawSeries(canvas, points, mt, threshold){
   for(let i=0;i<=2;i++){ const t=t0+spanMs*i/2, dt=new Date(t);
     const lbl = spanMs > 36*3600e3 ? dt.toLocaleDateString(LOCALE,{day:"2-digit",month:"2-digit"})
                                    : dt.toLocaleTimeString(LOCALE,{hour:"2-digit",minute:"2-digit"});
+    ctx.save(); ctx.setLineDash([3,4]); ctx.globalAlpha = .5;
+    ctx.beginPath(); ctx.moveTo(X(t),pad.t); ctx.lineTo(X(t),h-pad.b); ctx.stroke(); ctx.restore();
     ctx.fillText(lbl, X(t)-14, h-6); }
+  // unit label, top-left
+  ctx.fillStyle = muted; ctx.font = "10px system-ui";
+  ctx.fillText(mt.unit, 4, pad.t + 2);
+  // area fill (vertical gradient for a softer look)
+  const grad = ctx.createLinearGradient(0, pad.t, 0, h-pad.b);
+  grad.addColorStop(0, mt.color + "55"); grad.addColorStop(1, mt.color + "05");
   ctx.beginPath(); ctx.moveTo(X(t0),Y(points[0].v));
   points.forEach(p => ctx.lineTo(X(new Date(p.t).getTime()), Y(p.v)));
   ctx.lineTo(X(t1), h-pad.b); ctx.lineTo(X(t0), h-pad.b); ctx.closePath();
-  ctx.fillStyle = mt.color + "22"; ctx.fill();
+  ctx.fillStyle = grad; ctx.fill();
   ctx.beginPath(); ctx.moveTo(X(t0),Y(points[0].v));
   points.forEach(p => ctx.lineTo(X(new Date(p.t).getTime()), Y(p.v)));
-  ctx.strokeStyle = mt.color; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.strokeStyle = mt.color; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke();
+  // highlight the most recent point
+  const lx = X(t1), ly = Y(points[points.length-1].v);
+  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI*2); ctx.fillStyle = mt.color; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = (css.getPropertyValue("--card").trim() || "#000"); ctx.stroke();
   if(threshold !== undefined && threshold !== null && !Number.isNaN(threshold)
      && threshold >= min && threshold <= max){
     ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle = muted; ctx.lineWidth = 1.5;
@@ -1720,6 +2108,7 @@ function setAuthed(v){
     ? t("auth.signedin")
     : t("auth.readonly");
   const fb = $("btnFlash"); if(fb) fb.disabled = !v;
+  if(typeof loadDemo === "function") loadDemo();
   const ep = $("btnEditPlant"); if(ep) ep.disabled = !v;
   const npl = $("btnNewPlant"); if(npl) npl.disabled = !v;
   const ci = $("chatInput"), cb = $("btnChat"), mb = $("btnMic");
@@ -1727,7 +2116,13 @@ function setAuthed(v){
   loadTables();
   loadKeys();
 }
-async function checkMe(){ try{ setAuthed((await json("/api/me")).authenticated); }catch(e){ setAuthed(false); } }
+async function checkMe(){
+  try{
+    const me = await json("/api/me");
+    if(me.auth_disabled){ const b = $("authBtn"); if(b) b.style.display = "none"; }
+    setAuthed(me.authenticated);
+  }catch(e){ setAuthed(false); }
+}
 $("authBtn").onclick = async () => {
   if(authed){ await json("/api/logout",{method:"POST"}); setAuthed(false); return; }
   // A real dialog, not window.prompt — the kiosk panel has no hardware keyboard.
@@ -2003,8 +2398,39 @@ function showCare(pid){
 }
 $("pl-species").onchange = () => showCare($("pl-species").value);
 
-$("btnEditPlant").onclick = async () => {
-  const node = selectedNode(); if(!node) return;
+/* Downscale any picked image to a tidy square avatar data URL (keeps the DB small). */
+function fileToAvatar(file, cb){
+  const r = new FileReader();
+  r.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const S = 256, cv = document.createElement("canvas");
+      cv.width = cv.height = S;
+      const ctx = cv.getContext("2d");
+      const m = Math.min(img.width, img.height);
+      try{
+        ctx.drawImage(img, (img.width-m)/2, (img.height-m)/2, m, m, 0, 0, S, S);
+        cb(cv.toDataURL("image/jpeg", 0.82));
+      }catch(e){ cb(img.src); }
+    };
+    img.src = r.result;
+  };
+  r.readAsDataURL(file);
+}
+let plPhoto = null;
+function refreshPhotoPreview(){
+  const img = $("pl-photo-prev"); if(!img) return;
+  if(plPhoto){ img.src = plPhoto; img.style.display = ""; }
+  else { img.removeAttribute("src"); img.style.display = "none"; }
+}
+$("pl-photo").addEventListener("change", e => {
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  fileToAvatar(f, d => { plPhoto = d; refreshPhotoPreview(); });
+});
+$("pl-photo-clear").onclick = () => { plPhoto = null; $("pl-photo").value = ""; refreshPhotoPreview(); };
+
+async function editPlant(node){
+  if(!node) return;
   const cur = (lastPayload.nodes[node] && lastPayload.nodes[node].plant) || {};
   await loadSpecies();
   $("pl-node").value = node;
@@ -2014,9 +2440,19 @@ $("btnEditPlant").onclick = async () => {
   $("pl-emoji").value = cur.emoji || "🪴";
   $("pl-color").value = cur.color || "#5fd08a";
   $("pl-notes").value = cur.notes || "";
+  plPhoto = cur.photo || null; refreshPhotoPreview();
   showCare(cur.species_id || "");
   $("plantDlg").showModal();
-};
+}
+$("btnEditPlant").onclick = () => editPlant(selectedNode());
+async function deletePlant(node){
+  if(!node) return;
+  if(!await askConfirm(t("plants.del_confirm",{plant:nodeLabel(node)}), t("plants.delete"))) return;
+  try{
+    await json(`/api/plant/${encodeURIComponent(node)}`, {method:"DELETE"});
+    toast(t("plants.deleted",{plant:nodeLabel(node)})); refresh();
+  }catch(e){ errToast(t("common.save_failed",{msg:e.message})); }
+}
 $("plantDlg").addEventListener("close", async () => {
   if($("plantDlg").returnValue !== "save") return;
   const node = $("pl-node").value;
@@ -2027,6 +2463,7 @@ $("plantDlg").addEventListener("close", async () => {
     emoji: $("pl-emoji").value || "🪴",
     color: $("pl-color").value,
     notes: $("pl-notes").value || null,
+    photo: plPhoto || "",
   };
   try{ await json(`/api/plant/${encodeURIComponent(node)}`, {method:"PUT", body: JSON.stringify(body)}); refresh(); }
   catch(e){ errToast(t("common.save_failed",{msg:e.message})); }
@@ -2099,6 +2536,50 @@ function plantRain(n){
     setTimeout(() => el.remove(), 4200);
   }
 }
+/* Tiny in-chat easter eggs FlorAI reacts to without a round-trip to the model,
+   so they work even when the AI is busy. Returns a reply string or null. */
+function floriEgg(q){
+  const s = q.toLowerCase();
+  const has = (...w) => w.some(x => s.includes(x));
+  if(has("party","dance","feier","tanzen","feest","disco","tanz")){
+    document.body.classList.toggle("party");
+    return document.body.classList.contains("party") ? t("flori.egg.party") : t("flori.egg.party_off");
+  }
+  if(has("rain","regen","confetti","konfetti")){ plantRain(8); return t("flori.egg.rain"); }
+  if(has("sing","song","music","singen","musik","muziek","melodie")){
+    plantRain(4); setTimeout(() => plantRain(4), 600); return t("flori.egg.sing");
+  }
+  if(has("love","liebe","liefde","❤","<3")){ plantRain(6); return t("flori.egg.love"); }
+  if(has("konami","cheat")){
+    document.body.classList.add("party");
+    setTimeout(() => document.body.classList.remove("party"), 6000);
+    return t("flori.egg.konami");
+  }
+  return null;
+}
+/* Birthday egg: when a plant's profile was created on today's date, celebrate. */
+let birthdayChecked = false;
+function checkBirthdays(){
+  if(birthdayChecked) return; birthdayChecked = true;
+  try{
+    const today = new Date();
+    const key = "fhBday-" + today.toISOString().slice(0,10);
+    if(localStorage.getItem(key)) return;
+    for(const name of Object.keys(lastPayload.nodes || {})){
+      const p = lastPayload.nodes[name] && lastPayload.nodes[name].plant;
+      if(!p || !p.created_at) continue;
+      const c = new Date(p.created_at * 1000);
+      if(c.getDate() === today.getDate() && c.getMonth() === today.getMonth()){
+        localStorage.setItem(key, "1");
+        document.body.classList.add("party");
+        plantRain(14);
+        showBubble(t("flori.egg.birthday",{plant:esc(p.nickname || p.name || name)}), 16000);
+        setTimeout(() => document.body.classList.remove("party"), 8000);
+        break;
+      }
+    }
+  }catch(e){}
+}
 
 /* ------------------------------------------------------- selected-node state */
 let selNode = null;
@@ -2117,10 +2598,40 @@ function renderNodeSelect(){
   const s = $("nodeSelect"); if(s) s.innerHTML = html || '<option value="">'+t("node.no_nodes_opt")+'</option>';
   renderBackendNodes(names);
   selNode = want || null;
+  renderPlantSwitch();
 }
 function bindNodeSelect(id){
   const s = $(id); if(!s) return;
-  s.onchange = () => { selNode = s.value; renderNodeSelect(); refreshCal(); refreshDiary(); floriRefreshWho(); };
+  s.onchange = () => selectNode(s.value);
+}
+/* Plant switching: big, friendly tiles (emoji + name + online dot) instead of a
+   plain dropdown. The old <select> stays for keyboard/programmatic use. */
+function selectNode(n){
+  if(!n || !lastPayload.nodes[n]) return;
+  selNode = n;
+  renderNodeSelect(); refreshCal(); refreshDiary(); floriRefreshWho();
+  renderPlants(Object.values(lastPayload.nodes || {}));
+  renderSensors();
+  const s = $("nodeSelect"); if(s) s.value = n;
+  try{ localStorage.setItem("fhNode", n); }catch(e){}
+}
+function renderPlantSwitch(){
+  const box = $("plantSwitch"); if(!box) return;
+  const names = Object.keys(lastPayload.nodes || {});
+  if(names.length < 1){ box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  const cur = selectedNode();
+  box.innerHTML = names.map(n => {
+    const nv = lastPayload.nodes[n] || {}; const p = nv.plant || {};
+    const lbl = p.nickname || p.name || n;
+    const av = p.photo ? `<img src="${esc(p.photo)}" alt="">` : esc(p.emoji || "🪴");
+    return `<button class="pchip${n===cur?" active":""}" data-node="${n}" type="button">
+      <span class="pemoji" aria-hidden="true">${av}</span>
+      <span class="pname">${esc(lbl)}</span>
+      <span class="pdot${nv.online?" on":""}" title="${nv.online?"online":"offline"}"></span>
+    </button>`;
+  }).join("");
+  box.querySelectorAll("[data-node]").forEach(b => b.onclick = () => selectNode(b.dataset.node));
 }
 bindNodeSelect("nodeSelect");
 
@@ -2149,33 +2660,78 @@ function renderBackendNodes(names){
 
 /* Modular sensors: show each sensor with its wiring, presence and an on/off
    toggle (per node). Toggling writes sensor_<key>_enabled. */
+let sensorsShowAll = false;
+try{ sensorsShowAll = localStorage.getItem("fhSensorsAll") === "1"; }catch(e){}
+function refreshSensorsToggle(){
+  const b = $("btnSensorsAll"); if(!b) return;
+  b.textContent = t(sensorsShowAll ? "sensors.show_connected" : "sensors.show_all");
+}
 function renderSensors(){
   const n = selectedNode();
   const box = $("sensors"); if(!box || !n) return;
   const who = $("sensorsWho"); if(who) who.textContent = nodeLabel(n);
-  const sensors = (lastPayload.nodes[n] && lastPayload.nodes[n].sensors) || [];
+  const all = (lastPayload.nodes[n] && lastPayload.nodes[n].sensors) || [];
+  // By default only show sensors that are actually reporting; "Show all" reveals
+  // the ones that aren't connected (for wiring/troubleshooting).
+  const sensors = sensorsShowAll ? all : all.filter(s => s.present);
   box.innerHTML = sensors.map(s => {
-    const st = s.present ? t("sensors.present") : t("sensors.absent");
-    const stCls = s.present ? "present" : "absent";
+    const status = s.status || (s.present ? "ok" : "missing");
+    const st = t("diag.status."+status) || status;
+    const stCls = status==="ok" ? "present" : (status==="off" ? "" : "absent");
     const wire = Object.entries(s.wiring || {}).map(([k,v]) =>
       `<div>${esc(v)}</div>`).join("");
     return `<div class="sensor ${s.enabled?"on":""}" data-sensor="${s.key}">
       <div class="shead">
         <b>${esc(s.label)}</b>
-        <span class="st ${stCls}">${s.present?"●":"○"} ${st}</span>
+        <span class="st ${stCls}">${status==="ok"?"●":"○"} ${st}</span>
       </div>
       <div class="wire">
         <div class="muted" style="font-size:.82rem">${esc(s.needs||"")}</div>
         ${wire}
         ${s.pins?`<div class="muted" style="font-size:.82rem">${t("sensors.pins")}: ${Object.entries(s.pins).map(([k,v])=>`<code>${k}=GPIO${v}</code>`).join(" ")}</div>`:""}
       </div>
-      <label class="tgl"><input type="checkbox" data-sensor-tgl="${s.key}"
-        ${s.enabled?"checked":""} ${authed?"":"disabled"}> ${t("sensors.enabled")}</label>
+      <div class="controls" style="grid-template-columns:1fr auto;align-items:center;gap:10px">
+        <button class="ghost" type="button" data-sensor-diag="${s.key}">${t("sensors.troubleshoot")}</button>
+        <label class="tgl"><input type="checkbox" data-sensor-tgl="${s.key}"
+          ${s.enabled?"checked":""} ${authed?"":"disabled"}> ${t("sensors.enabled")}</label>
+      </div>
     </div>`;
-  }).join("") || '<p class="muted">'+t("sensors.none")+'</p>';
+  }).join("") || '<p class="muted">'+t("sensors.none_connected")+'</p>';
   box.querySelectorAll("[data-sensor-tgl]").forEach(cb =>
     cb.onchange = () => toggleSensor(n, cb.dataset.sensorTgl, cb.checked, cb));
+  box.querySelectorAll("[data-sensor-diag]").forEach(b =>
+    b.onclick = () => openSensorDiag(n, b.dataset.sensorDiag));
 }
+/* Guided per-sensor troubleshooting: status + raw reading + a tailored
+   step-by-step checklist and the wiring reference. */
+function openSensorDiag(node, key){
+  const nv = lastPayload.nodes[node] || {};
+  const s = (nv.sensors || []).find(x => x.key === key);
+  if(!s) return;
+  const status = s.status || (s.present ? "ok" : "missing");
+  const p = nv.plant || {};
+  $("diagWho").textContent = p.nickname || p.name || node;
+  const dec = ({soil:0, dht:1, lux:0, tank:0, battery:0})[key] ?? 1;
+  const raw = (s.raw!=null) ? `<b>${fmtNum(s.raw, dec)}</b>${s.unit||""}` : "–";
+  const checks = (s.checks||[]).map(k => `<li>${t(k)}</li>`).join("");
+  const cause = s.cause ? `<p class="note fault">${t("diag.cause."+s.cause)}</p>` : "";
+  const wire = Object.entries(s.wiring||{}).map(([k,v]) => `<div>${esc(v)}</div>`).join("");
+  const pins = s.pins ? Object.entries(s.pins).map(([k,v])=>`<code>${k}=GPIO${v}</code>`).join(" ") : "";
+  $("diagBody").innerHTML = `
+    <span class="diag-status ${status}">${status==="ok"?"●":"○"} ${t("diag.status."+status)}</span>
+    <p class="diag-read">${t("diag.reading")}: ${raw}</p>
+    ${cause}
+    <h3>${t("diag.steps")}</h3>
+    <ol class="diag-steps">${checks || `<li>${t("diag.nosteps")}</li>`}</ol>
+    <div class="diag-wire"><b>${esc(s.label)}</b> — ${esc(s.needs||"")}
+      ${wire}${pins?`<div>${t("sensors.pins")}: ${pins}</div>`:""}</div>`;
+  $("diagDlg").showModal();
+}
+$("btnSensorsAll").onclick = () => {
+  sensorsShowAll = !sensorsShowAll;
+  try{ localStorage.setItem("fhSensorsAll", sensorsShowAll ? "1" : "0"); }catch(e){}
+  refreshSensorsToggle(); renderSensors();
+};
 async function toggleSensor(node, key, on, cb){
   cb.disabled = true;
   try{
@@ -2202,10 +2758,16 @@ async function refreshDiary(){
   $("diaryNode").textContent = nodeLabel(n);
   loadDiarySettings();
   try{
-    const d = await json(`/api/diary/${encodeURIComponent(n)}?limit=8`);
-    $("diary").innerHTML = (d.entries || []).map(e =>
-      `<div class="diary-entry"><div class="muted" style="font-size:.82rem">${new Date(e.ts*1000).toLocaleString(LANG==="de"?"de-DE":LANG==="nl"?"nl-NL":"en-GB")}</div>${esc(e.text)}</div>`
-    ).join("") || '<p class="muted">'+t("diary.none")+'</p>';
+    const d = await json(`/api/diary/${encodeURIComponent(n)}?limit=6`);
+    const LOC = LANG==="de"?"de-DE":LANG==="nl"?"nl-NL":"en-GB";
+    $("diary").innerHTML = (d.entries || []).slice(0,3).map(e => {
+      const date = new Date(e.ts*1000).toLocaleString(LOC);
+      const lines = String(e.text||"").split("\n").map(s => s.trim()).filter(Boolean);
+      const body = lines.length > 1
+        ? `<ul class="diary-bullets">${lines.map(l => `<li>${esc(l.replace(/^[•\-*·]\s*/,""))}</li>`).join("")}</ul>`
+        : `<div>${esc(e.text)}</div>`;
+      return `<div class="diary-entry"><div class="muted" style="font-size:.82rem">${date}</div>${body}</div>`;
+    }).join("") || '<p class="muted">'+t("diary.none")+'</p>';
   }catch(e){ $("diary").innerHTML = '<p class="muted">'+t("diary.unavailable")+'</p>'; }
 }
 async function loadDiarySettings(){
@@ -2284,6 +2846,7 @@ $("btnSetupPlant").onclick = async () => {
   const n = selectedNode(); if(!n) return;
   $("btnSetupPlant").disabled = true;
   const holder = chatLog("plant", t("flori.thinking"), true);
+  const slowT = setTimeout(() => { if(holder.classList.contains("thinking")) holder.textContent = t("flori.thinking.slow"); }, 9000);
   floriEl.classList.add("talking");
   try{
     const r = await json("/api/ai/chat", {method:"POST",
@@ -2293,7 +2856,7 @@ $("btnSetupPlant").onclick = async () => {
     renderAiActions(r.actions);
     refresh();
   }catch(e){ holder.classList.remove("thinking"); holder.textContent = t("ai.error",{msg:e.message}); }
-  finally{ floriEl.classList.remove("talking"); $("btnSetupPlant").disabled = !authed; }
+  finally{ clearTimeout(slowT); floriEl.classList.remove("talking"); $("btnSetupPlant").disabled = !authed; }
 };
 function renderAiActions(actions){
   if(!actions || !actions.length) return;
@@ -2308,7 +2871,10 @@ function renderAiActions(actions){
 async function sendChat(){
   const q = $("chatInput").value.trim(); if(!q) return;
   chatLog("me", q); $("chatInput").value = "";
+  const egg = floriEgg(q);
+  if(egg){ chatLog("plant", egg); return; }
   const holder = chatLog("plant", t("flori.thinking"), true);
+  const slowT = setTimeout(() => { if(holder.classList.contains("thinking")) holder.textContent = t("flori.thinking.slow"); }, 9000);
   floriEl.classList.add("talking");
   try{
     const r = await json("/api/ai/chat", {method:"POST", body: JSON.stringify({message:q, node: selectedNode() || primaryNode()})});
@@ -2317,39 +2883,93 @@ async function sendChat(){
     renderAiActions(r.actions);
     if(r.actions && r.actions.some(a => a.ok)) refresh();
   }catch(e){ holder.classList.remove("thinking"); holder.textContent = t("ai.error",{msg:e.message}); }
-  finally{ floriEl.classList.remove("talking"); }
+  finally{ clearTimeout(slowT); floriEl.classList.remove("talking"); }
 }
 $("btnChat").onclick = sendChat;
 $("chatInput").addEventListener("keydown", e => { if(e.key === "Enter") sendChat(); });
 
+/* FlorAI quick-action chips — one tap for the questions people ask most. */
+const CHAT_CHIPS = [
+  ["chat.chip.how",   "chat.prompt.how"],
+  ["chat.chip.water", "chat.prompt.water"],
+  ["chat.chip.setup", "chat.prompt.setup"],
+  ["chat.chip.diary", "chat.prompt.diary"],
+];
+function renderChatChips(){
+  const box = $("chatChips"); if(!box) return;
+  box.innerHTML = CHAT_CHIPS.map(([lab,p]) =>
+    `<button class="chip" type="button" data-chip="${p}">${t(lab)}</button>`).join("");
+  box.querySelectorAll(".chip").forEach(b => b.onclick = () => sendChatText(t(b.dataset.chip)));
+}
+function sendChatText(text){ const inp = $("chatInput"); if(!inp) return; inp.value = text; sendChat(); }
+renderChatChips();   // build the chips now that CHAT_CHIPS is initialised
+
 /* ------------------------------------------------- photo -> new plant entry */
-let npGuess = null;
+let npGuess = null, npProposed = null, npAi = null, npPhoto = null;
 async function openNewPlant(){
   await loadSpecies();
   const nodes = (await json("/api/nodes/available")).nodes || [];
   $("np-node").innerHTML = nodes.map(n => `<option value="${n}">${n}</option>`).join("");
+  $("np-species").innerHTML = '<option value="">'+t("newplant.species_auto")+'</option>' +
+    SPECIES.map(p => `<option value="${p.id}">${p.emoji} ${esc(p.common_de||p.common)}</option>`).join("");
   $("npPreview").innerHTML = ""; $("npResult").textContent = t("newplant.nofoto");
-  $("np-confirm").disabled = true; npGuess = null;
+  $("npCare").innerHTML = ""; $("npCare").classList.remove("show");
+  $("np-name").value = ""; $("npFile").value = ""; $("np-species").value = "";
+  $("np-confirm").disabled = true; npGuess = null; npProposed = null; npAi = null; npPhoto = null;
   $("newPlantDlg").showModal();
 }
 $("btnNewPlant").onclick = openNewPlant;
+$("npShoot").onclick = () => $("npFile").click();
+function npCatalog(sid){ return SPECIES.find(x => x.id === sid) || null; }
+function npSpeciesDraft(p){ return p ? {name:p.common, species:p.scientific, emoji:p.emoji, color:p.color,
+  notes:p.notes, care:p.care, source:"catalog"} : null; }
+function npUpdateConfirm(){
+  const ok = !!((($("np-name").value||"").trim()) || npProposed || ($("np-species").value));
+  $("np-confirm").disabled = !ok;
+}
+$("np-species").onchange = () => {
+  const p = npCatalog($("np-species").value);
+  npProposed = p ? npSpeciesDraft(p) : npAi;
+  renderProposedCare(npProposed);
+  npUpdateConfirm();
+};
+$("np-name").addEventListener("input", npUpdateConfirm);
+function renderProposedCare(p){
+  const el = $("npCare"); if(!el) return;
+  if(!p){ el.classList.remove("show"); return; }
+  const c = p.care || {};
+  const line = t("plant.care",{moist_min:c.moisture_min_pct,moist_max:c.moisture_max_pct,
+    temp_min:c.temp_min_c,temp_max:c.temp_max_c,light_min:c.light_min_lux,light_max:c.light_max_lux,
+    days:c.watering_interval_days,difficulty:c.difficulty || "?"});
+  el.innerHTML = `<div><b>${esc(p.emoji||"🪴")} ${esc(p.name||"")}</b>
+    <span class="muted">${esc(p.species||"")}</span></div>
+    <div style="margin-top:6px">${line}</div>
+    ${p.notes?`<div class="muted" style="margin-top:6px">${esc(p.notes)}</div>`:""}
+    <div class="muted" style="margin-top:6px;font-size:.82rem">${t("newplant.care_source."+(p.source||"ai"))}</div>`;
+  el.classList.add("show");
+}
 $("npFile").addEventListener("change", async e => {
   const f = e.target.files && e.target.files[0]; if(!f) return;
+  fileToAvatar(f, d => { npPhoto = d; });   // also use the photo as the avatar
   const reader = new FileReader();
   reader.onload = async () => {
     const dataUrl = reader.result;
-    $("npPreview").innerHTML = `<img alt="${t("newplant.preview_alt")}" style="max-width:100%;border-radius:12px" src="${dataUrl}">`;
+    $("npPreview").innerHTML = `<img alt="${t("newplant.preview_alt")}" src="${dataUrl}">`;
     $("npResult").textContent = t("newplant.identifying");
+    $("npCare").classList.remove("show");
     try{
       const r = await json("/api/ai/identify", {method:"POST", body: JSON.stringify({image: dataUrl})});
-      npGuess = r;
+      npGuess = r; npAi = r.proposed || null; npProposed = npAi;
       const g = r.guess || {};
       $("npResult").textContent = t("newplant.identified",{common:g.common || "?",scientific:g.scientific || "?"}) +
-        (r.species_id ? t("newplant.in_catalog") : t("newplant.not_in_catalog")) +
-        (g.care_hint ? ` · ${g.care_hint}` : "");
-      $("np-confirm").disabled = false;
+        (r.species_id ? t("newplant.in_catalog") : t("newplant.not_in_catalog"));
+      if(r.species_id && !$("np-species").value) $("np-species").value = r.species_id;
+      renderProposedCare(npProposed);
+      if(!$("np-name").value && npProposed && npProposed.name) $("np-name").value = npProposed.name;
+      npUpdateConfirm();
     }catch(err){
-      $("npResult").textContent = t("newplant.identify_failed",{msg:err.message});
+      $("npResult").textContent = t("newplant.identify_failed",{msg:err.message}) + " " + t("newplant.manual_hint");
+      npUpdateConfirm();
     }
   };
   reader.readAsDataURL(f);
@@ -2357,14 +2977,24 @@ $("npFile").addEventListener("change", async e => {
 $("np-confirm").onclick = async () => {
   const node = $("np-node").value;
   if(!node) return;
-  const body = { species_id: npGuess && npGuess.species_id,
-                 name: (npGuess && npGuess.guess && npGuess.guess.common_de) ||
-                       (npGuess && npGuess.guess && npGuess.guess.common) || null };
+  const sid = $("np-species").value || (npGuess && npGuess.species_id) || null;
+  const p = npProposed || npSpeciesDraft(npCatalog(sid)) || {};
+  const body = { species_id: sid,
+                 name: $("np-name").value.trim() || p.name || null,
+                 nickname: $("np-name").value.trim() || null,
+                 species: p.species || null,
+                 emoji: p.emoji || null,
+                 color: p.color || null,
+                 notes: p.notes || null,
+                 care: p.care || null,
+                 photo: npPhoto || null };
+  $("np-confirm").disabled = true;
   try{
     await json(`/api/plant/${encodeURIComponent(node)}`, {method:"PUT", body: JSON.stringify(body)});
     toast(t("newplant.created",{node:node}));
     $("newPlantDlg").close(); refresh();
   }catch(e){ errToast(t("newplant.create_failed",{msg:e.message})); }
+  finally{ $("np-confirm").disabled = false; }
 };
 
 /* ------------------------------------------------------------------- devices */
@@ -2463,6 +3093,32 @@ async function loadSystem(){
   }catch(e){ $("systemBox").innerHTML = '<p class="muted">'+t("sys.unavailable",{msg:esc(e.message)})+'</p>'; }
 }
 
+/* ------------------------------------------------------------------ demo mode */
+async function loadDemo(){
+  try{
+    const d = await json("/api/demo/status");
+    const on = !!d.active;
+    const b = $("btnDemoToggle");
+    if(b){
+      b.disabled = !authed;
+      b.textContent = on ? t("demo.on",{n:(d.nodes||[]).length}) : t("demo.off");
+      b.classList.toggle("danger", on);
+    }
+    const st = $("demoStatus"); if(st) st.textContent = "";
+  }catch(e){}
+}
+$("btnDemoToggle").onclick = async () => {
+  const b = $("btnDemoToggle"); if(b) b.disabled = true;
+  let active = false;
+  try{ active = !!(await json("/api/demo/status")).active; }catch(e){}
+  try{
+    if(active){ await json("/api/demo/clear", {method:"POST"}); toast(t("demo.cleared")); }
+    else      { await json("/api/demo/seed",  {method:"POST"}); toast(t("demo.loaded"));  }
+    await refresh(); loadDemo();
+  }catch(e){ errToast(t("common.save_failed",{msg:e.message})); }
+  finally{ if(b) b.disabled = !authed; }
+};
+
 /* ------------------------------------------------------------------------- */
 $("btnManual").onclick = () => $("manualDlg").showModal();
 
@@ -2474,7 +3130,7 @@ function showPage(name){
   localStorage.setItem("fhPage", name);
   if(name === "control"){ refreshCal(); }
   if(name === "graphs"){ if(!$("graphs").children.length) buildGraphCards(); loadGraphs(); }
-  if(name === "backend"){ loadDevices(); loadSystem(); loadKeys(); }
+  if(name === "backend"){ loadDevices(); loadSystem(); loadKeys(); loadDemo(); }
 }
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => showPage(t.dataset.page));
 showPage(localStorage.getItem("fhPage") || "overview");
@@ -2631,6 +3287,9 @@ function setFloriVisible(v, announce = false){
   if(!v) hideBubble();
   if(announce) toast(v ? t("flori.shown") : t("flori.hidden"));
 }
+/* Cheeky idle lines so FlorAI feels alive (and a little needy). */
+const FLORI_QUIPS = ["flori.quip.1","flori.quip.2","flori.quip.3","flori.quip.4","flori.quip.5","flori.quip.6"];
+function floriQuip(){ return t(FLORI_QUIPS[Math.floor(Math.random()*FLORI_QUIPS.length)]); }
 function floriTips(){
   const nodes = Object.values(lastPayload.nodes || {});
   const names = Object.keys(lastPayload.nodes || {});
@@ -2654,6 +3313,14 @@ function floriTips(){
     }
     if(typeof m.temp_c === "number" && care.temp_max_c && m.temp_c > care.temp_max_c)
       tips.push(t("flori.tip.warm",{plant:esc(label),temp:m.temp_c.toFixed(0)}));
+    if(typeof m.temp_c === "number" && care.temp_min_c && m.temp_c < care.temp_min_c)
+      tips.push(t("flori.tip.cold",{plant:esc(label),temp:m.temp_c.toFixed(0)}));
+    if(typeof m.lux === "number"){
+      if(m.lux < 30) tips.push(t("flori.tip.night",{plant:esc(label)}));
+      else if(m.lux > 60000) tips.push(t("flori.tip.bright",{plant:esc(label)}));
+    }
+    if(typeof m.battery_pct === "number" && m.battery_pct < 20)
+      tips.push(t("flori.tip.batt",{plant:esc(label),pct:m.battery_pct.toFixed(0)}));
     if(n.pump === "watering") tips.push(t("flori.tip.watering",{plant:esc(label)}));
   }
   if(names.length > 1)
@@ -2746,7 +3413,15 @@ let floriDragging = false;
   }
   setInterval(() => {
     if(floriVisible() && floriBubble.classList.contains("hidden")) nextTip();
-  }, 45000);
+  }, 22000);
+  // Unsolicited chatter: sometimes a cheeky quip, with a wiggle to get noticed.
+  setInterval(() => {
+    if(floriVisible() && floriBubble.classList.contains("hidden") && Math.random() < 0.4){
+      showBubble(floriQuip(), 9000);
+      floriEl.classList.add("wiggle");
+      setTimeout(() => floriEl.classList.remove("wiggle"), 1100);
+    }
+  }, 16000);
   setInterval(async()=>{ await refresh(); await refreshHalted(); }, 15000);
   setInterval(loadTables, 20000);
   setInterval(() => { if($("graphs").children.length) loadGraphs(); }, 60000);
