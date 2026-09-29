@@ -135,7 +135,7 @@ mqtt:
   topic_prefix: planter/${device_name}
   discovery: false
   # Keep the broker session alive across a brief Wi-Fi blip and reconnect cleanly.
-  keepalive: 30s
+  keepalive: 10s
   reboot_timeout: 15min
   birth_message:
     topic: planter/${device_name}/status
@@ -237,12 +237,14 @@ sensor:
       return id(soil_adc).state;
 
   # --- DHT11 ---------------------------------------------------------------
-  # A DHT11 without a pull-up blocks the loop for >30 ms and can force a reset.
-  # The 10 k pull-up is required; here we also keep it non-fatal so a flaky DHT
-  # never takes the whole node (and its MQTT heartbeat) down.
+  # The DHT11 bit-bangs on the main loop and, without a 10 kΩ pull-up, blocks for
+  # far longer than 30 ms. That stalls the MQTT loop, so the broker drops us for
+  # "exceeded timeout" ~90 s after connect. Set dht_enabled to "false" until the
+  # sensor is wired with a pull-up; temp/humidity then simply report as unknown.
   - platform: dht
     pin: GPIO${pin_dht}
     model: DHT11
+    setup_priority: -100        # never let it block early boot
     temperature:
       name: "Temperatur"
       id: temp_c
@@ -255,7 +257,7 @@ sensor:
       device_class: humidity
       state_class: measurement
       accuracy_decimals: 0
-    update_interval: 30s
+    update_interval: 60s
 
   # --- LDR light sensor (replaces BH1750) ----------------------------------
   # LDR from 3.3V to the node, 10k from node to GND. Bright -> more voltage.

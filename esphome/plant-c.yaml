@@ -135,7 +135,7 @@ mqtt:
   topic_prefix: planter/${device_name}
   discovery: false
   # Keep the broker session alive across a brief Wi-Fi blip and reconnect cleanly.
-  keepalive: 30s
+  keepalive: 10s
   reboot_timeout: 15min
   birth_message:
     topic: planter/${device_name}/status
