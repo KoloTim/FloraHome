@@ -1315,10 +1315,10 @@ const I18N = {
 
 let LANG = "en";
 function detectLang(){
+  // English is the product default; only an explicit choice overrides it.
   const saved = localStorage.getItem("fhLang");
   if(saved && I18N[saved]) return saved;
-  const nav = (navigator.language || "en").slice(0,2).toLowerCase();
-  return I18N[nav] ? nav : "en";
+  return "en";
 }
 function t(key, vars){
   const lang = I18N[LANG] || I18N.en;
