@@ -31,9 +31,27 @@ BROWSER="$(command -v chromium || command -v chromium-browser || true)"
 
 SCALE="${PLANTER_SCALE:-1.0}"
 OZONE="${PLANTER_OZONE:-auto}"
-if [ "$OZONE" = "auto" ]; then
-  if [ -n "${WAYLAND_DISPLAY:-}" ]; then OZONE="wayland"; else OZONE="x11"; fi
+
+# Work out the display environment. When launched from a session autostart the
+# vars are present; when launched from a service/SSH they are not, so derive them
+# from the running user's runtime dir (the socket is wayland-0, wayland-1, ...).
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  for s in "$XDG_RUNTIME_DIR"/wayland-*; do
+    [ -S "$s" ] || continue
+    case "$s" in *.lock) continue;; esac
+    export WAYLAND_DISPLAY="$(basename "$s")"
+    break
+  done
 fi
+if [ "$OZONE" = "auto" ]; then
+  if [ -n "${WAYLAND_DISPLAY:-}" ] && [ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then
+    OZONE="wayland"
+  else
+    OZONE="x11"
+  fi
+fi
+log "display env: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-none} DISPLAY=${DISPLAY:-none} ozone=$OZONE"
 
 launch() {
   "$BROWSER" \
