@@ -134,6 +134,8 @@ DEFAULTS: dict[str, Any] = {
     "node_offline_sec": NODE_OFFLINE_SEC,   # heartbeat lost -> node offline
     "diary_enabled": True,                  # let Flori write weekly entries
     "diary_interval_days": envf("DIARY_INTERVAL_DAYS", 7.0),
+    # Flori's autonomy over THIS plant: off (advice only) | ask | auto
+    "ai_control": "off",
 }
 NUMERIC_KEYS = {k for k, v in DEFAULTS.items() if isinstance(v, (int, float))}
 BOOL_KEYS = {k for k, v in DEFAULTS.items() if isinstance(v, bool)}
@@ -1730,7 +1732,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "de": "Bevorzuge diese Arten, wenn sie passen: ",
         "nl": "Geef deze soorten voorrang als ze passen: ",
     },
-    "diary.prompt": {
+    "chat.applied": {
+        "en": "Done – I've updated the plant's settings.",
+        "de": "Erledigt – ich habe die Einstellungen der Pflanze angepasst.",
+        "nl": "Klaar – ik heb de instellingen van de plant aangepast.",
+    },    "diary.prompt": {
         "en": "Write a short, warm diary entry (3-5 sentences, English) from the perspective "
               "of the plant '{name}' ({species}). Use this week: {stats}. Now: soil moisture "
               "{moist}%, {temp}C, light {lux}lx, pump {pump} ({count}x today), fault={fault}. "
@@ -1897,6 +1903,206 @@ async def _ai_chat(messages: list[dict[str, Any]], model: str | None = None,
     raise HTTPException(status_code=502, detail=f"AI unavailable (tried {', '.join(tried)}): {last}")
 
 
+# ---- Flori's plant-control tools ------------------------------------------- #
+# Flori can read state and, subject to a per-plant autonomy level, change the
+# plant's settings/automations and trigger a *bounded* watering dose or light.
+# Safety rails are absolute: they are enforced here regardless of what the model
+# asks for, and the ESP32 has its own firmware ceiling as the final backstop.
+
+AI_TOOLS = [
+    {"type": "function", "function": {
+        "name": "get_plant_state",
+        "description": "Read the live telemetry, plant profile and current watering/light settings for a plant.",
+        "parameters": {"type": "object", "properties": {
+            "node": {"type": "string", "description": "Node id, e.g. plant-a"}},
+            "required": []}}},
+    {"type": "function", "function": {
+        "name": "set_watering",
+        "description": "Change the automatic watering settings for a plant.",
+        "parameters": {"type": "object", "properties": {
+            "node": {"type": "string"},
+            "auto": {"type": "boolean", "description": "Enable/disable automatic watering"},
+            "threshold_pct": {"type": "number", "description": "Water when soil moisture is below this %"},
+            "seconds": {"type": "number", "description": "Pump run time per dose (1-45 s)"},
+            "cooldown_min": {"type": "number", "description": "Minimum minutes between doses"},
+            "max_per_day": {"type": "number", "description": "Hard cap of doses per day"},
+            "dry_alert_pct": {"type": "number"}},
+            "required": []}}},
+    {"type": "function", "function": {
+        "name": "set_light",
+        "description": "Control the grow light for a plant, automatically or manually.",
+        "parameters": {"type": "object", "properties": {
+            "node": {"type": "string"},
+            "auto": {"type": "boolean", "description": "Enable automatic light control by lux"},
+            "on_below_lux": {"type": "number", "description": "Turn the light on when light drops below this"},
+            "state": {"type": "string", "enum": ["on", "off"], "description": "Manually switch the light"}},
+            "required": []}}},
+    {"type": "function", "function": {
+        "name": "apply_species_care",
+        "description": "Configure a plant's watering and light from its species' care range (uses the plant profile, or a species id).",
+        "parameters": {"type": "object", "properties": {
+            "node": {"type": "string"},
+            "species_id": {"type": "string", "description": "Optional catalog id, e.g. monstera"}},
+            "required": ["node"]}}},
+    {"type": "function", "function": {
+        "name": "water_now",
+        "description": "Start ONE bounded watering dose now (respects the per-dose and daily safety limits).",
+        "parameters": {"type": "object", "properties": {
+            "node": {"type": "string"},
+            "seconds": {"type": "number", "description": "Dose length, 1-30 s"}},
+            "required": []}}},
+    {"type": "function", "function": {
+        "name": "write_diary",
+        "description": "Write a diary entry for a plant.",
+        "parameters": {"type": "object", "properties": {
+            "node": {"type": "string"},
+            "text": {"type": "string"}},
+            "required": ["node", "text"]}}},
+]
+
+
+def _ai_tool_ctx(node_name: str, lang: str) -> str:
+    return _plant_context(node_name, lang) + (
+        "\n\nYou have tools to adjust THIS plant. Only act when the user clearly asks.\n"
+        "Preferred order for 'set up this plant': call apply_species_care (uses the plant's "
+        "species care range), then explain in a sentence what you changed. Keep doses short.\n"
+        "Never water if the soil is already moist or the plant is offline."
+    )
+
+
+async def _run_ai_tool(name: str, args: dict[str, Any], node_name: str, user: str,
+                       ip: str | None, level: str) -> dict[str, Any]:
+    """Execute one Flori tool with hard safety rails. `level` is off/ask/auto."""
+    n = node(node_name)
+
+    def deny(reason: str) -> dict[str, Any]:
+        return {"ok": False, "error": reason}
+
+    if level == "off" and name not in ("get_plant_state",):
+        return deny("AI control is off for this plant. Suggest the change to the user instead.")
+
+    if name == "get_plant_state":
+        cfg = get_config_for(node_name)
+        plant = get_plant(node_name) or {}
+        return {"ok": True, "node": node_name, "online": node_fresh(n),
+                "metrics": dict(n["metrics"]), "pump": n["pump"], "fault": n.get("fault"),
+                "species": plant.get("species"), "care": plant.get("care"),
+                "settings": {k: cfg.get(k) for k in (
+                    "pump_auto", "pump_threshold_pct", "pump_seconds", "pump_cooldown_min",
+                    "pump_max_per_day", "alert_dry_pct", "light_auto", "light_on_below_lux")}}
+
+    if name == "set_watering":
+        upd: dict[str, Any] = {}
+        if "auto" in args:           upd["pump_auto"] = bool(args["auto"])
+        if "threshold_pct" in args:  upd["pump_threshold_pct"] = float(args["threshold_pct"])
+        if "seconds" in args:        upd["pump_seconds"] = max(1.0, min(float(args["seconds"]), 45.0))
+        if "cooldown_min" in args:   upd["pump_cooldown_min"] = max(0.0, float(args["cooldown_min"]))
+        if "max_per_day" in args:    upd["pump_max_per_day"] = max(0.0, min(float(args["max_per_day"]), 24.0))
+        if "dry_alert_pct" in args:  upd["alert_dry_pct"] = float(args["alert_dry_pct"])
+        applied = set_config_for(node_name, upd)
+        audit(user, "ai_set_watering", f"{node_name}: {json.dumps(applied, ensure_ascii=False)}", ip)
+        return {"ok": True, "applied": applied}
+
+    if name == "set_light":
+        upd = {}
+        if "auto" in args:       upd["light_auto"] = bool(args["auto"])
+        if "on_below_lux" in args: upd["light_on_below_lux"] = max(0.0, float(args["on_below_lux"]))
+        applied = set_config_for(node_name, upd)
+        if args.get("state") in ("on", "off"):
+            # a manual light command is a direct actuation -> bounded + audited
+            publish(t_cmd(node_name), {"action": "light", "state": args["state"], "reason": "ai"})
+        audit(user, "ai_set_light", f"{node_name}: {json.dumps(applied, ensure_ascii=False)} state={args.get('state')}", ip)
+        return {"ok": True, "applied": applied, "state": args.get("state")}
+
+    if name == "apply_species_care":
+        plant = get_plant(node_name) or {}
+        care = plant.get("care") or {}
+        sid = args.get("species_id") or plant.get("species_id")
+        if sid:
+            sp = load_plant_db().get(sid)
+            if sp:
+                care = sp.get("care") or care
+        if not care:
+            return deny("No species care range known for this plant. Ask the user to set a species.")
+        over = _smart_overrides(care)
+        applied = set_config_for(node_name, over)
+        audit(user, "ai_apply_care", f"{node_name}: {json.dumps(applied, ensure_ascii=False)}", ip)
+        return {"ok": True, "applied": applied, "care": care}
+
+    if name == "water_now":
+        cfg = get_config_for(node_name)
+        if not node_fresh(n):
+            return deny("The node is offline; refusing to water.")
+        if n["halted"]:
+            return deny("EMERGENCY STOP is active; watering is blocked.")
+        moisture = m(n, "moisture_pct")
+        if moisture is not None and moisture >= cfg["pump_threshold_pct"] + 15:
+            return deny(f"Soil is already moist ({moisture:.0f}%); refusing to over-water.")
+        secs = int(max(1, min(float(args.get("seconds", 10)), 30)))
+        secs = min(secs, int(cfg["pump_seconds"])) if cfg.get("pump_seconds") else secs
+        secs = min(secs, 45)  # firmware ceiling
+        if not publish(t_cmd(node_name), {"action": "pump", "seconds": secs, "reason": "ai"}):
+            return deny("MQTT unavailable; command not sent.")
+        with STATE_LOCK:
+            n["pump"] = "watering"; n["last_pump_ts"] = time.time()
+            n["pump_count_today"] = n.get("pump_count_today", 0) + 1
+        audit(user, "ai_water_now", f"{node_name}: {secs}s", ip)
+        return {"ok": True, "seconds": secs}
+
+    if name == "write_diary":
+        text = str(args.get("text", ""))[:2000]
+        if not text:
+            return deny("Empty diary text.")
+        add_diary(node_name, text)
+        audit(user, "ai_write_diary", node_name, ip)
+        return {"ok": True}
+
+    return deny(f"Unknown tool {name}")
+
+
+async def _ai_chat_with_tools(messages: list[dict[str, Any]], node_name: str, user: str,
+                              ip: str | None, level: str, max_rounds: int = 4) -> dict[str, Any]:
+    """OpenAI-style tool-calling loop. Runs the model, executes any tool calls with
+    the safety rails, and feeds the results back until it produces a final answer."""
+    if not AI_API_KEY:
+        raise HTTPException(status_code=503, detail="AI not configured (set AI_API_KEY)")
+    actions: list[dict[str, Any]] = []
+    msgs = list(messages)
+    async with httpx.AsyncClient(timeout=60) as client:
+        for _ in range(max_rounds):
+            payload = {"model": AI_MODEL, "messages": msgs, "max_tokens": 700,
+                       "temperature": 0.5, "tools": AI_TOOLS, "tool_choice": "auto"}
+            try:
+                r = await client.post(
+                    f"{AI_BASE_URL.rstrip('/')}/chat/completions",
+                    headers={"Authorization": f"Bearer {AI_API_KEY}", "Content-Type": "application/json"},
+                    json=payload)
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(status_code=502, detail=f"AI error: {exc}")
+            if r.status_code >= 400:
+                raise HTTPException(status_code=502, detail=f"AI {r.status_code}: {r.text[:160]}")
+            choice = (r.json().get("choices", [{}])[0] or {})
+            msg = choice.get("message", {}) or {}
+            calls = msg.get("tool_calls") or []
+            if not calls:
+                return {"reply": (msg.get("content") or "").strip(), "actions": actions}
+            msgs.append(msg)
+            for call in calls:
+                fn = (call.get("function") or {})
+                fname = fn.get("name", "")
+                try:
+                    fargs = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    fargs = {}
+                tgt = str(fargs.get("node") or node_name)
+                result = await _run_ai_tool(fname, fargs, tgt, user, ip, level)
+                actions.append({"tool": fname, "node": tgt,
+                                "ok": bool(result.get("ok")), "result": result})
+                msgs.append({"role": "tool", "tool_call_id": call.get("id"),
+                             "content": json.dumps(result, ensure_ascii=False)})
+    return {"reply": "", "actions": actions}
+
+
 def _plant_context(node_name: str, lang: str = "en") -> str:
     n = node(node_name)
     plant = get_plant(node_name) or {}
@@ -1945,11 +2151,21 @@ async def api_ai_chat(body: dict[str, Any], request: Request,
     node_name = str(body.get("node") or _primary_name())
     lang = _norm_lang(body.get("lang"))
     question = str(body.get("message", ""))[:1000]
-    system = _t("chat.system", lang) + "\n\n" + _plant_context(node_name, lang)
+    system = _t("chat.system", lang) + "\n\n" + _ai_tool_ctx(node_name, lang)
+    if body.get("tools", True):
+        level = str(get_config_for(node_name).get("ai_control", "off"))
+        result = await _ai_chat_with_tools(
+            [{"role": "system", "content": system},
+             {"role": "user", "content": question}],
+            node_name, user, client_ip(request), level)
+        reply = result.get("reply") or _t("chat.applied", lang)
+        audit("system", "ai_chat", f"{node_name}: {question[:80]}", client_ip(request))
+        return {"node": node_name, "reply": reply, "actions": result.get("actions", []),
+                "ai_control": level}
     reply = await _ai_chat([{"role": "system", "content": system},
                             {"role": "user", "content": question}], max_tokens=900)
     audit("system", "ai_chat", f"{node_name}: {question[:80]}", client_ip(request))
-    return {"node": node_name, "reply": reply}
+    return {"node": node_name, "reply": reply, "actions": []}
 
 
 @app.post("/api/ai/identify")
