@@ -5,7 +5,6 @@ keeps a history you own, shouts when something is wrong, and plugs straight into
 **Home Assistant**. Runs entirely on hardware you own: no cloud, no vendor
 account.
 
-![FloraHome dashboard](docs/img/dashboard-dark.png)
 
 *Live dashboard on the Pi (every plant has its own mood, photo/avatar, care range and FlorAI companion):*
 
