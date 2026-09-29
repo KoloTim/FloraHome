@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# FloraHome kiosk launcher: wait for the dashboard, then run Chromium full screen.
-# Installed as an autostart entry by deploy/setup-kiosk.sh.
+# FloraHome kiosk launcher: keep the dashboard on screen, full screen.
+# Installed by deploy/setup-kiosk.sh and started by the labwc session autostart.
 #
-# Works on the Raspberry Pi OS "labwc" (Wayland) session: Chromium is forced onto
-# the Wayland ozone platform, the translate bubble is suppressed, and the UI is
-# scaled slightly so the 800x480 panel shows the whole overview.
+# Resilient by design: waits for the dashboard, then relaunches Chromium if it
+# ever exits (e.g. a crash), so the panel never ends up on a blank desktop.
 set -u
+
 URL="${PLANTER_URL:-http://localhost:8098/}"
 PROFILE="$HOME/.config/planter-kiosk"
+LOG="$PROFILE/kiosk.log"
 mkdir -p "$PROFILE"
 
-# Wait up to 120 s for the dashboard (the Docker stack may still be starting).
-for _ in $(seq 1 120); do
+log() { echo "$(date '+%F %T') $*" >>"$LOG"; }
+
+# Wait up to 180 s for the dashboard (the Docker stack may still be starting).
+for _ in $(seq 1 180); do
   if curl -fsS -o /dev/null --max-time 2 "$URL"; then break; fi
   sleep 1
 done
@@ -24,29 +27,42 @@ if command -v xset >/dev/null 2>&1; then
 fi
 
 BROWSER="$(command -v chromium || command -v chromium-browser || true)"
-[ -z "$BROWSER" ] && { echo "kiosk: no chromium found"; exit 1; }
+[ -z "$BROWSER" ] && { log "no chromium found"; exit 1; }
 
-# UI scale: 1.0 is the recommended value for the 800x480 panel (bigger text,
-# fewer surprises for a single-touch finger). Override with PLANTER_SCALE.
 SCALE="${PLANTER_SCALE:-1.0}"
+OZONE="${PLANTER_OZONE:-auto}"
+if [ "$OZONE" = "auto" ]; then
+  if [ -n "${WAYLAND_DISPLAY:-}" ]; then OZONE="wayland"; else OZONE="x11"; fi
+fi
 
-exec "$BROWSER" \
-  --kiosk \
-  --touch-events=enabled \
-  --overscroll-history-navigation=0 \
-  --enable-features=TouchpadOverscrollHistoryNavigation:disabled \
-  --ozone-platform=wayland \
-  --enable-features=UseOzonePlatform \
-  --disable-features=Translate,TranslateUI,MediaRouter,OptimizationHints \
-  --disable-translate \
-  --noerrdialogs \
-  --disable-infobars \
-  --disable-session-crashed-bubble \
-  --lang=de \
-  --accept-lang=de-DE,de \
-  --force-device-scale-factor="$SCALE" \
-  --no-first-run \
-  --password-store=basic \
-  --check-for-update-interval=31536000 \
-  --user-data-dir="$PROFILE" \
-  "$URL"
+launch() {
+  "$BROWSER" \
+    --kiosk \
+    --touch-events=enabled \
+    --overscroll-history-navigation=0 \
+    --enable-features=TouchpadOverscrollHistoryNavigation:disabled \
+    --ozone-platform="$OZONE" \
+    --enable-features=UseOzonePlatform \
+    --disable-features=Translate,TranslateUI,MediaRouter,OptimizationHints \
+    --disable-translate \
+    --noerrdialogs \
+    --disable-infobars \
+    --disable-session-crashed-bubble \
+    --lang=de \
+    --accept-lang=de-DE,de \
+    --force-device-scale-factor="$SCALE" \
+    --no-first-run \
+    --password-store=basic \
+    --check-for-update-interval=31536000 \
+    --user-data-dir="$PROFILE" \
+    "$URL"
+}
+
+# Relaunch forever if Chromium exits unexpectedly.
+while true; do
+  log "starting chromium (ozone=$OZONE, scale=$SCALE) -> $URL"
+  launch >>"$LOG" 2>&1
+  rc=$?
+  log "chromium exited rc=$rc; restarting in 5s"
+  sleep 5
+done

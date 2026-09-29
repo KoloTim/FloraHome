@@ -37,8 +37,36 @@ Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
 
+# 4. labwc session autostart (the reliable hook on Pi OS Bookworm/Trixie, where
+#    the XDG autostart list is not always run). Harmless if the file exists.
+mkdir -p "$HOME/.config/labwc"
+MARK="# FloraHome kiosk"
+if ! grep -qF "$MARK" "$HOME/.config/labwc/autostart" 2>/dev/null; then
+  printf '%s\n' "$MARK" "$HERE/kiosk.sh &" >> "$HOME/.config/labwc/autostart"
+fi
+
+# 5. Watchdog: a systemd user service that (re)starts the kiosk and keeps it
+#    running even if Chromium crashes. Enabled for the desktop user.
+mkdir -p "$HOME/.config/systemd/user"
+cat > "$HOME/.config/systemd/user/florahome-kiosk.service" <<EOF
+[Unit]
+Description=FloraHome kiosk
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=$HERE/kiosk.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
+EOF
+
 echo
-echo "Installed kiosk launcher + autostart entry."
+echo "Installed kiosk launcher + autostart entry + labwc autostart + user service."
+echo "To enable the watchdog:  systemctl --user enable --now florahome-kiosk.service"
 echo "Enable desktop autologin once so it starts by itself:"
 echo "  sudo raspi-config   # System Options -> Boot / Auto Login -> Desktop Autologin"
 echo

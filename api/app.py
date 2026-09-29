@@ -1742,18 +1742,20 @@ STRINGS: dict[str, dict[str, str]] = {
         "de": "Erledigt – ich habe die Einstellungen der Pflanze angepasst.",
         "nl": "Klaar – ik heb de instellingen van de plant aangepast.",
     },    "diary.prompt": {
-        "en": "Write a short, warm diary entry (3-5 sentences, English) from the perspective "
-              "of the plant '{name}' ({species}). Use this week: {stats}. Now: soil moisture "
-              "{moist}%, {temp}C, light {lux}lx, pump {pump} ({count}x today), fault={fault}. "
-              "Be encouraging and concrete; if something was not ideal, say it gently.",
-        "de": "Schreibe einen kurzen, warmen Tagebuch-Eintrag (3-5 Sätze, Deutsch) aus Sicht "
-              "der Pflanze '{name}' ({species}). Nutze diese Woche: {stats}. Zustand jetzt: "
-              "Bodenfeuchte {moist}%, {temp}C, Licht {lux}lx, Pumpe {pump} ({count}x heute), "
-              "fault={fault}. Sei ermutigend und konkret; wenn etwas nicht ideal war, sag es sanft.",
-        "nl": "Schrijf een korte, warme dagboekbijdrage (3-5 zinnen, Nederlands) vanuit het "
-              "perspectief van de plant '{name}' ({species}). Gebruik deze week: {stats}. Nu: "
-              "bodenvochtigheid {moist}%, {temp}C, licht {lux}lx, pomp {pump} ({count}x vandaag), "
-              "fault={fault}. Wees bemoedigend en concreet; als iets niet ideaal was, zeg het zacht.",
+        "en": "Write a SHORT, cute diary entry (1-3 short sentences, English, max ~60 words) "
+              "as the plant '{name}' ({species}), in first person. Sprinkle in 1-2 fitting "
+              "emojis. Use this week: {stats}. Now: soil {moist}%, {temp}C, light {lux}lx, "
+              "pump {pump} ({count}x today), fault={fault}. Be warm, playful and concrete.",
+        "de": "Schreibe einen KURZEN, niedlichen Tagebuch-Eintrag (1-3 kurze Sätze, Deutsch, "
+              "max. ~60 Wörter) als die Pflanze '{name}' ({species}), in Ich-Form. Baue 1-2 "
+              "passende Emojis ein. Diese Woche: {stats}. Jetzt: Bodenfeuchte {moist}%, "
+              "{temp}C, Licht {lux}lx, Pumpe {pump} ({count}x heute), fault={fault}. Sei warm, "
+              "verspielt und konkret.",
+        "nl": "Schrijf een KORT, schattig dagboekbijdrage (1-3 korte zinnen, Nederlands, "
+              "max. ~60 woorden) als de plant '{name}' ({species}), in de ik-vorm. Strooi er "
+              "1-2 passende emoji's in. Deze week: {stats}. Nu: bodem {moist}%, {temp}C, "
+              "licht {lux}lx, pomp {pump} ({count}x vandaag), fault={fault}. Wees warm, speels "
+              "en concreet.",
     },
 }
 
